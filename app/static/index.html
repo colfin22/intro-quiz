@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Intro Quiz</title>
+<link rel="stylesheet" href="/static/quiz.css">
+</head>
+<body>
+<main>
+  <h1>🎵 Intro Quiz</h1>
+  <div id="err"></div>
+
+  <div id="v-join" class="card" hidden>
+    <p class="dim">Who's playing on this phone?</p>
+    <input id="name" placeholder="Your name" autocomplete="off" maxlength="24">
+    <button class="primary" onclick="join()">Join</button>
+  </div>
+
+  <div id="v-idle" class="card" hidden>
+    <p>No game running.</p>
+    <button class="primary" onclick="send({type:'new_game', rounds:10})">Start a new game</button>
+  </div>
+
+  <div id="v-lobby" class="card" hidden>
+    <p><b id="lobby-count"></b> in the lobby: <span id="lobby-names" class="dim"></span></p>
+    <button class="primary" onclick="send({type:'start_round'})">▶ Start round 1</button>
+  </div>
+
+  <div id="v-question" hidden>
+    <p class="dim center" id="q-progress"></p>
+    <div class="timer"><div id="q-bar" style="width:100%"></div></div>
+    <div id="q-options"></div>
+    <p class="dim center" id="q-answered"></p>
+    <button onclick="send({type:'extend_clip'})">🔁 Play a bit more</button>
+  </div>
+
+  <div id="v-reveal" hidden>
+    <img class="art" id="r-art" alt="">
+    <p class="big" id="r-title"></p>
+    <p class="dim center" id="r-detail"></p>
+    <div class="card"><ul class="scores" id="r-scores"></ul></div>
+    <button class="primary" id="r-next" onclick="send({type:'next'})"></button>
+  </div>
+
+  <div id="v-finished" hidden>
+    <p class="big">🏆 Final scores</p>
+    <div class="card"><ul class="scores" id="f-scores"></ul></div>
+    <button class="primary" onclick="send({type:'new_game', rounds:10})">Play again</button>
+  </div>
+</main>
+<script src="/static/quiz.js"></script>
+</body>
+</html>

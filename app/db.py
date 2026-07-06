@@ -28,6 +28,20 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS games (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    rounds INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS results (
+    game_id INTEGER NOT NULL REFERENCES games(id),
+    player TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    correct INTEGER NOT NULL,
+    fastest_ms INTEGER,
+    PRIMARY KEY (game_id, player)
+);
 """
 
 

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intro Quiz — Board</title>
+<link rel="stylesheet" href="/static/quiz.css">
+<style>
+  main { max-width:900px; }
+  .big { font-size:3.2rem; }
+  .cols { display:flex; gap:1rem; align-items:flex-start; }
+  .cols > * { flex:1; }
+</style>
+</head>
+<body>
+<main>
+  <h1 class="center">🎵 Intro Quiz</h1>
+  <div id="b-idle" class="card center" hidden>
+    <p class="big">Waiting for a game…</p>
+    <p class="dim">Open this page's address on your phone to play.</p>
+  </div>
+  <div id="b-live" hidden>
+    <p class="big center" id="b-status"></p>
+    <div class="cols">
+      <div class="card center" id="b-art-card" hidden>
+        <img class="art" id="b-art" alt="">
+        <p class="big" id="b-title" style="font-size:1.6rem"></p>
+        <p class="dim" id="b-detail"></p>
+      </div>
+      <div class="card">
+        <p class="dim">Scores</p>
+        <ul class="scores" id="b-scores"></ul>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+let ws;
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onmessage = (ev) => {
+    const s = JSON.parse(ev.data);
+    if (s.type !== "state") return;
+    document.getElementById("b-idle").hidden = s.phase !== "idle";
+    document.getElementById("b-live").hidden = s.phase === "idle";
+    if (s.phase === "idle") return;
+    const st = document.getElementById("b-status");
+    if (s.phase === "lobby") st.textContent = `Lobby — ${s.players.length} in`;
+    if (s.phase === "question") st.textContent = `Round ${s.round}/${s.total_rounds} — listen! 🎧`;
+    if (s.phase === "reveal") st.textContent = `Round ${s.round}/${s.total_rounds}`;
+    if (s.phase === "finished") st.textContent = "🏆 Final!";
+    const artCard = document.getElementById("b-art-card");
+    artCard.hidden = !(s.phase === "reveal" && s.track);
+    if (s.phase === "reveal" && s.track) {
+      document.getElementById("b-art").src = `/api/art/${s.track.id}`;
+      document.getElementById("b-title").textContent = s.track.title;
+      document.getElementById("b-detail").textContent =
+        `${s.track.artist}${s.track.year ? " (" + s.track.year + ")" : ""}`;
+    }
+    const ul = document.getElementById("b-scores");
+    ul.innerHTML = "";
+    (s.players || []).forEach((p, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${["🥇","🥈","🥉"][i] || "&nbsp;&nbsp;"} ${p.name}</span><b>${p.score}</b>`;
+      ul.appendChild(li);
+    });
+  };
+  ws.onclose = () => setTimeout(connect, 1500);
+}
+connect();
+</script>
+</body>
+</html>
