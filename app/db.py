@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     global_listeners INTEGER,     -- Last.fm listeners (NULL = not fetched yet)
     global_playcount INTEGER,
     tier TEXT,                    -- easy / medium / hard / tiebreak (NULL = unscored)
+    clipped_at TEXT,              -- when intro clips were last cut (NULL = no clips)
     active INTEGER DEFAULT 1      -- still present in the library on last sync
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_tier ON tracks(tier);
@@ -40,6 +41,9 @@ def connect(path: str | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=15000")
     conn.executescript(SCHEMA)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(tracks)")}
+    if "clipped_at" not in cols:  # migration for pre-clip databases
+        conn.execute("ALTER TABLE tracks ADD COLUMN clipped_at TEXT")
     return conn
 
 
