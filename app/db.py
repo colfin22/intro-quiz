@@ -33,8 +33,12 @@ CREATE TABLE IF NOT EXISTS settings (
 def connect(path: str | None = None) -> sqlite3.Connection:
     p = path or config.DB_PATH
     os.makedirs(os.path.dirname(p), exist_ok=True)
-    conn = sqlite3.connect(p)
+    conn = sqlite3.connect(p, timeout=15)
     conn.row_factory = sqlite3.Row
+    # WAL + busy_timeout: the Last.fm sweep writes continuously in the
+    # background; without these any concurrent write hits "database is locked".
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=15000")
     conn.executescript(SCHEMA)
     return conn
 
