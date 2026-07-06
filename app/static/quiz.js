@@ -43,6 +43,7 @@ function scoresInto(el, players) {
 }
 
 function render() {
+  document.getElementById("abort-row").hidden = !(state.phase && state.phase !== "idle" && state.phase !== "finished");
   if (state.phase === "idle") { show("v-idle"); joined = false; return; }
   if (state.phase === "lobby" || (!joined && state.phase !== "finished")) {
     if (!joined) {
