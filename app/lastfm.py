@@ -59,6 +59,7 @@ def score_batch(conn, limit: int = 200, http: httpx.Client | None = None,
                 continue
             conn.execute("UPDATE tracks SET global_listeners=?, global_playcount=? WHERE id=?",
                          (listeners, playcount, row["id"]))
+            conn.commit()  # tiny write locks — a batch must not starve other writers
             done += 1
             if delay:
                 time.sleep(delay)
