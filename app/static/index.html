@@ -22,6 +22,8 @@
     <button class="primary" onclick="send({type:'new_game', rounds:10})">Start a new game</button>
   </div>
 
+  <p class="dim center" id="abort-row" hidden><a href="#" onclick="send({type:'abort'});return false">abandon game</a></p>
+
   <div id="v-lobby" class="card" hidden>
     <p><b id="lobby-count"></b> in the lobby: <span id="lobby-names" class="dim"></span></p>
     <button class="primary" onclick="send({type:'start_round'})">▶ Start round 1</button>

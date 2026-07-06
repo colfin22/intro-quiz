@@ -185,6 +185,10 @@ async def ws_endpoint(ws: WebSocket):
                         hub.game.answer(name or msg.get("name", ""), int(msg["choice"]))
                         await hub.maybe_early_reveal()
                         await hub.broadcast()
+                    elif kind == "abort":
+                        hub.cancel_deadline()
+                        hub.game = None
+                        await hub.broadcast()
                     elif kind == "next":
                         if hub.game.phase == "reveal" and hub.game.is_last_round():
                             conn = db.connect()
