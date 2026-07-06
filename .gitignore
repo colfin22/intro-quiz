@@ -1,0 +1,7 @@
+# runtime secrets + data — never tracked (repo will be public)
+.env
+data/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
