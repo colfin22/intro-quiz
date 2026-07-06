@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from pydantic import BaseModel
 
-from . import __version__, db, lastfm, scoring, subsonic, sync
+from . import __version__, clips, db, lastfm, scoring, subsonic, sync
 
 app = FastAPI(title="Intro Quiz", version=__version__)
 
@@ -66,5 +66,14 @@ def api_score_tiers():
     conn = db.connect()
     try:
         return scoring.assign_tiers(conn)
+    finally:
+        conn.close()
+
+
+@app.post("/api/clips/cut")
+def api_clips_cut(limit: int = 50):
+    conn = db.connect()
+    try:
+        return clips.cut_batch(conn, subsonic.Client(), limit=limit)
     finally:
         conn.close()
