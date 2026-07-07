@@ -34,10 +34,13 @@ def play_clip(track_id: str, kind: str) -> bool:
     try:
         _call("media_player.volume_set",
               {"entity_id": MEDIA_PLAYER, "volume_level": MEDIA_VOLUME})
-        _call("media_player.play_media", {
+        # Music Assistant streams the URL through its own pipeline — direct
+        # casting of plain-HTTP URLs silently fails on these speakers
+        # (chime, no audio; found 07-07-2026). Target the _ma entities.
+        _call("music_assistant.play_media", {
             "entity_id": MEDIA_PLAYER,
-            "media_content_type": "music",
-            "media_content_id": f"{APP_BASE_URL}/clips/{track_id}/{kind}.mp3"})
+            "media_id": f"{APP_BASE_URL}/clips/{track_id}/{kind}.mp3",
+            "media_type": "track"})
         return True
     except httpx.HTTPError as e:
         LOGGER.error("cast failed: %s", e)
