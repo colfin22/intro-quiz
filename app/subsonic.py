@@ -51,19 +51,25 @@ class Client:
         """URL + params to download original audio for clip cutting."""
         return f"{self.base}/download.view", {**auth_params(), "id": song_id}
 
-    def download(self, song_id: str, dest_path: str) -> None:
-        url, params = self.stream_url_params(song_id)
+    def _save_stream(self, url: str, params: dict, dest_path: str) -> None:
         with self._http.stream("GET", url, params=params) as r:
             r.raise_for_status()
             with open(dest_path, "wb") as f:
                 for chunk in r.iter_bytes():
                     f.write(chunk)
+        # a failed stream returns a subsonic JSON error body instead of audio
+        # (classic cause: file renamed on disk, index stale until the next scan)
+        with open(dest_path, "rb") as f:
+            head = f.read(20)
+        if head.startswith(b'{"subsonic-response"'):
+            body = open(dest_path).read()
+            raise SubsonicError(f"stream returned an error, not audio: {body[:200]}")
+
+    def download(self, song_id: str, dest_path: str) -> None:
+        url, params = self.stream_url_params(song_id)
+        self._save_stream(url, params, dest_path)
 
     def download_transcoded(self, song_id: str, dest_path: str) -> None:
         """Server-side transcode to mp3 — rescues formats ffmpeg can't decode (old WMA rips)."""
         params = {**auth_params(), "id": song_id, "format": "mp3", "maxBitRate": 320}
-        with self._http.stream("GET", f"{self.base}/stream.view", params=params) as r:
-            r.raise_for_status()
-            with open(dest_path, "wb") as f:
-                for chunk in r.iter_bytes():
-                    f.write(chunk)
+        self._save_stream(f"{self.base}/stream.view", params, dest_path)

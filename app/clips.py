@@ -64,7 +64,11 @@ def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> Non
     duration = int(row["duration"] or 0)
     with tempfile.TemporaryDirectory() as tmp:
         src = os.path.join(tmp, "src")
-        client.download(row["id"], src)
+        try:
+            client.download(row["id"], src)
+        except subsonic.SubsonicError as e:
+            # missing/renamed file — the next library scan reconciles it; skip quietly
+            raise ClipError(f"source unavailable on server: {e}") from e
         try:
             _cut_all(src, dest, offset, duration)
         except ClipError:
