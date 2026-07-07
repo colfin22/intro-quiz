@@ -11,17 +11,23 @@ subscriptions.
 ## How a game works
 
 1. Everyone opens the app on their phone (a plain LAN web page) and joins with a name.
+   Whoever started the game is the **game master** — only their phone gets the
+   start / next-song / half-time controls.
 2. While waiting in the lobby, each player **picks 3 artists they know** from a wall
-   of your library's most popular artists — one song per player's picks is shuffled
-   invisibly into the rounds, so guests and kids aren't slaughtered by the host's
-   record collection.
-3. Each round: a clip plays on the TV, four choices appear on the phones (decoys from
-   the same era, never the same artist twice), 20-second window, speed bonus, early
-   reveal when everyone has answered.
+   of your library's most popular artists (freshly randomised each game) — one song
+   per player's picks is shuffled invisibly into the rounds, so guests and kids
+   aren't slaughtered by the host's record collection. The game won't start until
+   everyone's locked in or skipped.
+3. Each round: a clip plays on the TV (an animated wave with a live progress bar —
+   no spoilers), four choices appear on the phones (decoys from the same era, never
+   the same artist twice), 20-second window, speed bonus, early reveal when everyone
+   has answered. Phones buzz at each round start; a round nobody answered replays
+   once before revealing.
 4. Stuck? Anyone can extend the clip (5 → 10 → 20 seconds).
-5. The reveal shows album art on the TV while a "payoff" chunk of the song plays.
-6. Rubbish clip (applause intro, ambient noise)? One tap on **🚫 bad clip** bans that
-   track forever.
+5. The reveal shows album art and **who got it right** while a "payoff" chunk of
+   the song plays. Games of 6+ rounds get a **half-time break** with standings.
+6. Rubbish clip (applause intro, ambient noise)? The game master's reveal screen has
+   a **🚫 bad clip** link — two taps to confirm — that bans the track forever.
 7. Ten rounds a game, persistent all-time leaderboard.
 
 ## How it works under the hood
@@ -37,7 +43,9 @@ subscriptions.
   library in global-popularity order. **ID3 tags are stripped and re-titled** so a
   display's now-playing overlay can't leak the answer. Tracks over 12 minutes (DJ
   mixes) are excluded; whole albums can be banned by pattern (`POST /api/ban/album`).
-  Undecodable files auto-ban instead of retrying forever.
+  Undecodable originals retry via the music server's transcode before being banned,
+  and a stream that returns an error document (stale index after files were renamed)
+  is recognised rather than fed to ffmpeg.
 - **The game engine** — one websocket hub (FastAPI), phases lobby → question → reveal.
   Rounds are built lazily at first start so artist picks land first. Answer timing is
   server-side; the correct answer never ships to clients before the reveal.
@@ -47,7 +55,9 @@ subscriptions.
   cast device runs one app at a time. Audio is served from an anonymous
   per-round endpoint so phones can't extract the track id mid-round. Android TV
   (e.g. Nvidia Shield) autoplays; touch displays (Nest Hub) need one tap to unlock
-  sound — the board shows an overlay asking for it.
+  sound — the board shows an overlay asking for it. If the cast session dies
+  mid-game the app re-casts the board automatically, and the board reports playback
+  failures back to the server log.
 - **Speaker-only mode** — pick "no scoreboard" at game start and clips cast to a
   speaker via Home Assistant + Music Assistant instead; the phones do the rest.
   A display isn't required to play.
@@ -72,6 +82,8 @@ Create a `.env` beside `docker-compose.yml`:
     MEDIA_PLAYER=media_player.living_room_speaker
     APP_BASE_URL=http://<this host>:8000
     CAST_ENABLED=true
+    # optional: family devices with fixed IPs get their name prefilled at join
+    KNOWN_PLAYERS=Alice=192.168.1.20,Bob=192.168.1.21
 
 Then: `POST /api/sync` (library), `POST /api/score/lastfm?limit=...` (repeat until done),
 `POST /api/score/tiers`, `POST /api/clips/cut?limit=...` — or just schedule them nightly.
@@ -86,7 +98,9 @@ mount in `docker-compose.yml` maps it).
   table exported from Navidrome's DB (see `quiz-nightly.sh` for the pattern).
 - The board URL must be HTTPS with a real certificate — put the app behind a reverse
   proxy (with websocket support) for that.
-- Tests: `python -m pytest tests/`
+- Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
+  phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
+- The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
 
 ## Licence
 
