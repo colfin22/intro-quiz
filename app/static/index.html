@@ -35,6 +35,15 @@
 
   <p class="dim center" id="abort-row" hidden><a href="#" onclick="send({type:'abort'});return false">abandon game</a></p>
 
+  <div id="v-master" class="card" hidden>
+    <p><b>🎤 You're the game master!</b></p>
+    <p class="dim">You started this game, so you run it:<br>
+    ▶ you start the rounds and move to the <b>next song</b><br>
+    🍿 you restart after half time<br>
+    🚫 you can bin rubbish clips<br>
+    🛑 and only you can abandon the game</p>
+  </div>
+
   <div id="v-lobby" class="card" hidden>
     <p><b id="lobby-count"></b> in the lobby:</p>
     <ul class="scores" id="lobby-roster"></ul>
