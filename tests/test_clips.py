@@ -60,7 +60,8 @@ def test_cut_batch_produces_clips_and_marks(tone, tmp_path):
     try:
         r = clips.cut_batch(conn, FakeClient(tone), clips_dir=clips_dir)
         assert r["cut"] == 1 and r["errors"] == 1
-        assert r["remaining"] == 1  # the failed track stays pending — retried next run
+        assert r["remaining"] == 0  # undecodable source = banned, not endlessly retried
+        assert conn.execute("SELECT banned FROM tracks WHERE id='broken'").fetchone()["banned"] == 1
         for length in (5, 10, 20):
             f = os.path.join(clips_dir, "ok1", f"{length}.mp3")
             assert abs(probe_duration(f) - length) < 0.6, f
@@ -69,9 +70,9 @@ def test_cut_batch_produces_clips_and_marks(tone, tmp_path):
         assert not os.path.exists(os.path.join(clips_dir, "broken"))
         marks = {x["id"]: x["clipped_at"] for x in conn.execute("SELECT id, clipped_at FROM tracks")}
         assert marks["ok1"] and not marks["broken"] and not marks["untiered"]
-        # second run: nothing left to do for ok1, broken retried
+        # second run: nothing left at all (banned track excluded)
         r2 = clips.cut_batch(conn, FakeClient(tone), clips_dir=clips_dir)
-        assert r2["cut"] == 0 and r2["errors"] == 1
+        assert r2["cut"] == 0 and r2["errors"] == 0
     finally:
         os.unlink(p)
 

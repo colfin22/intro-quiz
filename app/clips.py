@@ -64,15 +64,25 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
               clips_dir: str | None = None) -> dict:
     """Cut clips for tiered tracks that don't have them yet, easiest tiers first."""
     rows = conn.execute(
-        f"SELECT * FROM tracks WHERE active=1 AND tier IS NOT NULL AND clipped_at IS NULL "
+        f"SELECT * FROM tracks WHERE active=1 AND banned=0 AND tier IS NOT NULL AND clipped_at IS NULL "
         f"ORDER BY {TIER_ORDER}, global_listeners DESC LIMIT ?", (limit,)).fetchall()
     done = errors = 0
     for row in rows:
         try:
             cut_track(client, row, clips_dir)
-        except (ClipError, Exception) as e:  # noqa: BLE001 - one bad file must not stop the batch
+        except ClipError as e:
+            # deterministic decode failure (corrupt/odd source) — retrying is
+            # futile and the track can never be played: ban it from the pool
             errors += 1
-            LOGGER.warning("clip cut failed for %s - %s: %s", row["artist"], row["title"], e)
+            LOGGER.warning("clip cut failed permanently, banning %s - %s: %s",
+                           row["artist"], row["title"], e)
+            conn.execute("UPDATE tracks SET banned=1 WHERE id=?", (row["id"],))
+            conn.commit()
+            shutil.rmtree(os.path.join(clips_dir or config.CLIPS_DIR, row["id"]), ignore_errors=True)
+            continue
+        except Exception as e:  # noqa: BLE001 - transient (network etc.): retry next batch
+            errors += 1
+            LOGGER.warning("clip cut failed (will retry) for %s - %s: %s", row["artist"], row["title"], e)
             shutil.rmtree(os.path.join(clips_dir or config.CLIPS_DIR, row["id"]), ignore_errors=True)
             continue
         conn.execute("UPDATE tracks SET clipped_at=? WHERE id=?",
@@ -80,6 +90,6 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
         conn.commit()
         done += 1
     remaining = conn.execute(
-        "SELECT COUNT(*) c FROM tracks WHERE active=1 AND tier IS NOT NULL AND clipped_at IS NULL"
+        "SELECT COUNT(*) c FROM tracks WHERE active=1 AND banned=0 AND tier IS NOT NULL AND clipped_at IS NULL"
     ).fetchone()["c"]
     return {"cut": done, "errors": errors, "remaining": remaining}
