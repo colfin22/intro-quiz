@@ -53,6 +53,22 @@ function sendArtists() {
 }
 function skipArtists() { artistsSent = true; send({type: "ready"}); render(); }
 
+let flagArmed = false;
+function flagTap() {
+  if (state.flagged) return;
+  if (!flagArmed) {
+    flagArmed = true;
+    document.getElementById("r-flag").textContent = "🚫 tap again to confirm — bans this song forever";
+    setTimeout(() => {
+      flagArmed = false;
+      if (state.phase === "reveal" && !state.flagged) render();
+    }, 4000);
+    return;
+  }
+  flagArmed = false;
+  send({type: "flag_clip"});
+}
+
 function join() {
   myName = document.getElementById("name").value.trim();
   if (!myName) return;
@@ -148,9 +164,6 @@ function render() {
     });
     document.getElementById("q-answered").textContent =
       state.answered.length ? `answered: ${state.answered.join(", ")}` : "";
-    document.getElementById("q-flag").parentElement.hidden = !hostOnly;
-    document.getElementById("q-flag").textContent =
-      state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
     startTimer();
   }
   if (state.phase === "reveal") {
@@ -173,7 +186,7 @@ function render() {
     }
     scoresInto(document.getElementById("r-scores"), state.players);
     document.getElementById("r-flag").parentElement.hidden = !hostOnly;
-    document.getElementById("r-flag").textContent =
+    if (!flagArmed) document.getElementById("r-flag").textContent =
       state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
     document.getElementById("r-next").hidden = !hostOnly;
     document.getElementById("r-wait").hidden = hostOnly;
