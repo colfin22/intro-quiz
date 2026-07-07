@@ -48,7 +48,7 @@ function renderDisplays() {
   box.innerHTML = "";
   for (const name of [...state.displays, "none"]) {
     const b = document.createElement("button");
-    b.textContent = (name === state.display ? "✅ " : "") + (name === "none" ? "No board (phones only)" : name);
+    b.textContent = (name === state.display ? "✅ " : "") + (name === "none" ? "No scoreboard (music on the kitchen speaker)" : name);
     b.onclick = () => send({type: "set_display", display: name});
     box.appendChild(b);
   }
