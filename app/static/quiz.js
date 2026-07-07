@@ -91,7 +91,8 @@ function renderDisplays() {
 
 function render() {
   renderDisplays();
-  document.getElementById("abort-row").hidden = !(state.phase && state.phase !== "idle" && state.phase !== "finished");
+  const hostOnly = !state.host || state.host === myName;
+  document.getElementById("abort-row").hidden = !(hostOnly && state.phase && state.phase !== "idle" && state.phase !== "finished");
   if (state.phase === "idle") { show("v-idle"); joined = false; return; }
   if (state.phase === "lobby" || (!joined && state.phase !== "finished")) {
     if (!joined) {
@@ -146,6 +147,7 @@ function render() {
     });
     document.getElementById("q-answered").textContent =
       state.answered.length ? `answered: ${state.answered.join(", ")}` : "";
+    document.getElementById("q-flag").parentElement.hidden = !hostOnly;
     document.getElementById("q-flag").textContent =
       state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
     startTimer();
@@ -158,6 +160,7 @@ function render() {
     document.getElementById("r-detail").textContent =
       `${state.track.artist} — ${state.track.album || ""} ${state.track.year ? "(" + state.track.year + ")" : ""}`;
     scoresInto(document.getElementById("r-scores"), state.players);
+    document.getElementById("r-flag").parentElement.hidden = !hostOnly;
     document.getElementById("r-flag").textContent =
       state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
     document.getElementById("r-next").textContent =
