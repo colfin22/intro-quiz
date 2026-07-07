@@ -80,6 +80,7 @@ class Game:
         pick_tracks(conn, rounds, self.tiers)
         self.players: dict[str, dict] = {}  # name -> {score, correct, fastest_ms, artists}
         self.current = -1
+        self.host: str | None = None  # the player who started the game — runs the rounds
         self.phase = "lobby"  # lobby | question | reveal | finished
         self.started_at = datetime.now(timezone.utc).isoformat()
 
@@ -212,6 +213,7 @@ class Game:
         """State for clients. The correct answer only ships during reveal/finished."""
         s = {
             "phase": self.phase,
+            "host": self.host,
             "round": self.current + 1,
             "total_rounds": len(self.rounds),
             "players": [{"name": n, "score": p["score"], "correct": p["correct"],
@@ -222,6 +224,7 @@ class Game:
             rnd = self.rounds[self.current]
             s["options"] = [f'{o["title"]} — {o["artist"]}' for o in rnd["options"]]
             s["clip_len"] = rnd["clip_len"]
+            s["replay"] = rnd.get("replay", 0)
             s["flagged"] = bool(rnd.get("flagged"))
             s["answered"] = sorted(rnd["answers"])
             if self.phase == "reveal":

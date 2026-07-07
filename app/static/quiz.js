@@ -1,5 +1,5 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
-let lastBuzzRound = 0;
+let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null;
 
 function connect() {
@@ -100,6 +100,7 @@ function render() {
       if (state.phase !== "lobby") return;
       // allow late joiners only in the lobby
     }
+    const amHost = !state.host || state.host === myName;
     if (joined && state.phase === "lobby") {
       document.getElementById("lobby-count").textContent = state.players.length + " player" + (state.players.length === 1 ? "" : "s");
       document.getElementById("lobby-names").textContent =
@@ -107,13 +108,18 @@ function render() {
       document.getElementById("artist-pick").hidden = artistsSent;
       document.getElementById("artist-picked").hidden = !artistsSent;
       if (!artistsSent && wall.length === 0) loadWall();
+      const sb = document.querySelector("#v-lobby > button.primary");
+      sb.hidden = !amHost;
+      document.getElementById("lobby-wait").hidden = amHost;
+      if (state.host) document.getElementById("lobby-wait").textContent = `${state.host} starts the game 🎤`;
       show("v-lobby");
     }
     if (!joined) return;
   }
   if (state.phase === "question") {
-    if (state.round !== lastBuzzRound) {
-      lastBuzzRound = state.round;
+    const buzzKey = state.round + "-" + (state.replay || 0);
+    if (buzzKey !== lastBuzzRound) {
+      lastBuzzRound = buzzKey;
       if (navigator.vibrate) navigator.vibrate(200);
     }
     show("v-question");

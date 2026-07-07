@@ -45,6 +45,7 @@
     </div>
     <div id="artist-picked" hidden><p class="dim">✅ Your artists are in. Waiting for the game…</p></div>
     <button class="primary" onclick="send({type:'start_round'})">▶ Start round 1</button>
+    <p class="dim center" id="lobby-wait" hidden></p>
   </div>
 
   <div id="v-question" hidden>
@@ -63,6 +64,7 @@
     <div class="card"><ul class="scores" id="r-scores"></ul></div>
     <p class="dim center"><a href="#" id="r-flag" onclick="send({type:'flag_clip'});return false">🚫 bad clip — don't use this song again</a></p>
     <button class="primary" id="r-next" onclick="send({type:'next'})"></button>
+    <p class="dim center" id="r-wait" hidden></p>
   </div>
 
   <div id="v-finished" hidden>

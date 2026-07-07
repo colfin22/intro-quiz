@@ -99,6 +99,8 @@ class Hub:
         self.game: game.Game | None = None
         self.sockets: list[WebSocket] = []
         self.boards: set = set()
+        self.board_last_seen: float = 0.0
+        self.host_ws = None
         self.display: str | None = (board_cast.display_names() or [None])[0]
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
@@ -122,7 +124,16 @@ class Hub:
             self.deadline_task.cancel()
 
     def board_live(self) -> bool:
-        return any(b in self.sockets for b in self.boards)
+        live = any(b in self.sockets for b in self.boards)
+        if live:
+            import time as _t
+            self.board_last_seen = _t.time()
+        return live
+
+    def board_expected(self) -> bool:
+        """A board was here recently — don't fall back to a speaker over a WS blip."""
+        import time as _t
+        return self.board_live() or (_t.time() - self.board_last_seen) < 120
 
     async def start_round(self):
         if not self.game.rounds:
@@ -132,7 +143,7 @@ class Hub:
             finally:
                 conn.close()
         rnd = self.game.start_round()
-        if not self.board_live():  # board plays its own audio when present
+        if not self.board_expected():  # board plays its own audio when present
             asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], str(rnd["clip_len"]))
         self.cancel_deadline()
         self.deadline_task = asyncio.create_task(self._deadline(game.ANSWER_WINDOW_S))
@@ -141,12 +152,24 @@ class Hub:
     async def _deadline(self, seconds: float):
         await asyncio.sleep(seconds)
         async with self.lock:
-            if self.game and self.game.phase == "question":
-                await self._reveal()
+            if not (self.game and self.game.phase == "question"):
+                return
+            rnd = self.game.rounds[self.game.current]
+            if not rnd["answers"] and not rnd.get("replay"):
+                # nobody answered — the table is probably talking. One more go.
+                rnd["replay"] = 1
+                rnd["started_at"] = self.game.clock()
+                if not self.board_expected():
+                    asyncio.get_event_loop().run_in_executor(
+                        None, ha.play_clip, rnd["track"]["id"], str(rnd["clip_len"]))
+                self.deadline_task = asyncio.create_task(self._deadline(game.ANSWER_WINDOW_S))
+                await self.broadcast()
+                return
+            await self._reveal()
 
     async def _reveal(self):
         rnd = self.game.reveal()
-        if not self.board_live():
+        if not self.board_expected():
             asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], "payoff")
         await self.broadcast()
 
@@ -184,6 +207,7 @@ async def ws_endpoint(ws: WebSocket):
                     elif kind == "new_game":
                         if hub.game and hub.game.phase not in ("finished", "lobby"):
                             raise game.GameError("a game is already running")
+                        hub.host_ws = ws
                         if ha.house_is_sleeping() and not msg.get("force"):
                             raise game.GameError("house is Sleeping — start from the board to override")
                         conn = db.connect()
@@ -199,15 +223,19 @@ async def ws_endpoint(ws: WebSocket):
                             raise game.GameError("no game — start one first")
                         name = msg.get("name", "")
                         hub.game.join(name)
+                        if hub.game.host is None and (ws is hub.host_ws or len(hub.game.players) == 1):
+                            hub.game.host = name.strip()[:24]
                         await hub.broadcast()
                     elif kind == "set_artists":
                         hub.game.set_artists(name or msg.get("name", ""), msg.get("artists") or [])
                         await hub.broadcast()
                     elif kind == "start_round":
+                        if hub.game.host and name != hub.game.host:
+                            raise game.GameError(f"only {hub.game.host} controls the rounds")
                         await hub.start_round()
                     elif kind == "extend_clip":
                         length = hub.game.extend_clip()
-                        if not hub.board_live():
+                        if not hub.board_expected():
                             asyncio.get_event_loop().run_in_executor(
                                 None, ha.play_clip, hub.game.rounds[hub.game.current]["track"]["id"], str(length))
                         await hub.broadcast()
@@ -232,6 +260,8 @@ async def ws_endpoint(ws: WebSocket):
                         asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
                         await hub.broadcast()
                     elif kind == "next":
+                        if hub.game.host and name != hub.game.host:
+                            raise game.GameError(f"only {hub.game.host} controls the rounds")
                         if hub.game.phase == "reveal" and hub.game.is_last_round():
                             conn = db.connect()
                             try:
@@ -304,10 +334,11 @@ def api_artists_wall(limit: int = 60):
     """Popular artists with enough quizzable clips — the pick-3 wall."""
     conn = db.connect()
     try:
+        # fresh random selection from the top pool each load — the wall varies per game
         rows = conn.execute(
-            f"SELECT artist, COUNT(*) n, MAX(global_listeners) pop FROM tracks "
+            f"SELECT * FROM (SELECT artist, COUNT(*) n, MAX(global_listeners) pop FROM tracks "
             f"WHERE {game.QUIZZABLE} GROUP BY artist HAVING n >= 3 "
-            f"ORDER BY pop DESC LIMIT ?", (limit,)).fetchall()
+            f"ORDER BY pop DESC LIMIT ?) ORDER BY RANDOM() LIMIT ?", (max(limit * 3, 200), limit)).fetchall()
         return [{"artist": r["artist"], "tracks": r["n"]} for r in rows]
     finally:
         conn.close()
