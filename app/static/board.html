@@ -79,21 +79,34 @@ function probeAudio() {
 }
 window.addEventListener("load", () => setTimeout(probeAudio, 500));
 function aStatus(t) { document.getElementById("b-audio-status").textContent = t; }
-function playAudio(kind, key) {
-  if (key === lastKey) return;
+function boardLog(msg) {
+  try { fetch("/api/board/log", { method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ msg }) }); } catch (e) {}
+}
+function playAudio(kind, key, isRetry) {
+  if (key === lastKey && !isRetry) return;
   lastKey = key;
   bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`;
-  bAudio.muted = true;
+  // the muted-start dance is only needed while audio is still locked (touch displays);
+  // once unlocked (or on Android TV) play unmuted directly — the 250ms unmute hop
+  // was a silent failure point on extended clips
+  bAudio.muted = !audioUnlocked;
   bAudio.volume = 1;
   const p = bAudio.play();
   if (p) p.then(() => {
-    // started muted (always allowed) — try to unmute programmatically
     setTimeout(() => {
       bAudio.muted = false;
-      if (bAudio.paused && !audioUnlocked) showTap();
-      else aStatus("");
+      if (bAudio.paused) {
+        boardLog(`audio stuck paused after play() for ${key}${isRetry ? " (retry failed)" : ""}`);
+        if (!isRetry) playAudio(kind, key, true);
+        else if (!audioUnlocked) showTap();
+      } else aStatus("");
     }, 250);
-  }).catch((e) => { if (e && e.name === "NotAllowedError" && !audioUnlocked) showTap(); });
+  }).catch((e) => {
+    boardLog(`play() rejected for ${key}: ${e && e.name}: ${e && e.message}`);
+    if (e && e.name === "NotAllowedError" && !audioUnlocked) showTap();
+    else if (!isRetry) setTimeout(() => playAudio(kind, key, true), 300);
+  });
 }
 function showTap() {
   document.getElementById("b-tap").style.display = "flex";
