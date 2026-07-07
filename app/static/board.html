@@ -34,13 +34,24 @@
     </div>
   </div>
 </main>
+<audio id="b-audio"></audio>
 <script>
-let ws;
+let ws, lastKey = "";
+function playAudio(kind, key) {
+  if (key === lastKey) return;
+  lastKey = key;
+  const a = document.getElementById("b-audio");
+  a.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`;
+  a.play().catch((e) => console.log("autoplay blocked?", e));
+}
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+  ws.onopen = () => ws.send(JSON.stringify({type: "board_hello"}));
   ws.onmessage = (ev) => {
     const s = JSON.parse(ev.data);
     if (s.type !== "state") return;
+    if (s.phase === "question") playAudio(s.clip_len, `q${s.round}-${s.clip_len}`);
+    if (s.phase === "reveal" && s.track) playAudio("payoff", `p${s.round}`);
     document.getElementById("b-idle").hidden = s.phase !== "idle";
     document.getElementById("b-live").hidden = s.phase === "idle";
     if (s.phase === "idle") return;
