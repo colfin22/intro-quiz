@@ -35,7 +35,7 @@
   </div>
 </main>
 <audio id="b-audio"></audio>
-<div id="b-tap" hidden style="position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9;font-size:3rem;flex-direction:column">
+<div id="b-tap" style="position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;font-size:3rem;flex-direction:column">
   <div>🔊</div><div style="font-size:1.6rem">Tap anywhere for sound</div>
 </div>
 <p class="dim center" id="b-audio-status"></p>
@@ -59,12 +59,12 @@ function playAudio(kind, key) {
   }).catch(() => { if (!audioUnlocked) showTap(); });
 }
 function showTap() {
-  document.getElementById("b-tap").hidden = false;
+  document.getElementById("b-tap").style.display = "flex";
   aStatus("audio blocked — tap the screen once");
 }
 document.addEventListener("pointerdown", () => {
   audioUnlocked = true;
-  document.getElementById("b-tap").hidden = true;
+  document.getElementById("b-tap").style.display = "none";
   aStatus("");
   bAudio.muted = false;
   if (bAudio.paused && bAudio.src) bAudio.play().catch((e) => aStatus("audio error: " + e));
