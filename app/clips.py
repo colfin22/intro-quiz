@@ -19,7 +19,11 @@ CLIP_LENGTHS = (5, 10, 20)
 PAYOFF_LEN = 12
 BITRATE = "192k"
 LOUDNORM = "loudnorm=I=-16:TP=-1.5:LRA=11"
-TIER_ORDER = "CASE tier WHEN 'easy' THEN 0 WHEN 'medium' THEN 1 WHEN 'hard' THEN 2 ELSE 3 END"
+# Cut the most recognisable songs first: global popularity beats tier —
+# 'popular songs from popular artists you have NOT listened to' are exactly
+# the medium tier, and they deserve clips as early as the family favourites.
+# Obscure tiebreak tracks queue last.
+TIER_ORDER = "CASE WHEN tier='tiebreak' THEN 1 ELSE 0 END"
 
 LOGGER = logging.getLogger(__name__)
 
