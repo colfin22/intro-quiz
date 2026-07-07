@@ -221,6 +221,10 @@ async def ws_endpoint(ws: WebSocket):
                             hub.game.flag_current(conn)
                         finally:
                             conn.close()
+                        if hub.game.phase == "question":
+                            # a flagged clip isn't worth guessing — end the round now
+                            hub.cancel_deadline()
+                            await hub._reveal()
                         await hub.broadcast()
                     elif kind == "abort":
                         hub.cancel_deadline()
