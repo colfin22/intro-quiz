@@ -7,53 +7,65 @@ import logging
 import os
 import threading
 
-DISPLAY_HOST = os.environ.get("DISPLAY_HOST", "")
+# DISPLAYS: comma-separated "Name=ip" pairs; first entry is the default.
+# Legacy DISPLAY_HOST is honoured as a single unnamed display.
+_raw = os.environ.get("DISPLAYS", "")
+DISPLAYS: dict[str, str] = {}
+for part in _raw.split(","):
+    if "=" in part:
+        name, ip = part.split("=", 1)
+        DISPLAYS[name.strip()] = ip.strip()
+if not DISPLAYS and os.environ.get("DISPLAY_HOST"):
+    DISPLAYS["Display"] = os.environ["DISPLAY_HOST"]
 BOARD_URL = os.environ.get("BOARD_URL", "")
 
 LOGGER = logging.getLogger(__name__)
 _lock = threading.Lock()
-_cast = None
+_casts: dict[str, object] = {}
 
 
-def configured() -> bool:
-    return bool(DISPLAY_HOST and BOARD_URL)
+def display_names() -> list[str]:
+    return list(DISPLAYS)
 
 
-def _connect():
-    global _cast
+def configured(name: str | None) -> bool:
+    return bool(name and name in DISPLAYS and BOARD_URL)
+
+
+def _connect(name: str):
     import pychromecast
-    if _cast is None:
+    if name not in _casts:
         # pychromecast 14: connect by host tuple (ip, port, uuid, model, name)
-        _cast = pychromecast.get_chromecast_from_host(
-            (DISPLAY_HOST, 8009, None, "Kitchen Display", "Kitchen Display"))
-    _cast.wait(timeout=15)
-    return _cast
+        _casts[name] = pychromecast.get_chromecast_from_host(
+            (DISPLAYS[name], 8009, None, name, name))
+    _casts[name].wait(timeout=15)
+    return _casts[name]
 
 
-def show_board() -> bool:
-    if not configured():
-        LOGGER.info("board cast skipped (unconfigured)")
+def show_board(name: str | None) -> bool:
+    if not configured(name):
+        LOGGER.info("board cast skipped (no display selected)")
         return False
     try:
         with _lock:
             from pychromecast.controllers.dashcast import DashCastController
-            cast = _connect()
+            cast = _connect(name)
             dc = DashCastController()
             cast.register_handler(dc)
             dc.load_url(BOARD_URL, force=True)  # top-level load: iframe autoplay policy blocks board audio
-        LOGGER.info("board cast to %s", DISPLAY_HOST)
+        LOGGER.info("board cast to %s (%s)", name, DISPLAYS[name])
         return True
     except Exception as e:  # noqa: BLE001 - board is cosmetic, never break the game
         LOGGER.error("board cast failed: %s", e)
         return False
 
 
-def hide_board() -> bool:
-    if not configured():
+def hide_board(name: str | None) -> bool:
+    if not configured(name):
         return False
     try:
         with _lock:
-            cast = _connect()
+            cast = _connect(name)
             cast.quit_app()
         return True
     except Exception as e:  # noqa: BLE001
