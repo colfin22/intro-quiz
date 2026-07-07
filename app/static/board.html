@@ -42,6 +42,15 @@
 <script>
 let ws, lastKey = "", audioUnlocked = false;
 const bAudio = document.getElementById("b-audio");
+// 100ms of silence — used to probe/consume the autoplay permission up front
+const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
+function probeAudio() {
+  bAudio.src = SILENCE;
+  bAudio.muted = false;
+  const p = bAudio.play();
+  if (p) p.then(() => { audioUnlocked = true; }).catch(() => showTap());
+}
+window.addEventListener("load", () => setTimeout(probeAudio, 500));
 function aStatus(t) { document.getElementById("b-audio-status").textContent = t; }
 function playAudio(kind, key) {
   if (key === lastKey) return;
@@ -68,7 +77,12 @@ document.addEventListener("pointerdown", () => {
   document.getElementById("b-tap").style.display = "none";
   aStatus("");
   bAudio.muted = false;
-  if (bAudio.paused && bAudio.src) bAudio.play().catch(() => {});
+  if (bAudio.src && bAudio.src !== SILENCE && lastKey) {
+    bAudio.currentTime = 0;  // replay the clip in full, not resume a dead one
+    bAudio.play().catch(() => {});
+  } else {
+    probeAudio();  // consume the gesture so round 1 plays unaided
+  }
 }, {capture: true});
 bAudio.addEventListener("playing", () => aStatus(""));
 // a genuine media load failure (not the benign AbortError) is worth one quiet line
