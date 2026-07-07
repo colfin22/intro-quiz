@@ -119,7 +119,7 @@ class Hub:
 
     async def start_round(self):
         rnd = self.game.start_round()
-        ha.play_clip(rnd["track"]["id"], str(rnd["clip_len"]))
+        asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], str(rnd["clip_len"]))
         self.cancel_deadline()
         self.deadline_task = asyncio.create_task(self._deadline(game.ANSWER_WINDOW_S))
         await self.broadcast()
@@ -132,7 +132,7 @@ class Hub:
 
     async def _reveal(self):
         rnd = self.game.reveal()
-        ha.play_clip(rnd["track"]["id"], "payoff")
+        asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], "payoff")
         await self.broadcast()
 
     async def maybe_early_reveal(self):
@@ -179,7 +179,8 @@ async def ws_endpoint(ws: WebSocket):
                         await hub.start_round()
                     elif kind == "extend_clip":
                         length = hub.game.extend_clip()
-                        ha.play_clip(hub.game.rounds[hub.game.current]["track"]["id"], str(length))
+                        asyncio.get_event_loop().run_in_executor(
+                            None, ha.play_clip, hub.game.rounds[hub.game.current]["track"]["id"], str(length))
                         await hub.broadcast()
                     elif kind == "answer":
                         hub.game.answer(name or msg.get("name", ""), int(msg["choice"]))
