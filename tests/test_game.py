@@ -154,3 +154,14 @@ def test_artist_boost_rounds():
         assert "artists" not in by["Olivia"]  # picks never leak in snapshots
     finally:
         os.unlink(p)
+
+
+def test_phone_ui_renders_every_phase():
+    """Run the JS render smoke in node — catches thrown renders python tests can't see."""
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    r = subprocess.run(["node", os.path.join(os.path.dirname(__file__), "js", "render_smoke.js")],
+                       capture_output=True, text=True, timeout=30)
+    assert r.returncode == 0, r.stdout + r.stderr

@@ -102,7 +102,6 @@ function render() {
       if (state.phase !== "lobby") return;
       // allow late joiners only in the lobby
     }
-    const amHost = !state.host || state.host === myName;
     if (joined && state.phase === "lobby") {
       document.getElementById("lobby-count").textContent = state.players.length + " player" + (state.players.length === 1 ? "" : "s");
       const roster = document.getElementById("lobby-roster");
@@ -119,10 +118,10 @@ function render() {
       document.getElementById("artist-picked").hidden = !artistsSent;
       if (!artistsSent && wall.length === 0) loadWall();
       const sb = document.querySelector("#v-lobby > button.primary");
-      sb.hidden = !amHost;
+      sb.hidden = !hostOnly;
       sb.disabled = !allReady;
       sb.textContent = allReady ? "▶ Start round 1" : "waiting for everyone to be ready…";
-      document.getElementById("lobby-wait").hidden = amHost;
+      document.getElementById("lobby-wait").hidden = hostOnly;
       if (state.host) document.getElementById("lobby-wait").textContent = `${state.host} starts the game 🎤`;
       show("v-lobby");
     }
@@ -176,8 +175,8 @@ function render() {
     document.getElementById("r-flag").parentElement.hidden = !hostOnly;
     document.getElementById("r-flag").textContent =
       state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
-    document.getElementById("r-next").hidden = !amHost;
-    document.getElementById("r-wait").hidden = amHost;
+    document.getElementById("r-next").hidden = !hostOnly;
+    document.getElementById("r-wait").hidden = hostOnly;
     if (state.host) document.getElementById("r-wait").textContent = `🎤 ${state.host} has the next-song button`;
     document.getElementById("r-next").textContent =
       state.round >= state.total_rounds ? "🏁 Finish" : `▶ Round ${state.round + 1}`;
@@ -186,8 +185,8 @@ function render() {
     stopTimer();
     show("v-break");
     scoresInto(document.getElementById("bk-scores"), state.players);
-    document.getElementById("bk-next").hidden = !amHost;
-    document.getElementById("bk-wait").hidden = amHost;
+    document.getElementById("bk-next").hidden = !hostOnly;
+    document.getElementById("bk-wait").hidden = hostOnly;
     if (state.host) document.getElementById("bk-wait").textContent = `${state.host} restarts when everyone's back`;
   }
   if (state.phase === "finished") {
