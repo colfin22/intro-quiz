@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     global_playcount INTEGER,
     tier TEXT,                    -- easy / medium / hard / tiebreak (NULL = unscored)
     clipped_at TEXT,              -- when intro clips were last cut (NULL = no clips)
-    banned INTEGER DEFAULT 0,     -- flagged as a bad clip (applause intro etc.) — never picked again
+    banned INTEGER DEFAULT 0,     -- never picked again
+    ban_reason TEXT,              -- 'flag' (in-game) / 'decode' (cutter) / 'album' (pattern ban)
     active INTEGER DEFAULT 1      -- still present in the library on last sync
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_tier ON tracks(tier);
@@ -60,7 +61,8 @@ def connect(path: str | None = None) -> sqlite3.Connection:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(tracks)")}
     for ddl in ("ALTER TABLE tracks ADD COLUMN clipped_at TEXT",
                 "ALTER TABLE tracks ADD COLUMN banned INTEGER DEFAULT 0",
-                "ALTER TABLE tracks ADD COLUMN album_artist TEXT"):
+                "ALTER TABLE tracks ADD COLUMN album_artist TEXT",
+                "ALTER TABLE tracks ADD COLUMN ban_reason TEXT"):
         col = ddl.split(" ADD COLUMN ")[1].split()[0]
         if col not in cols:
             try:

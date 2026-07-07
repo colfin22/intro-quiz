@@ -139,7 +139,7 @@ class Game:
 
     # -- rounds --------------------------------------------------------------
     def start_round(self) -> dict:
-        if self.phase not in ("lobby", "reveal"):
+        if self.phase not in ("lobby", "reveal", "break"):
             raise GameError(f"cannot start a round from {self.phase}")
         if not self.players:
             raise GameError("no players")
@@ -191,7 +191,7 @@ class Game:
         if self.current < 0:
             raise GameError("no round to flag")
         rnd = self.rounds[self.current]
-        conn.execute("UPDATE tracks SET banned=1 WHERE id=?", (rnd["track"]["id"],))
+        conn.execute("UPDATE tracks SET banned=1, ban_reason='flag' WHERE id=?", (rnd["track"]["id"],))
         conn.commit()
         rnd["flagged"] = True
         return rnd["track"]["id"]
@@ -203,6 +203,9 @@ class Game:
 
     def is_last_round(self) -> bool:
         return self.current + 1 >= len(self.rounds)
+
+    def is_halfway(self) -> bool:
+        return len(self.rounds) >= 6 and self.current + 1 == len(self.rounds) // 2
 
     def finish(self, conn) -> int:
         self.phase = "finished"

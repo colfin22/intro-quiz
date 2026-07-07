@@ -6,6 +6,7 @@
 <title>Intro Quiz — Board</title>
 <link rel="stylesheet" href="/static/quiz.css">
 <style>
+  [hidden] { display:none !important; }  /* inline display styles must never beat hidden */
   /* TV-friendly: everything must fit a 16:9 viewport with no scrolling */
   html, body { height:100%; overflow:hidden; }
   main { max-width:min(96vw, 1100px); height:100vh; display:flex; flex-direction:column; padding:2vh 2vw; box-sizing:border-box; }
@@ -18,6 +19,14 @@
   #b-title { font-size:clamp(1.1rem, 4.5vh, 2rem) !important; margin:.5vh 0; text-align:center; }
   #b-detail { font-size:clamp(.9rem, 3vh, 1.3rem); text-align:center; }
   .scores li { font-size:clamp(1rem, 3.2vh, 1.5rem); }
+  .wavebox { display:flex; align-items:center; justify-content:center; gap:1vw; height:40vh; }
+  .wavebox span { width:2.2vw; background:var(--accent); border-radius:1vw; animation:wv 1s ease-in-out infinite; }
+  .wavebox span:nth-child(2n) { animation-delay:.18s; height:20vh; }
+  .wavebox span:nth-child(3n) { animation-delay:.34s; height:28vh; }
+  .wavebox span:nth-child(4n) { animation-delay:.52s; height:14vh; }
+  .wavebox span:nth-child(1) , .wavebox span:nth-child(5), .wavebox span:nth-child(9) { height:24vh; }
+  @keyframes wv { 0%,100% { transform:scaleY(.35);} 50% { transform:scaleY(1);} }
+  #b-results li b.good { color:var(--good); } #b-results li b.bad { color:var(--bad); }
 </style>
 </head>
 <body>
@@ -30,6 +39,12 @@
   <div id="b-live" hidden>
     <p class="big center" id="b-status"></p>
     <div class="cols">
+      <div class="card center" id="b-wave-card" hidden>
+        <div class="wavebox">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <p class="dim" style="font-size:clamp(1rem,3vh,1.4rem)">🎧 listen…</p>
+      </div>
       <div class="card center" id="b-art-card" hidden>
         <img class="art" id="b-art" alt="">
         <p class="big" id="b-title" style="font-size:1.6rem"></p>
@@ -110,7 +125,9 @@ function connect() {
     if (s.phase === "lobby") st.textContent = `Lobby — ${s.players.length} in`;
     if (s.phase === "question") st.textContent = `Round ${s.round}/${s.total_rounds} — listen! 🎧`;
     if (s.phase === "reveal") st.textContent = `Round ${s.round}/${s.total_rounds}`;
+    if (s.phase === "break") st.textContent = "🍿 HALF TIME";
     if (s.phase === "finished") st.textContent = "🏆 Final!";
+    document.getElementById("b-wave-card").hidden = s.phase !== "question";
     const artCard = document.getElementById("b-art-card");
     artCard.hidden = !(s.phase === "reveal" && s.track);
     if (s.phase === "reveal" && s.track) {
@@ -118,6 +135,16 @@ function connect() {
       document.getElementById("b-title").textContent = s.track.title;
       document.getElementById("b-detail").textContent =
         `${s.track.artist}${s.track.year ? " (" + s.track.year + ")" : ""}`;
+    }
+    // per-round results under the art on reveal
+    if (s.phase === "reveal" && s.round_answers) {
+      const res = document.getElementById("b-detail");
+      const bits = s.players.map(p => {
+        const a = s.round_answers[p.name];
+        if (!a) return `${p.name} —`;
+        return a.points > 0 ? `${p.name} ✅ +${a.points}` : `${p.name} ❌`;
+      });
+      res.textContent = res.textContent + "   ·   " + bits.join("   ");
     }
     const ul = document.getElementById("b-scores");
     ul.innerHTML = "";

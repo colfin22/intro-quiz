@@ -22,6 +22,10 @@ class FakeClient:
             return
         shutil.copy(self.src, dest_path)
 
+    def download_transcoded(self, song_id, dest_path):
+        # the transcode fallback can't rescue this one either
+        self.download(song_id, dest_path)
+
 
 def probe_duration(path) -> float:
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",

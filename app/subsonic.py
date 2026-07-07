@@ -58,3 +58,12 @@ class Client:
             with open(dest_path, "wb") as f:
                 for chunk in r.iter_bytes():
                     f.write(chunk)
+
+    def download_transcoded(self, song_id: str, dest_path: str) -> None:
+        """Server-side transcode to mp3 — rescues formats ffmpeg can't decode (old WMA rips)."""
+        params = {**auth_params(), "id": song_id, "format": "mp3", "maxBitRate": 320}
+        with self._http.stream("GET", f"{self.base}/stream.view", params=params) as r:
+            r.raise_for_status()
+            with open(dest_path, "wb") as f:
+                for chunk in r.iter_bytes():
+                    f.write(chunk)
