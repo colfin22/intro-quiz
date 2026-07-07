@@ -49,14 +49,15 @@ function playAudio(kind, key) {
   bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`;
   bAudio.muted = true;
   bAudio.volume = 1;
-  bAudio.play().then(() => {
+  const p = bAudio.play();
+  if (p) p.then(() => {
     // started muted (always allowed) — try to unmute programmatically
     setTimeout(() => {
       bAudio.muted = false;
       if (bAudio.paused && !audioUnlocked) showTap();
       else aStatus("");
     }, 250);
-  }).catch(() => { if (!audioUnlocked) showTap(); });
+  }).catch((e) => { if (e && e.name === "NotAllowedError" && !audioUnlocked) showTap(); });
 }
 function showTap() {
   document.getElementById("b-tap").style.display = "flex";
@@ -67,9 +68,11 @@ document.addEventListener("pointerdown", () => {
   document.getElementById("b-tap").style.display = "none";
   aStatus("");
   bAudio.muted = false;
-  if (bAudio.paused && bAudio.src) bAudio.play().catch((e) => aStatus("audio error: " + e));
+  if (bAudio.paused && bAudio.src) bAudio.play().catch(() => {});
 }, {capture: true});
-bAudio.addEventListener("error", () => aStatus("audio load error"));
+bAudio.addEventListener("playing", () => aStatus(""));
+// a genuine media load failure (not the benign AbortError) is worth one quiet line
+bAudio.addEventListener("error", () => { if (audioUnlocked) aStatus("(audio hiccup — next round will recover)"); });
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.onopen = () => ws.send(JSON.stringify({type: "board_hello"}));
