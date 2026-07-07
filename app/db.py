@@ -57,10 +57,14 @@ def connect(path: str | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout=15000")
     conn.executescript(SCHEMA)
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(tracks)")}
-    if "clipped_at" not in cols:  # migration for pre-clip databases
-        conn.execute("ALTER TABLE tracks ADD COLUMN clipped_at TEXT")
-    if "banned" not in cols:
-        conn.execute("ALTER TABLE tracks ADD COLUMN banned INTEGER DEFAULT 0")
+    for ddl in ("ALTER TABLE tracks ADD COLUMN clipped_at TEXT",
+                "ALTER TABLE tracks ADD COLUMN banned INTEGER DEFAULT 0"):
+        col = ddl.split(" ADD COLUMN ")[1].split()[0]
+        if col not in cols:
+            try:
+                conn.execute(ddl)
+            except sqlite3.OperationalError:  # concurrent connect won the race
+                pass
     return conn
 
 
