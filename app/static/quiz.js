@@ -2,7 +2,7 @@ let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || ""
 let joined = false, myPick = null, timerHandle = null;
 
 function connect() {
-  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === "error") { showErr(msg.message); return; }
