@@ -98,6 +98,7 @@ class Hub:
     def __init__(self):
         self.game: game.Game | None = None
         self.sockets: list[WebSocket] = []
+        self.boards: set = set()
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
 
@@ -117,9 +118,13 @@ class Hub:
         if self.deadline_task and not self.deadline_task.done():
             self.deadline_task.cancel()
 
+    def board_live(self) -> bool:
+        return any(b in self.sockets for b in self.boards)
+
     async def start_round(self):
         rnd = self.game.start_round()
-        asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], str(rnd["clip_len"]))
+        if not self.board_live():  # board plays its own audio when present
+            asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], str(rnd["clip_len"]))
         self.cancel_deadline()
         self.deadline_task = asyncio.create_task(self._deadline(game.ANSWER_WINDOW_S))
         await self.broadcast()
@@ -132,7 +137,8 @@ class Hub:
 
     async def _reveal(self):
         rnd = self.game.reveal()
-        asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], "payoff")
+        if not self.board_live():
+            asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], "payoff")
         await self.broadcast()
 
     async def maybe_early_reveal(self):
@@ -157,7 +163,9 @@ async def ws_endpoint(ws: WebSocket):
             async with hub.lock:
                 try:
                     kind = msg.get("type")
-                    if kind == "new_game":
+                    if kind == "board_hello":
+                        hub.boards.add(ws)
+                    elif kind == "new_game":
                         if hub.game and hub.game.phase not in ("finished", "lobby"):
                             raise game.GameError("a game is already running")
                         if ha.house_is_sleeping() and not msg.get("force"):
@@ -180,8 +188,9 @@ async def ws_endpoint(ws: WebSocket):
                         await hub.start_round()
                     elif kind == "extend_clip":
                         length = hub.game.extend_clip()
-                        asyncio.get_event_loop().run_in_executor(
-                            None, ha.play_clip, hub.game.rounds[hub.game.current]["track"]["id"], str(length))
+                        if not hub.board_live():
+                            asyncio.get_event_loop().run_in_executor(
+                                None, ha.play_clip, hub.game.rounds[hub.game.current]["track"]["id"], str(length))
                         await hub.broadcast()
                     elif kind == "answer":
                         hub.game.answer(name or msg.get("name", ""), int(msg["choice"]))
@@ -221,6 +230,28 @@ def page_index():
 @app.get("/board")
 def page_board():
     return FileResponse(os.path.join(BASE, "static", "board.html"))
+
+
+@app.get("/api/round/audio")
+def api_round_audio(kind: str = "5"):
+    """Current round's clip without exposing the track id (board audio).
+
+    Intro kinds only work during the question phase; payoff during reveal —
+    so a phone probing this endpoint learns nothing it can't already hear.
+    """
+    if not hub.game or hub.game.current < 0:
+        return Response(status_code=404)
+    rnd = hub.game.rounds[hub.game.current]
+    if kind == "payoff":
+        if hub.game.phase not in ("reveal", "finished"):
+            return Response(status_code=404)
+    elif kind not in ("5", "10", "20") or hub.game.phase != "question":
+        return Response(status_code=404)
+    path = os.path.join(config.CLIPS_DIR, rnd["track"]["id"], f"{kind}.mp3")
+    if not os.path.exists(path):
+        return Response(status_code=404)
+    return FileResponse(path, media_type="audio/mpeg",
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/leaderboard")
