@@ -26,6 +26,8 @@
   .wavebox .w2 { stroke:#7f8ba3; opacity:.6; stroke-width:3; animation:flow 3.8s linear infinite reverse; }
   @keyframes flow { from { transform:translateX(0);} to { transform:translateX(-50%);} }
   #b-results li b.good { color:var(--good); } #b-results li b.bad { color:var(--bad); }
+  .clipbar { height:1.6vh; background:#2a3140; border-radius:1vh; overflow:hidden; margin:1.5vh 8% 0; }
+  .clipbar > div { height:100%; width:0%; background:var(--good); border-radius:1vh; }
 </style>
 </head>
 <body>
@@ -47,7 +49,8 @@
                                  Q 455 105 490 60 T 560 60 T 630 60 T 700 60 T 770 60 T 840 60" />
           </svg>
         </div>
-        <p class="dim" style="font-size:clamp(1rem,3vh,1.4rem)">🎧 listen…</p>
+        <p class="dim" style="font-size:clamp(1rem,3vh,1.4rem)">🎧 <span id="b-clip-label">listen…</span></p>
+        <div class="clipbar"><div id="b-clip-progress"></div></div>
       </div>
       <div class="card center" id="b-art-card" hidden>
         <img class="art" id="b-art" alt="">
@@ -108,6 +111,16 @@ function playAudio(kind, key, isRetry) {
     else if (!isRetry) setTimeout(() => playAudio(kind, key, true), 300);
   });
 }
+bAudio.addEventListener("timeupdate", () => {
+  const bar = document.getElementById("b-clip-progress");
+  if (!bar || !bAudio.duration) return;
+  bar.style.width = Math.min(100, (bAudio.currentTime / bAudio.duration) * 100) + "%";
+});
+bAudio.addEventListener("play", () => {
+  const bar = document.getElementById("b-clip-progress");
+  if (bar) bar.style.width = "0%";
+});
+
 function showTap() {
   document.getElementById("b-tap").style.display = "flex";
   aStatus("audio blocked — tap the screen once");
@@ -145,6 +158,7 @@ function connect() {
     if (s.phase === "break") st.textContent = "🍿 HALF TIME";
     if (s.phase === "finished") st.textContent = "🏆 Final!";
     document.getElementById("b-wave-card").hidden = s.phase !== "question";
+    if (s.phase === "question") document.getElementById("b-clip-label").textContent = `${s.clip_len} second clip`;
     const artCard = document.getElementById("b-art-card");
     artCard.hidden = !(s.phase === "reveal" && s.track);
     if (s.phase === "reveal" && s.track) {
