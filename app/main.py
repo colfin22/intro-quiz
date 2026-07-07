@@ -12,6 +12,15 @@ from . import __version__, board_cast, clips, config, db, game, ha, lastfm, scor
 
 LOGGER = logging.getLogger(__name__)
 app = FastAPI(title="Intro Quiz", version=__version__)
+
+
+@app.middleware("http")
+async def no_cache(request, call_next):
+    resp = await call_next(request)
+    # phones cached old JS across our deploys and played half-fixed games
+    if request.url.path == "/" or request.url.path in ("/board",) or request.url.path.startswith("/static"):
+        resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return resp
 BASE = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")
 if os.path.isdir(config.CLIPS_DIR):
@@ -223,7 +232,7 @@ async def ws_endpoint(ws: WebSocket):
                             raise game.GameError("no game — start one first")
                         name = msg.get("name", "")
                         hub.game.join(name)
-                        if hub.game.host is None and (ws is hub.host_ws or len(hub.game.players) == 1):
+                        if hub.game.host is None and ws is hub.host_ws:
                             hub.game.host = name.strip()[:24]
                         await hub.broadcast()
                     elif kind == "set_artists":
@@ -233,6 +242,8 @@ async def ws_endpoint(ws: WebSocket):
                         hub.game.set_ready(name or msg.get("name", ""))
                         await hub.broadcast()
                     elif kind == "start_round":
+                        if hub.game.host is None and name:
+                            hub.game.host = name  # starter never joined from that socket — first driver takes the wheel
                         if hub.game.host and name != hub.game.host:
                             raise game.GameError(f"only {hub.game.host} controls the rounds")
                         if hub.game.phase == "lobby":
