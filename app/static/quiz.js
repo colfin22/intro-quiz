@@ -75,6 +75,8 @@ function render() {
     });
     document.getElementById("q-answered").textContent =
       state.answered.length ? `answered: ${state.answered.join(", ")}` : "";
+    document.getElementById("q-flag").textContent =
+      state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
     startTimer();
   }
   if (state.phase === "reveal") {
@@ -85,6 +87,8 @@ function render() {
     document.getElementById("r-detail").textContent =
       `${state.track.artist} — ${state.track.album || ""} ${state.track.year ? "(" + state.track.year + ")" : ""}`;
     scoresInto(document.getElementById("r-scores"), state.players);
+    document.getElementById("r-flag").textContent =
+      state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
     document.getElementById("r-next").textContent =
       state.round >= state.total_rounds ? "🏁 Finish" : `▶ Round ${state.round + 1}`;
   }

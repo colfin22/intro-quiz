@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     global_playcount INTEGER,
     tier TEXT,                    -- easy / medium / hard / tiebreak (NULL = unscored)
     clipped_at TEXT,              -- when intro clips were last cut (NULL = no clips)
+    banned INTEGER DEFAULT 0,     -- flagged as a bad clip (applause intro etc.) — never picked again
     active INTEGER DEFAULT 1      -- still present in the library on last sync
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_tier ON tracks(tier);
@@ -58,6 +59,8 @@ def connect(path: str | None = None) -> sqlite3.Connection:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(tracks)")}
     if "clipped_at" not in cols:  # migration for pre-clip databases
         conn.execute("ALTER TABLE tracks ADD COLUMN clipped_at TEXT")
+    if "banned" not in cols:
+        conn.execute("ALTER TABLE tracks ADD COLUMN banned INTEGER DEFAULT 0")
     return conn
 
 

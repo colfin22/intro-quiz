@@ -196,6 +196,13 @@ async def ws_endpoint(ws: WebSocket):
                         hub.game.answer(name or msg.get("name", ""), int(msg["choice"]))
                         await hub.maybe_early_reveal()
                         await hub.broadcast()
+                    elif kind == "flag_clip":
+                        conn = db.connect()
+                        try:
+                            hub.game.flag_current(conn)
+                        finally:
+                            conn.close()
+                        await hub.broadcast()
                     elif kind == "abort":
                         hub.cancel_deadline()
                         hub.game = None

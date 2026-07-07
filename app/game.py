@@ -20,7 +20,7 @@ class GameError(RuntimeError):
 def pick_tracks(conn, rounds: int, tiers: list[str]) -> list[dict]:
     qmarks = ",".join("?" * len(tiers))
     rows = conn.execute(
-        f"SELECT * FROM tracks WHERE active=1 AND clipped_at IS NOT NULL AND tier IN ({qmarks}) "
+        f"SELECT * FROM tracks WHERE active=1 AND banned=0 AND clipped_at IS NOT NULL AND tier IN ({qmarks}) "
         f"ORDER BY RANDOM() LIMIT ?", (*tiers, rounds)).fetchall()
     if len(rows) < rounds:
         raise GameError(f"only {len(rows)} clipped tracks in tiers {tiers} — need {rounds}")
@@ -129,6 +129,16 @@ class Game:
         rnd = self._round("question")
         return set(rnd["answers"]) >= set(self.players)
 
+    def flag_current(self, conn) -> str:
+        """Ban the current round's track (bad clip — applause, silence, etc.)."""
+        if self.current < 0:
+            raise GameError("no round to flag")
+        rnd = self.rounds[self.current]
+        conn.execute("UPDATE tracks SET banned=1 WHERE id=?", (rnd["track"]["id"],))
+        conn.commit()
+        rnd["flagged"] = True
+        return rnd["track"]["id"]
+
     def reveal(self) -> dict:
         rnd = self._round("question")
         self.phase = "reveal"
@@ -164,6 +174,7 @@ class Game:
             rnd = self.rounds[self.current]
             s["options"] = [f'{o["title"]} — {o["artist"]}' for o in rnd["options"]]
             s["clip_len"] = rnd["clip_len"]
+            s["flagged"] = bool(rnd.get("flagged"))
             s["answered"] = sorted(rnd["answers"])
             if self.phase == "reveal":
                 t = rnd["track"]

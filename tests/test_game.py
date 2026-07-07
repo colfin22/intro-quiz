@@ -111,3 +111,19 @@ def test_guards():
             g.extend_clip()
     finally:
         os.unlink(p)
+
+
+def test_flag_current_bans_track():
+    conn, p = make_db()
+    try:
+        g = game.Game(conn, rounds=1, clock=Clock())
+        g.join("A")
+        g.start_round()
+        tid = g.flag_current(conn)
+        assert conn.execute("SELECT banned FROM tracks WHERE id=?", (tid,)).fetchone()["banned"] == 1
+        assert g.snapshot()["flagged"] is True
+        # banned tracks never picked again
+        ids = {r["track"]["id"] for r in game.Game(conn, rounds=5, clock=Clock()).rounds}
+        assert tid not in ids
+    finally:
+        os.unlink(p)
