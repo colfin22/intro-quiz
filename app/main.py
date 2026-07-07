@@ -3,7 +3,7 @@ import logging
 import os
 
 import httpx
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -282,6 +282,21 @@ def api_round_audio(kind: str = "5"):
         return Response(status_code=404)
     return FileResponse(path, media_type="audio/mpeg",
                         headers={"Cache-Control": "no-store"})
+
+
+KNOWN_PLAYERS = {}  # ip -> name, from env "Name=ip,Name=ip"
+for _part in os.environ.get("KNOWN_PLAYERS", "").split(","):
+    if "=" in _part:
+        _n, _ip = _part.split("=", 1)
+        KNOWN_PLAYERS[_ip.strip()] = _n.strip()
+
+
+@app.get("/api/whoami")
+def api_whoami(request: Request):
+    """Suggest a player name from the caller's IP (family phones have fixed IPs)."""
+    ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+          or (request.client.host if request.client else ""))
+    return {"name": KNOWN_PLAYERS.get(ip), "ip": ip}
 
 
 @app.get("/api/artists/wall")
