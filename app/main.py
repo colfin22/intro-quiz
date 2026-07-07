@@ -251,6 +251,8 @@ async def ws_endpoint(ws: WebSocket):
                         await hub.maybe_early_reveal()
                         await hub.broadcast()
                     elif kind == "flag_clip":
+                        if hub.game.host and name != hub.game.host:
+                            raise game.GameError(f"only {hub.game.host} can flag clips")
                         conn = db.connect()
                         try:
                             hub.game.flag_current(conn)
@@ -262,6 +264,8 @@ async def ws_endpoint(ws: WebSocket):
                             await hub._reveal()
                         await hub.broadcast()
                     elif kind == "abort":
+                        if hub.game and hub.game.host and name != hub.game.host:
+                            raise game.GameError(f"only {hub.game.host} can abandon the game")
                         hub.cancel_deadline()
                         hub.game = None
                         asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
