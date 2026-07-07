@@ -363,6 +363,17 @@ def api_whoami(request: Request):
     return {"name": KNOWN_PLAYERS.get(ip), "ip": ip}
 
 
+@app.post("/api/board/log")
+async def api_board_log(request: Request):
+    """The TV board reports playback failures here — it has no other voice."""
+    try:
+        body = await request.json()
+        LOGGER.warning("BOARD: %s", str(body.get("msg", ""))[:300])
+    except Exception:
+        pass
+    return {"ok": True}
+
+
 @app.get("/api/artists/wall")
 def api_artists_wall(limit: int = 60):
     """Popular artists with enough quizzable clips — the pick-3 wall."""
