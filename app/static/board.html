@@ -6,10 +6,18 @@
 <title>Intro Quiz — Board</title>
 <link rel="stylesheet" href="/static/quiz.css">
 <style>
-  main { max-width:900px; }
-  .big { font-size:3.2rem; }
-  .cols { display:flex; gap:1rem; align-items:flex-start; }
-  .cols > * { flex:1; }
+  /* TV-friendly: everything must fit a 16:9 viewport with no scrolling */
+  html, body { height:100%; overflow:hidden; }
+  main { max-width:min(96vw, 1100px); height:100vh; display:flex; flex-direction:column; padding:2vh 2vw; box-sizing:border-box; }
+  h1 { font-size:clamp(1.1rem, 3.5vh, 1.8rem); margin:0 0 1vh; }
+  .big { font-size:clamp(1.4rem, 6vh, 3rem); margin:1vh 0; }
+  .cols { display:flex; gap:1.5vw; align-items:stretch; flex:1; min-height:0; }
+  .cols > * { flex:1; min-height:0; overflow:hidden; }
+  #b-art-card { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  img.art { max-height:42vh; max-width:90%; width:auto; margin:1vh auto; }
+  #b-title { font-size:clamp(1.1rem, 4.5vh, 2rem) !important; margin:.5vh 0; text-align:center; }
+  #b-detail { font-size:clamp(.9rem, 3vh, 1.3rem); text-align:center; }
+  .scores li { font-size:clamp(1rem, 3.2vh, 1.5rem); }
 </style>
 </head>
 <body>
