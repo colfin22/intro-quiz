@@ -42,7 +42,20 @@ function scoresInto(el, players) {
   });
 }
 
+function renderDisplays() {
+  const box = document.getElementById("display-choice");
+  if (!state.displays) { box.innerHTML = ""; return; }
+  box.innerHTML = "";
+  for (const name of [...state.displays, "none"]) {
+    const b = document.createElement("button");
+    b.textContent = (name === state.display ? "✅ " : "") + (name === "none" ? "No board (phones only)" : name);
+    b.onclick = () => send({type: "set_display", display: name});
+    box.appendChild(b);
+  }
+}
+
 function render() {
+  renderDisplays();
   document.getElementById("abort-row").hidden = !(state.phase && state.phase !== "idle" && state.phase !== "finished");
   if (state.phase === "idle") { show("v-idle"); joined = false; return; }
   if (state.phase === "lobby" || (!joined && state.phase !== "finished")) {

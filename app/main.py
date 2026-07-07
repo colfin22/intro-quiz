@@ -99,12 +99,15 @@ class Hub:
         self.game: game.Game | None = None
         self.sockets: list[WebSocket] = []
         self.boards: set = set()
+        self.display: str | None = (board_cast.display_names() or [None])[0]
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
 
     async def broadcast(self):
         snap = self.game.snapshot() if self.game else {"phase": "idle"}
         snap["type"] = "state"
+        snap["displays"] = board_cast.display_names()
+        snap["display"] = self.display or "none"
         dead = []
         for ws in self.sockets:
             try:
@@ -157,13 +160,20 @@ async def ws_endpoint(ws: WebSocket):
     name = None
     try:
         snap = hub.game.snapshot() if hub.game else {"phase": "idle"}
-        await ws.send_json({**snap, "type": "state"})
+        await ws.send_json({**snap, "type": "state",
+                            "displays": board_cast.display_names(),
+                            "display": hub.display or "none"})
         while True:
             msg = await ws.receive_json()
             async with hub.lock:
                 try:
                     kind = msg.get("type")
-                    if kind == "board_hello":
+                    if kind == "set_display":
+                        want = msg.get("display")
+                        if want in (board_cast.display_names() + ["none"]):
+                            hub.display = None if want == "none" else want
+                        await hub.broadcast()
+                    elif kind == "board_hello":
                         hub.boards.add(ws)
                     elif kind == "new_game":
                         if hub.game and hub.game.phase not in ("finished", "lobby"):
@@ -176,7 +186,7 @@ async def ws_endpoint(ws: WebSocket):
                                                  tiers=msg.get("tiers") or ["easy", "medium"])
                         finally:
                             conn.close()
-                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board)
+                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
                         await hub.broadcast()
                     elif kind == "join":
                         if not hub.game:
@@ -206,7 +216,7 @@ async def ws_endpoint(ws: WebSocket):
                     elif kind == "abort":
                         hub.cancel_deadline()
                         hub.game = None
-                        asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board)
+                        asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
                         await hub.broadcast()
                     elif kind == "next":
                         if hub.game.phase == "reveal" and hub.game.is_last_round():
@@ -216,7 +226,7 @@ async def ws_endpoint(ws: WebSocket):
                             finally:
                                 conn.close()
                             loop = asyncio.get_event_loop()
-                            loop.call_later(60, lambda: loop.run_in_executor(None, board_cast.hide_board))
+                            loop.call_later(60, lambda: loop.run_in_executor(None, board_cast.hide_board, hub.display))
                             await hub.broadcast()
                         else:
                             await hub.start_round()
