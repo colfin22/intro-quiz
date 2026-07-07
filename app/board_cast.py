@@ -23,7 +23,9 @@ def _connect():
     global _cast
     import pychromecast
     if _cast is None:
-        _cast = pychromecast.Chromecast(DISPLAY_HOST)
+        # pychromecast 14: connect by host tuple (ip, port, uuid, model, name)
+        _cast = pychromecast.get_chromecast_from_host(
+            (DISPLAY_HOST, 8009, None, "Kitchen Display", "Kitchen Display"))
     _cast.wait(timeout=15)
     return _cast
 
