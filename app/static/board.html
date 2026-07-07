@@ -101,7 +101,7 @@ function connect() {
   ws.onmessage = (ev) => {
     const s = JSON.parse(ev.data);
     if (s.type !== "state") return;
-    if (s.phase === "question") playAudio(s.clip_len, `q${s.round}-${s.clip_len}`);
+    if (s.phase === "question") playAudio(s.clip_len, `q${s.round}-${s.clip_len}-${s.replay || 0}`);
     if (s.phase === "reveal" && s.track) playAudio("payoff", `p${s.round}`);
     document.getElementById("b-idle").hidden = s.phase !== "idle";
     document.getElementById("b-live").hidden = s.phase === "idle";
