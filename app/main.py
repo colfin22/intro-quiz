@@ -326,6 +326,24 @@ def api_ban_album(pattern: str):
         conn.close()
 
 
+@app.post("/api/leaderboard/reset")
+def api_leaderboard_reset(confirm: str = ""):
+    """Wipe the all-time leaderboard (games + results). Deliberately API-only —
+    no button in the family UI. Requires ?confirm=yes."""
+    if confirm != "yes":
+        return Response(status_code=400,
+                        content="add ?confirm=yes to wipe the all-time leaderboard")
+    conn = db.connect()
+    try:
+        games = conn.execute("SELECT COUNT(*) c FROM games").fetchone()["c"]
+        conn.execute("DELETE FROM results")
+        conn.execute("DELETE FROM games")
+        conn.commit()
+        return {"reset": True, "games_removed": games}
+    finally:
+        conn.close()
+
+
 @app.get("/api/leaderboard")
 def api_leaderboard():
     conn = db.connect()
