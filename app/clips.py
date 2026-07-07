@@ -28,10 +28,15 @@ class ClipError(RuntimeError):
     pass
 
 
-def _ffmpeg_cut(src: str, dest: str, start: float, length: int) -> None:
+def _ffmpeg_cut(src: str, dest: str, start: float, length: int, hide_tags: bool = False) -> None:
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(start), "-t", str(length),
            "-i", src, "-af", LOUDNORM, "-ar", "44100", "-codec:a", "libmp3lame",
-           "-b:a", BITRATE, dest]
+           "-b:a", BITRATE]
+    if hide_tags:
+        # players/displays show ID3 tags while a clip plays — never leak the answer
+        cmd += ["-map_metadata", "-1", "-metadata", "title=Intro Quiz",
+                "-metadata", "artist=Guess the song!"]
+    cmd += [dest]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         raise ClipError(f"ffmpeg failed for {dest}: {r.stderr.strip()[:300]}")
@@ -47,7 +52,7 @@ def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> Non
         src = os.path.join(tmp, "src")
         client.download(row["id"], src)
         for length in CLIP_LENGTHS:
-            _ffmpeg_cut(src, os.path.join(dest, f"{length}.mp3"), offset, length)
+            _ffmpeg_cut(src, os.path.join(dest, f"{length}.mp3"), offset, length, hide_tags=True)
         # payoff: ~40% in (usually a verse/chorus), clamped inside the song
         payoff_start = max(offset + max(CLIP_LENGTHS), duration * 0.4)
         if duration and payoff_start > duration - PAYOFF_LEN:
