@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, clips, config, db, game, ha, lastfm, scoring, subsonic, sync
+from . import __version__, board_cast, clips, config, db, game, ha, lastfm, scoring, subsonic, sync
 
 LOGGER = logging.getLogger(__name__)
 app = FastAPI(title="Intro Quiz", version=__version__)
@@ -168,6 +168,7 @@ async def ws_endpoint(ws: WebSocket):
                                                  tiers=msg.get("tiers") or ["easy", "medium"])
                         finally:
                             conn.close()
+                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board)
                         await hub.broadcast()
                     elif kind == "join":
                         if not hub.game:
@@ -189,6 +190,7 @@ async def ws_endpoint(ws: WebSocket):
                     elif kind == "abort":
                         hub.cancel_deadline()
                         hub.game = None
+                        asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board)
                         await hub.broadcast()
                     elif kind == "next":
                         if hub.game.phase == "reveal" and hub.game.is_last_round():
@@ -197,6 +199,8 @@ async def ws_endpoint(ws: WebSocket):
                                 hub.game.finish(conn)
                             finally:
                                 conn.close()
+                            loop = asyncio.get_event_loop()
+                            loop.call_later(60, lambda: loop.run_in_executor(None, board_cast.hide_board))
                             await hub.broadcast()
                         else:
                             await hub.start_round()
