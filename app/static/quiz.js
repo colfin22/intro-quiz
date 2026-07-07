@@ -51,7 +51,7 @@ function sendArtists() {
   artistsSent = true;
   render();
 }
-function skipArtists() { artistsSent = true; render(); }
+function skipArtists() { artistsSent = true; send({type: "ready"}); render(); }
 
 function join() {
   myName = document.getElementById("name").value.trim();
@@ -103,13 +103,22 @@ function render() {
     const amHost = !state.host || state.host === myName;
     if (joined && state.phase === "lobby") {
       document.getElementById("lobby-count").textContent = state.players.length + " player" + (state.players.length === 1 ? "" : "s");
-      document.getElementById("lobby-names").textContent =
-        state.players.map(p => p.name + (p.picked_artists ? " 🎯" : "")).join(", ");
+      const roster = document.getElementById("lobby-roster");
+      roster.innerHTML = "";
+      let allReady = state.players.length > 0;
+      for (const p of state.players) {
+        const li = document.createElement("li");
+        li.innerHTML = `<span>${p.name}</span><b>${p.ready ? "✅ READY" : "⏳ picking artists…"}</b>`;
+        if (!p.ready) { li.style.opacity = ".7"; allReady = false; }
+        roster.appendChild(li);
+      }
       document.getElementById("artist-pick").hidden = artistsSent;
       document.getElementById("artist-picked").hidden = !artistsSent;
       if (!artistsSent && wall.length === 0) loadWall();
       const sb = document.querySelector("#v-lobby > button.primary");
       sb.hidden = !amHost;
+      sb.disabled = !allReady;
+      sb.textContent = allReady ? "▶ Start round 1" : "waiting for everyone to be ready…";
       document.getElementById("lobby-wait").hidden = amHost;
       if (state.host) document.getElementById("lobby-wait").textContent = `${state.host} starts the game 🎤`;
       show("v-lobby");
