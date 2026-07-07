@@ -69,6 +69,7 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
     """Cut clips for tiered tracks that don't have them yet, easiest tiers first."""
     rows = conn.execute(
         f"SELECT * FROM tracks WHERE active=1 AND banned=0 AND tier IS NOT NULL AND clipped_at IS NULL "
+        f"AND (duration IS NULL OR duration <= 720) "
         f"ORDER BY {TIER_ORDER}, global_listeners DESC LIMIT ?", (limit,)).fetchall()
     done = errors = 0
     for row in rows:
@@ -94,6 +95,7 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
         conn.commit()
         done += 1
     remaining = conn.execute(
-        "SELECT COUNT(*) c FROM tracks WHERE active=1 AND banned=0 AND tier IS NOT NULL AND clipped_at IS NULL"
+        "SELECT COUNT(*) c FROM tracks WHERE active=1 AND banned=0 AND tier IS NOT NULL AND clipped_at IS NULL "
+        "AND (duration IS NULL OR duration <= 720)"
     ).fetchone()["c"]
     return {"cut": done, "errors": errors, "remaining": remaining}

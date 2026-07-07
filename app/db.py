@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     title TEXT NOT NULL,
     artist TEXT NOT NULL,
     album TEXT,
+    album_artist TEXT,           -- 'Various Artists' = compilation, excluded from the quiz
     album_id TEXT,
     genre TEXT,
     year INTEGER,
@@ -58,7 +59,8 @@ def connect(path: str | None = None) -> sqlite3.Connection:
     conn.executescript(SCHEMA)
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(tracks)")}
     for ddl in ("ALTER TABLE tracks ADD COLUMN clipped_at TEXT",
-                "ALTER TABLE tracks ADD COLUMN banned INTEGER DEFAULT 0"):
+                "ALTER TABLE tracks ADD COLUMN banned INTEGER DEFAULT 0",
+                "ALTER TABLE tracks ADD COLUMN album_artist TEXT"):
         col = ddl.split(" ADD COLUMN ")[1].split()[0]
         if col not in cols:
             try:

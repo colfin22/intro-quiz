@@ -24,14 +24,15 @@ def sync_library(conn, client: subsonic.Client) -> dict:
             for s in client.album_songs(album["id"]):
                 seen.add(s["id"])
                 conn.execute(
-                    "INSERT INTO tracks(id,title,artist,album,album_id,genre,year,duration,cover_art,active) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,1) "
+                    "INSERT INTO tracks(id,title,artist,album,album_artist,album_id,genre,year,duration,cover_art,active) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,1) "
                     "ON CONFLICT(id) DO UPDATE SET title=excluded.title, artist=excluded.artist, "
-                    "album=excluded.album, album_id=excluded.album_id, genre=excluded.genre, "
-                    "year=excluded.year, duration=excluded.duration, cover_art=excluded.cover_art, active=1",
+                    "album=excluded.album, album_artist=excluded.album_artist, album_id=excluded.album_id, "
+                    "genre=excluded.genre, year=excluded.year, duration=excluded.duration, "
+                    "cover_art=excluded.cover_art, active=1",
                     (s["id"], s.get("title", "?"), s.get("artist", "?"), s.get("album"),
-                     album["id"], s.get("genre"), s.get("year"), s.get("duration"),
-                     s.get("coverArt")))
+                     album.get("artist"), album["id"], s.get("genre"), s.get("year"),
+                     s.get("duration"), s.get("coverArt")))
         offset += len(batch)
         LOGGER.info("synced %d albums so far", offset)
     # anything not seen this pass is gone from the library
