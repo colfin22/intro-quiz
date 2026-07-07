@@ -40,7 +40,7 @@ def show_board() -> bool:
             cast = _connect()
             dc = DashCastController()
             cast.register_handler(dc)
-            dc.load_url(BOARD_URL)
+            dc.load_url(BOARD_URL, force=True)  # top-level load: iframe autoplay policy blocks board audio
         LOGGER.info("board cast to %s", DISPLAY_HOST)
         return True
     except Exception as e:  # noqa: BLE001 - board is cosmetic, never break the game
