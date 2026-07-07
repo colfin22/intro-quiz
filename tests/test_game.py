@@ -33,6 +33,7 @@ def test_full_game_flow():
         clock = Clock()
         g = game.Game(conn, rounds=2, tiers=["easy", "medium"], clock=clock)
         g.join("Colm"); g.join("Olivia")
+        g.build_rounds(conn)
         rnd = g.start_round()
         assert g.phase == "question" and len(rnd["options"]) == 4
         correct = rnd["correct"]
@@ -68,6 +69,7 @@ def test_options_contain_answer_and_unique_artists():
     conn, p = make_db()
     try:
         g = game.Game(conn, rounds=5, clock=Clock())
+        g.join("X"); g.build_rounds(conn)
         for rnd in g.rounds:
             t = rnd["track"]
             labels = [(o["title"], o["artist"]) for o in rnd["options"]]
@@ -83,6 +85,7 @@ def test_snapshot_hides_answer_during_question():
     try:
         g = game.Game(conn, rounds=1, clock=Clock())
         g.join("X")
+        g.build_rounds(conn)
         g.start_round()
         snap = g.snapshot()
         assert "correct" not in snap and "track" not in snap
@@ -100,6 +103,7 @@ def test_guards():
         with pytest.raises(game.GameError):  # no players yet
             g.start_round()
         g.join("A")
+        g.build_rounds(conn)
         g.start_round()
         with pytest.raises(game.GameError):  # stranger can't answer
             g.answer("B", 0)
@@ -118,6 +122,7 @@ def test_flag_current_bans_track():
     try:
         g = game.Game(conn, rounds=1, clock=Clock())
         g.join("A")
+        g.build_rounds(conn)
         g.start_round()
         tid = g.flag_current(conn)
         assert conn.execute("SELECT banned FROM tracks WHERE id=?", (tid,)).fetchone()["banned"] == 1
@@ -125,5 +130,27 @@ def test_flag_current_bans_track():
         # banned tracks never picked again
         ids = {r["track"]["id"] for r in game.Game(conn, rounds=5, clock=Clock()).rounds}
         assert tid not in ids
+    finally:
+        os.unlink(p)
+
+
+
+def test_artist_boost_rounds():
+    conn, p = make_db()
+    try:
+        g = game.Game(conn, rounds=4, clock=Clock())
+        g.join("Olivia")
+        g.set_artists("Olivia", ["Artist 7", "Artist 9"])
+        g.join("Cian")  # no picks — no boost round for him
+        g.build_rounds(conn)
+        artists = [r["track"]["artist"] for r in g.rounds]
+        assert any(a in ("Artist 7", "Artist 9") for a in artists), artists
+        assert len(g.rounds) == 4
+        assert len({r["track"]["id"] for r in g.rounds}) == 4  # no dupes
+        snap = g.snapshot()
+        by = {pl["name"]: pl for pl in snap["players"]}
+        assert by["Olivia"]["picked_artists"] is True
+        assert by["Cian"]["picked_artists"] is False
+        assert "artists" not in by["Olivia"]  # picks never leak in snapshots
     finally:
         os.unlink(p)

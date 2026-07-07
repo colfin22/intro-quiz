@@ -21,14 +21,29 @@ class GameError(RuntimeError):
     pass
 
 
-def pick_tracks(conn, rounds: int, tiers: list[str]) -> list[dict]:
+def pick_tracks(conn, rounds: int, tiers: list[str], exclude: set | None = None) -> list[dict]:
     qmarks = ",".join("?" * len(tiers))
+    ex = exclude or set()
+    exq = f"AND id NOT IN ({','.join('?' * len(ex))}) " if ex else ""
     rows = conn.execute(
-        f"SELECT * FROM tracks WHERE {QUIZZABLE} AND tier IN ({qmarks}) "
-        f"ORDER BY RANDOM() LIMIT ?", (*tiers, rounds)).fetchall()
+        f"SELECT * FROM tracks WHERE {QUIZZABLE} AND tier IN ({qmarks}) {exq}"
+        f"ORDER BY RANDOM() LIMIT ?", (*tiers, *ex, rounds)).fetchall()
     if len(rows) < rounds:
         raise GameError(f"only {len(rows)} clipped tracks in tiers {tiers} — need {rounds}")
     return [dict(r) for r in rows]
+
+
+def pick_artist_track(conn, artists: list[str], exclude: set) -> dict | None:
+    """One quizzable track by any of the player's chosen artists (any tier)."""
+    if not artists:
+        return None
+    aq = ",".join("?" * len(artists))
+    ex = exclude or set()
+    exq = f"AND id NOT IN ({','.join('?' * len(ex))}) " if ex else ""
+    row = conn.execute(
+        f"SELECT * FROM tracks WHERE {QUIZZABLE} AND artist IN ({aq}) {exq}"
+        f"ORDER BY RANDOM() LIMIT 1", (*artists, *ex)).fetchone()
+    return dict(row) if row else None
 
 
 def pick_decoys(conn, track: dict, n: int = 3) -> list[dict]:
@@ -57,32 +72,60 @@ def pick_decoys(conn, track: dict, n: int = 3) -> list[dict]:
 class Game:
     def __init__(self, conn, rounds: int = 10, tiers: list[str] | None = None,
                  clock=time.monotonic):
-        tiers = tiers or ["easy", "medium"]
+        self.tiers = tiers or ["easy", "medium"]
+        self.n_rounds = rounds
         self.clock = clock
-        self.rounds: list[dict] = []
-        for t in pick_tracks(conn, rounds, tiers):
-            options = pick_decoys(conn, t) + [{"title": t["title"], "artist": t["artist"]}]
-            random.shuffle(options)
-            self.rounds.append({
-                "track": t,
-                "options": options,
-                "correct": next(i for i, o in enumerate(options)
-                                if o["title"] == t["title"] and o["artist"] == t["artist"]),
-                "answers": {},        # player -> {choice, elapsed_ms, points}
-                "started_at": None,   # clock() when the clip started
-                "clip_len": 5,
-            })
-        self.players: dict[str, dict] = {}  # name -> {score, correct, fastest_ms}
+        self.rounds: list[dict] = []  # built lazily at first start_round, after artist picks
+        # fail fast if the pool can't even fill a plain game
+        pick_tracks(conn, rounds, self.tiers)
+        self.players: dict[str, dict] = {}  # name -> {score, correct, fastest_ms, artists}
         self.current = -1
         self.phase = "lobby"  # lobby | question | reveal | finished
         self.started_at = datetime.now(timezone.utc).isoformat()
+
+    def set_artists(self, name: str, artists: list[str]) -> None:
+        if self.phase != "lobby":
+            raise GameError("artists can only be picked in the lobby")
+        if name not in self.players:
+            raise GameError("join first")
+        self.players[name]["artists"] = [a for a in artists if isinstance(a, str)][:3]
+
+    def _mk_round(self, conn, t: dict) -> dict:
+        options = pick_decoys(conn, t) + [{"title": t["title"], "artist": t["artist"]}]
+        random.shuffle(options)
+        return {
+            "track": t,
+            "options": options,
+            "correct": next(i for i, o in enumerate(options)
+                            if o["title"] == t["title"] and o["artist"] == t["artist"]),
+            "answers": {},        # player -> {choice, elapsed_ms, points}
+            "started_at": None,   # clock() when the clip started
+            "clip_len": 5,
+        }
+
+    def build_rounds(self, conn) -> None:
+        """One boost round per player from their chosen artists, rest from the pool."""
+        if self.rounds:
+            return
+        picked: list[dict] = []
+        ids: set = set()
+        for p in self.players.values():
+            if len(picked) >= self.n_rounds - 1:
+                break  # keep at least one neutral round
+            t = pick_artist_track(conn, p.get("artists") or [], ids)
+            if t:
+                picked.append(t)
+                ids.add(t["id"])
+        picked += pick_tracks(conn, self.n_rounds - len(picked), self.tiers, exclude=ids)
+        random.shuffle(picked)  # boost rounds indistinguishable
+        self.rounds = [self._mk_round(conn, t) for t in picked]
 
     # -- lobby ---------------------------------------------------------------
     def join(self, name: str) -> None:
         name = name.strip()[:24]
         if not name:
             raise GameError("empty name")
-        self.players.setdefault(name, {"score": 0, "correct": 0, "fastest_ms": None})
+        self.players.setdefault(name, {"score": 0, "correct": 0, "fastest_ms": None, "artists": []})
 
     # -- rounds --------------------------------------------------------------
     def start_round(self) -> dict:
@@ -171,8 +214,9 @@ class Game:
             "phase": self.phase,
             "round": self.current + 1,
             "total_rounds": len(self.rounds),
-            "players": [{"name": n, **p} for n, p in
-                        sorted(self.players.items(), key=lambda kv: -kv[1]["score"])],
+            "players": [{"name": n, "score": p["score"], "correct": p["correct"],
+                         "fastest_ms": p["fastest_ms"], "picked_artists": bool(p.get("artists"))}
+                        for n, p in sorted(self.players.items(), key=lambda kv: -kv[1]["score"])],
         }
         if self.current >= 0 and self.phase in ("question", "reveal"):
             rnd = self.rounds[self.current]

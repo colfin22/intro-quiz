@@ -28,6 +28,13 @@
 
   <div id="v-lobby" class="card" hidden>
     <p><b id="lobby-count"></b> in the lobby: <span id="lobby-names" class="dim"></span></p>
+    <div id="artist-pick">
+      <p class="dim">Pick <b>3 artists you know</b> — a song of theirs will sneak into the game:</p>
+      <div id="artist-wall" class="wall"></div>
+      <button class="primary" id="artist-done" onclick="sendArtists()" disabled>Pick 3</button>
+      <p class="dim center"><a href="#" onclick="skipArtists();return false">skip</a></p>
+    </div>
+    <div id="artist-picked" hidden><p class="dim">✅ Your artists are in. Waiting for the game…</p></div>
     <button class="primary" onclick="send({type:'start_round'})">▶ Start round 1</button>
   </div>
 

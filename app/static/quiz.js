@@ -10,6 +10,7 @@ function connect() {
       const prevRound = state.round;
       state = msg;
       if (state.phase !== "question" || state.round !== prevRound) myPick = null;
+      if (state.phase === "idle") { artistsSent = false; myArtists = []; }
       render();
     }
   };
@@ -19,6 +20,37 @@ function connect() {
 function send(obj) { ws.send(JSON.stringify(obj)); }
 function showErr(m) { const e = document.getElementById("err"); e.textContent = m;
                       setTimeout(() => { e.textContent = ""; }, 4000); }
+
+let wall = [], myArtists = [], artistsSent = false;
+function loadWall() {
+  fetch("/api/artists/wall").then(r => r.json()).then(list => { wall = list; renderWall(); });
+}
+function renderWall() {
+  const box = document.getElementById("artist-wall");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const a of wall) {
+    const b = document.createElement("button");
+    b.textContent = a.artist;
+    if (myArtists.includes(a.artist)) b.classList.add("sel");
+    b.onclick = () => {
+      const i = myArtists.indexOf(a.artist);
+      if (i >= 0) myArtists.splice(i, 1);
+      else if (myArtists.length < 3) myArtists.push(a.artist);
+      renderWall();
+    };
+    box.appendChild(b);
+  }
+  const done = document.getElementById("artist-done");
+  done.disabled = myArtists.length !== 3;
+  done.textContent = myArtists.length === 3 ? "✅ Lock in my 3" : `Pick ${3 - myArtists.length} more`;
+}
+function sendArtists() {
+  send({type: "set_artists", artists: myArtists});
+  artistsSent = true;
+  render();
+}
+function skipArtists() { artistsSent = true; render(); }
 
 function join() {
   myName = document.getElementById("name").value.trim();
@@ -67,7 +99,11 @@ function render() {
     }
     if (joined && state.phase === "lobby") {
       document.getElementById("lobby-count").textContent = state.players.length + " player" + (state.players.length === 1 ? "" : "s");
-      document.getElementById("lobby-names").textContent = state.players.map(p => p.name).join(", ");
+      document.getElementById("lobby-names").textContent =
+        state.players.map(p => p.name + (p.picked_artists ? " 🎯" : "")).join(", ");
+      document.getElementById("artist-pick").hidden = artistsSent;
+      document.getElementById("artist-picked").hidden = !artistsSent;
+      if (!artistsSent && wall.length === 0) loadWall();
       show("v-lobby");
     }
     if (!joined) return;
