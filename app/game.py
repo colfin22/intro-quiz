@@ -9,6 +9,10 @@ import time
 from datetime import datetime, timezone
 
 ANSWER_WINDOW_S = 20
+MAX_DURATION_S = 720   # >12 min = DJ mix / live jam, not quizzable
+# over-long DJ mixes / live jams never enter the quiz (compilations are fine)
+QUIZZABLE = ("active=1 AND banned=0 AND clipped_at IS NOT NULL "
+             f"AND (duration IS NULL OR duration <= {MAX_DURATION_S})")
 BASE_POINTS = 100
 SPEED_BONUS_MAX = 50  # linear decay to 0 across the window
 
@@ -20,7 +24,7 @@ class GameError(RuntimeError):
 def pick_tracks(conn, rounds: int, tiers: list[str]) -> list[dict]:
     qmarks = ",".join("?" * len(tiers))
     rows = conn.execute(
-        f"SELECT * FROM tracks WHERE active=1 AND banned=0 AND clipped_at IS NOT NULL AND tier IN ({qmarks}) "
+        f"SELECT * FROM tracks WHERE {QUIZZABLE} AND tier IN ({qmarks}) "
         f"ORDER BY RANDOM() LIMIT ?", (*tiers, rounds)).fetchall()
     if len(rows) < rounds:
         raise GameError(f"only {len(rows)} clipped tracks in tiers {tiers} — need {rounds}")

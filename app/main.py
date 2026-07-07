@@ -261,6 +261,19 @@ def api_round_audio(kind: str = "5"):
                         headers={"Cache-Control": "no-store"})
 
 
+@app.post("/api/ban/album")
+def api_ban_album(pattern: str):
+    """Ban every track whose album matches the SQL LIKE pattern (case-insensitive)."""
+    conn = db.connect()
+    try:
+        n = conn.execute("UPDATE tracks SET banned=1 WHERE album LIKE ? AND banned=0",
+                         (pattern,)).rowcount
+        conn.commit()
+        return {"banned": n, "pattern": pattern}
+    finally:
+        conn.close()
+
+
 @app.get("/api/leaderboard")
 def api_leaderboard():
     conn = db.connect()
