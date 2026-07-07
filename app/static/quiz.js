@@ -159,12 +159,31 @@ function render() {
     document.getElementById("r-title").textContent = state.track.title;
     document.getElementById("r-detail").textContent =
       `${state.track.artist} — ${state.track.album || ""} ${state.track.year ? "(" + state.track.year + ")" : ""}`;
+    const res = document.getElementById("r-results");
+    res.innerHTML = "";
+    for (const p of state.players) {
+      const a = (state.round_answers || {})[p.name];
+      const li = document.createElement("li");
+      li.innerHTML = a
+        ? (a.points > 0 ? `<span>✅ ${p.name}</span><b style="color:var(--good)">+${a.points}</b>`
+                        : `<span>❌ ${p.name}</span><b style="color:var(--bad)">0</b>`)
+        : `<span>😴 ${p.name}</span><b>—</b>`;
+      res.appendChild(li);
+    }
     scoresInto(document.getElementById("r-scores"), state.players);
     document.getElementById("r-flag").parentElement.hidden = !hostOnly;
     document.getElementById("r-flag").textContent =
       state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
     document.getElementById("r-next").textContent =
       state.round >= state.total_rounds ? "🏁 Finish" : `▶ Round ${state.round + 1}`;
+  }
+  if (state.phase === "break") {
+    stopTimer();
+    show("v-break");
+    scoresInto(document.getElementById("bk-scores"), state.players);
+    document.getElementById("bk-next").hidden = !amHost;
+    document.getElementById("bk-wait").hidden = amHost;
+    if (state.host) document.getElementById("bk-wait").textContent = `${state.host} restarts when everyone's back`;
   }
   if (state.phase === "finished") {
     stopTimer();

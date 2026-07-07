@@ -46,6 +46,16 @@ def _ffmpeg_cut(src: str, dest: str, start: float, length: int, hide_tags: bool 
         raise ClipError(f"ffmpeg failed for {dest}: {r.stderr.strip()[:300]}")
 
 
+def _cut_all(src: str, dest: str, offset: float, duration: int) -> None:
+    for length in CLIP_LENGTHS:
+        _ffmpeg_cut(src, os.path.join(dest, f"{length}.mp3"), offset, length, hide_tags=True)
+    # payoff: ~40% in (usually a verse/chorus), clamped inside the song
+    payoff_start = max(offset + max(CLIP_LENGTHS), duration * 0.4)
+    if duration and payoff_start > duration - PAYOFF_LEN:
+        payoff_start = max(offset, duration - PAYOFF_LEN)
+    _ffmpeg_cut(src, os.path.join(dest, "payoff.mp3"), payoff_start, PAYOFF_LEN)
+
+
 def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> None:
     clips_dir = clips_dir or config.CLIPS_DIR
     dest = os.path.join(clips_dir, row["id"])
@@ -55,13 +65,13 @@ def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> Non
     with tempfile.TemporaryDirectory() as tmp:
         src = os.path.join(tmp, "src")
         client.download(row["id"], src)
-        for length in CLIP_LENGTHS:
-            _ffmpeg_cut(src, os.path.join(dest, f"{length}.mp3"), offset, length, hide_tags=True)
-        # payoff: ~40% in (usually a verse/chorus), clamped inside the song
-        payoff_start = max(offset + max(CLIP_LENGTHS), duration * 0.4)
-        if duration and payoff_start > duration - PAYOFF_LEN:
-            payoff_start = max(offset, duration - PAYOFF_LEN)
-        _ffmpeg_cut(src, os.path.join(dest, "payoff.mp3"), payoff_start, PAYOFF_LEN)
+        try:
+            _cut_all(src, dest, offset, duration)
+        except ClipError:
+            # original undecodable (old WMA etc.) — let Navidrome transcode it
+            LOGGER.info("retrying %s - %s via server transcode", row["artist"], row["title"])
+            client.download_transcoded(row["id"], src)
+            _cut_all(src, dest, offset, duration)
 
 
 def cut_batch(conn, client: subsonic.Client, limit: int = 50,
@@ -81,7 +91,7 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
             errors += 1
             LOGGER.warning("clip cut failed permanently, banning %s - %s: %s",
                            row["artist"], row["title"], e)
-            conn.execute("UPDATE tracks SET banned=1 WHERE id=?", (row["id"],))
+            conn.execute("UPDATE tracks SET banned=1, ban_reason='decode' WHERE id=?", (row["id"],))
             conn.commit()
             shutil.rmtree(os.path.join(clips_dir or config.CLIPS_DIR, row["id"]), ignore_errors=True)
             continue

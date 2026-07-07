@@ -284,7 +284,10 @@ async def ws_endpoint(ws: WebSocket):
                     elif kind == "next":
                         if hub.game.host and name != hub.game.host:
                             raise game.GameError(f"only {hub.game.host} controls the rounds")
-                        if hub.game.phase == "reveal" and hub.game.is_last_round():
+                        if hub.game.phase == "reveal" and hub.game.is_halfway() and not hub.game.is_last_round():
+                            hub.game.phase = "break"
+                            await hub.broadcast()
+                        elif hub.game.phase == "reveal" and hub.game.is_last_round():
                             conn = db.connect()
                             try:
                                 hub.game.finish(conn)
@@ -302,6 +305,15 @@ async def ws_endpoint(ws: WebSocket):
     finally:
         if ws in hub.sockets:
             hub.sockets.remove(ws)
+        if ws in hub.boards:
+            hub.boards.discard(ws)
+            if hub.game and hub.game.phase in ("question", "reveal", "break", "lobby"):
+                async def _recast():
+                    await asyncio.sleep(15)
+                    if hub.game and not hub.board_live() and hub.display:
+                        LOGGER.warning("board lost mid-game — recasting to %s", hub.display)
+                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
+                asyncio.create_task(_recast())
 
 
 @app.get("/")
@@ -371,7 +383,7 @@ def api_ban_album(pattern: str):
     """Ban every track whose album matches the SQL LIKE pattern (case-insensitive)."""
     conn = db.connect()
     try:
-        n = conn.execute("UPDATE tracks SET banned=1 WHERE album LIKE ? AND banned=0",
+        n = conn.execute("UPDATE tracks SET banned=1, ban_reason='album' WHERE album LIKE ? AND banned=0",
                          (pattern,)).rowcount
         conn.commit()
         return {"banned": n, "pattern": pattern}
