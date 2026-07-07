@@ -19,13 +19,12 @@
   #b-title { font-size:clamp(1.1rem, 4.5vh, 2rem) !important; margin:.5vh 0; text-align:center; }
   #b-detail { font-size:clamp(.9rem, 3vh, 1.3rem); text-align:center; }
   .scores li { font-size:clamp(1rem, 3.2vh, 1.5rem); }
-  .wavebox { display:flex; align-items:center; justify-content:center; gap:1vw; height:40vh; }
-  .wavebox span { width:2.2vw; background:var(--accent); border-radius:1vw; animation:wv 1s ease-in-out infinite; }
-  .wavebox span:nth-child(2n) { animation-delay:.18s; height:20vh; }
-  .wavebox span:nth-child(3n) { animation-delay:.34s; height:28vh; }
-  .wavebox span:nth-child(4n) { animation-delay:.52s; height:14vh; }
-  .wavebox span:nth-child(1) , .wavebox span:nth-child(5), .wavebox span:nth-child(9) { height:24vh; }
-  @keyframes wv { 0%,100% { transform:scaleY(.35);} 50% { transform:scaleY(1);} }
+  .wavebox { height:40vh; display:flex; align-items:center; overflow:hidden; }
+  .wavebox svg { width:100%; height:60%; }
+  .wavebox path { fill:none; stroke:var(--accent); stroke-width:4; stroke-linecap:round; }
+  .wavebox .w1 { animation:flow 2.4s linear infinite; }
+  .wavebox .w2 { stroke:#7f8ba3; opacity:.6; stroke-width:3; animation:flow 3.8s linear infinite reverse; }
+  @keyframes flow { from { transform:translateX(0);} to { transform:translateX(-50%);} }
   #b-results li b.good { color:var(--good); } #b-results li b.bad { color:var(--bad); }
 </style>
 </head>
@@ -41,7 +40,12 @@
     <div class="cols">
       <div class="card center" id="b-wave-card" hidden>
         <div class="wavebox">
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <svg viewBox="0 0 400 120" preserveAspectRatio="none">
+            <path class="w1" d="M0 60 Q 25 15 50 60 T 100 60 T 150 60 T 200 60 T 250 60 T 300 60 T 350 60 T 400 60
+                                 Q 425 15 450 60 T 500 60 T 550 60 T 600 60 T 650 60 T 700 60 T 750 60 T 800 60" />
+            <path class="w2" d="M0 60 Q 35 105 70 60 T 140 60 T 210 60 T 280 60 T 350 60 T 420 60
+                                 Q 455 105 490 60 T 560 60 T 630 60 T 700 60 T 770 60 T 840 60" />
+          </svg>
         </div>
         <p class="dim" style="font-size:clamp(1rem,3vh,1.4rem)">🎧 listen…</p>
       </div>
