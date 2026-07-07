@@ -1,4 +1,5 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
+let lastBuzzRound = 0;
 let joined = false, myPick = null, timerHandle = null;
 
 function connect() {
@@ -63,6 +64,8 @@ function join() {
 function show(id) {
   for (const v of document.querySelectorAll("[id^=v-]")) v.hidden = true;
   document.getElementById(id).hidden = false;
+  // first-timers see the rules while joining and in the lobby
+  document.getElementById("v-howto").hidden = !(id === "v-join" || id === "v-lobby");
 }
 
 function scoresInto(el, players) {
@@ -109,6 +112,10 @@ function render() {
     if (!joined) return;
   }
   if (state.phase === "question") {
+    if (state.round !== lastBuzzRound) {
+      lastBuzzRound = state.round;
+      if (navigator.vibrate) navigator.vibrate(200);
+    }
     show("v-question");
     document.getElementById("q-progress").textContent =
       `Round ${state.round} of ${state.total_rounds} — ${state.clip_len}s clip`;
