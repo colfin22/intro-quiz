@@ -1,10 +1,12 @@
 # Intro Quiz
 
 Self-hosted "guess the intro" music quiz for family game night, built on your own
-[Navidrome](https://www.navidrome.org/) library. A TV (or smart display) shows the
-scoreboard and plays the **first 5 seconds of a song**; everyone races to name it
-on their phones. Fastest correct answer scores most. All local — your music, your
-network, no subscriptions.
+[Navidrome](https://www.navidrome.org/) library. A song's **first 5 seconds** play
+and everyone races to name it on their phones — fastest correct answer scores most.
+Runs on a **cast display or Android TV** (scoreboard + album art + audio on the big
+screen), or **just as happily on a cast speaker** — no scoreboard, phones carry the
+questions, the speaker carries the music. All local — your music, your network, no
+subscriptions.
 
 ## How a game works
 
@@ -46,8 +48,9 @@ network, no subscriptions.
   per-round endpoint so phones can't extract the track id mid-round. Android TV
   (e.g. Nvidia Shield) autoplays; touch displays (Nest Hub) need one tap to unlock
   sound — the board shows an overlay asking for it.
-- **Fallback** — with no display selected, clips cast to a speaker via Home
-  Assistant + Music Assistant instead.
+- **Speaker-only mode** — pick "no scoreboard" at game start and clips cast to a
+  speaker via Home Assistant + Music Assistant instead; the phones do the rest.
+  A display isn't required to play.
 - **Upkeep** — a nightly job re-syncs the library, refreshes scores, re-tiers and
   cuts new clips. Clips cost ~1.8 MB per track.
 
