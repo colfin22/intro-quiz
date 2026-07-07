@@ -35,15 +35,41 @@
   </div>
 </main>
 <audio id="b-audio"></audio>
+<div id="b-tap" hidden style="position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9;font-size:3rem;flex-direction:column">
+  <div>🔊</div><div style="font-size:1.6rem">Tap anywhere for sound</div>
+</div>
+<p class="dim center" id="b-audio-status"></p>
 <script>
-let ws, lastKey = "";
+let ws, lastKey = "", audioUnlocked = false;
+const bAudio = document.getElementById("b-audio");
+function aStatus(t) { document.getElementById("b-audio-status").textContent = t; }
 function playAudio(kind, key) {
   if (key === lastKey) return;
   lastKey = key;
-  const a = document.getElementById("b-audio");
-  a.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`;
-  a.play().catch((e) => console.log("autoplay blocked?", e));
+  bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`;
+  bAudio.muted = true;
+  bAudio.volume = 1;
+  bAudio.play().then(() => {
+    // started muted (always allowed) — try to unmute programmatically
+    setTimeout(() => {
+      bAudio.muted = false;
+      if (bAudio.paused && !audioUnlocked) showTap();
+      else aStatus("");
+    }, 250);
+  }).catch(() => { if (!audioUnlocked) showTap(); });
 }
+function showTap() {
+  document.getElementById("b-tap").hidden = false;
+  aStatus("audio blocked — tap the screen once");
+}
+document.addEventListener("pointerdown", () => {
+  audioUnlocked = true;
+  document.getElementById("b-tap").hidden = true;
+  aStatus("");
+  bAudio.muted = false;
+  if (bAudio.paused && bAudio.src) bAudio.play().catch((e) => aStatus("audio error: " + e));
+}, {capture: true});
+bAudio.addEventListener("error", () => aStatus("audio load error"));
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.onopen = () => ws.send(JSON.stringify({type: "board_hello"}));
