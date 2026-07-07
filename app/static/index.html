@@ -35,6 +35,7 @@
     <div id="q-options"></div>
     <p class="dim center" id="q-answered"></p>
     <button onclick="send({type:'extend_clip'})">🔁 Play a bit more</button>
+    <p class="dim center"><a href="#" id="q-flag" onclick="send({type:'flag_clip'});return false">🚫 bad clip — don't use this song again</a></p>
   </div>
 
   <div id="v-reveal" hidden>
@@ -42,6 +43,7 @@
     <p class="big" id="r-title"></p>
     <p class="dim center" id="r-detail"></p>
     <div class="card"><ul class="scores" id="r-scores"></ul></div>
+    <p class="dim center"><a href="#" id="r-flag" onclick="send({type:'flag_clip'});return false">🚫 bad clip — don't use this song again</a></p>
     <button class="primary" id="r-next" onclick="send({type:'next'})"></button>
   </div>
 
