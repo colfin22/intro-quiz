@@ -229,9 +229,16 @@ async def ws_endpoint(ws: WebSocket):
                     elif kind == "set_artists":
                         hub.game.set_artists(name or msg.get("name", ""), msg.get("artists") or [])
                         await hub.broadcast()
+                    elif kind == "ready":
+                        hub.game.set_ready(name or msg.get("name", ""))
+                        await hub.broadcast()
                     elif kind == "start_round":
                         if hub.game.host and name != hub.game.host:
                             raise game.GameError(f"only {hub.game.host} controls the rounds")
+                        if hub.game.phase == "lobby":
+                            waiting = hub.game.waiting_on()
+                            if waiting:
+                                raise game.GameError("not everyone is ready: " + ", ".join(waiting))
                         await hub.start_round()
                     elif kind == "extend_clip":
                         length = hub.game.extend_clip()

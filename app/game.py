@@ -90,6 +90,15 @@ class Game:
         if name not in self.players:
             raise GameError("join first")
         self.players[name]["artists"] = [a for a in artists if isinstance(a, str)][:3]
+        self.players[name]["ready"] = True
+
+    def set_ready(self, name: str) -> None:
+        if name not in self.players:
+            raise GameError("join first")
+        self.players[name]["ready"] = True
+
+    def waiting_on(self) -> list[str]:
+        return [n for n, p in self.players.items() if not p.get("ready")]
 
     def _mk_round(self, conn, t: dict) -> dict:
         options = pick_decoys(conn, t) + [{"title": t["title"], "artist": t["artist"]}]
@@ -126,7 +135,7 @@ class Game:
         name = name.strip()[:24]
         if not name:
             raise GameError("empty name")
-        self.players.setdefault(name, {"score": 0, "correct": 0, "fastest_ms": None, "artists": []})
+        self.players.setdefault(name, {"score": 0, "correct": 0, "fastest_ms": None, "artists": [], "ready": False})
 
     # -- rounds --------------------------------------------------------------
     def start_round(self) -> dict:
@@ -217,7 +226,8 @@ class Game:
             "round": self.current + 1,
             "total_rounds": len(self.rounds),
             "players": [{"name": n, "score": p["score"], "correct": p["correct"],
-                         "fastest_ms": p["fastest_ms"], "picked_artists": bool(p.get("artists"))}
+                         "fastest_ms": p["fastest_ms"], "picked_artists": bool(p.get("artists")),
+                         "ready": bool(p.get("ready"))}
                         for n, p in sorted(self.players.items(), key=lambda kv: -kv[1]["score"])],
         }
         if self.current >= 0 and self.phase in ("question", "reveal"):
