@@ -125,6 +125,12 @@ class Hub:
         return any(b in self.sockets for b in self.boards)
 
     async def start_round(self):
+        if not self.game.rounds:
+            conn = db.connect()
+            try:
+                self.game.build_rounds(conn)
+            finally:
+                conn.close()
         rnd = self.game.start_round()
         if not self.board_live():  # board plays its own audio when present
             asyncio.get_event_loop().run_in_executor(None, ha.play_clip, rnd["track"]["id"], str(rnd["clip_len"]))
@@ -193,6 +199,9 @@ async def ws_endpoint(ws: WebSocket):
                             raise game.GameError("no game — start one first")
                         name = msg.get("name", "")
                         hub.game.join(name)
+                        await hub.broadcast()
+                    elif kind == "set_artists":
+                        hub.game.set_artists(name or msg.get("name", ""), msg.get("artists") or [])
                         await hub.broadcast()
                     elif kind == "start_round":
                         await hub.start_round()
@@ -269,6 +278,20 @@ def api_round_audio(kind: str = "5"):
         return Response(status_code=404)
     return FileResponse(path, media_type="audio/mpeg",
                         headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/artists/wall")
+def api_artists_wall(limit: int = 60):
+    """Popular artists with enough quizzable clips — the pick-3 wall."""
+    conn = db.connect()
+    try:
+        rows = conn.execute(
+            f"SELECT artist, COUNT(*) n, MAX(global_listeners) pop FROM tracks "
+            f"WHERE {game.QUIZZABLE} GROUP BY artist HAVING n >= 3 "
+            f"ORDER BY pop DESC LIMIT ?", (limit,)).fetchall()
+        return [{"artist": r["artist"], "tracks": r["n"]} for r in rows]
+    finally:
+        conn.close()
 
 
 @app.post("/api/ban/album")
