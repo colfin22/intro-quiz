@@ -169,4 +169,15 @@ function startTimer() {
 }
 function stopTimer() { if (timerHandle) clearInterval(timerHandle); timerHandle = null; }
 
+// family phones have fixed IPs — prefill the name for fresh browsers
+if (!myName) {
+  fetch("/api/whoami").then(r => r.json()).then(d => {
+    if (d.name && !myName) {
+      myName = d.name;
+      const f = document.getElementById("name");
+      if (f && !f.value) f.value = d.name;
+    }
+  }).catch(() => {});
+}
+
 connect();
