@@ -66,6 +66,7 @@ function show(id) {
   document.getElementById(id).hidden = false;
   // first-timers see the rules while joining and in the lobby
   document.getElementById("v-howto").hidden = !(id === "v-join" || id === "v-lobby");
+  if (id !== "v-lobby") document.getElementById("v-master").hidden = true;
 }
 
 function scoresInto(el, players) {
@@ -113,6 +114,7 @@ function render() {
         if (!p.ready) { li.style.opacity = ".7"; allReady = false; }
         roster.appendChild(li);
       }
+      document.getElementById("v-master").hidden = !(state.host && state.host === myName);
       document.getElementById("artist-pick").hidden = artistsSent;
       document.getElementById("artist-picked").hidden = !artistsSent;
       if (!artistsSent && wall.length === 0) loadWall();
@@ -174,6 +176,9 @@ function render() {
     document.getElementById("r-flag").parentElement.hidden = !hostOnly;
     document.getElementById("r-flag").textContent =
       state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
+    document.getElementById("r-next").hidden = !amHost;
+    document.getElementById("r-wait").hidden = amHost;
+    if (state.host) document.getElementById("r-wait").textContent = `🎤 ${state.host} has the next-song button`;
     document.getElementById("r-next").textContent =
       state.round >= state.total_rounds ? "🏁 Finish" : `▶ Round ${state.round + 1}`;
   }
