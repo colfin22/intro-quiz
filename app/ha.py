@@ -18,7 +18,7 @@ def _call(service: str, data: dict) -> None:
     domain, name = service.split(".")
     r = httpx.post(f"{HA_URL}/api/services/{domain}/{name}",
                    headers={"Authorization": f"Bearer {HA_TOKEN}"},
-                   json=data, timeout=10)
+                   json=data, timeout=30)
     r.raise_for_status()
 
 
