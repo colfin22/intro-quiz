@@ -110,6 +110,34 @@ Phones open `http://<host>:8000`; the board lives at `/board`.
 Clips land in `CLIPS_DIR` (default `/clips` — bind-mount it somewhere roomy; the
 mount in `docker-compose.yml` maps it).
 
+## Make your own trivia pack
+
+The shipped half-time pack is Irish/UK-centric. To localise it, put a
+`trivia_custom.json` in the app's data directory — with the default
+`docker-compose.yml` that's `./data/trivia_custom.json`, right beside `quiz.db`.
+It's a flat JSON list of two kinds of item:
+
+    [
+      {"kind": "fact", "text": "Johnny Cash proposed to June Carter on stage in London, Ontario."},
+      {"kind": "tf",   "text": "Gordon Lightfoot wrote 'Early Morning Rain'.", "answer": 1},
+      {"kind": "tf",   "text": "Céline Dion is from Vancouver.", "answer": 0}
+    ]
+
+- `fact` items are read aloud by a player at half time — write them as spoken
+  sentences, and only include things you'd defend at your own kitchen table.
+- `tf` items need `"answer": 1` (true) or `0` (false). Keep a healthy share of
+  falses (the shipped pack runs ~60/40) or the table learns to always guess true.
+- The pack seeds automatically at the next game start (or `POST /api/trivia/topup`).
+  Malformed items are skipped with a log warning, never fatally. Duplicate texts
+  are ignored, so you can keep growing the file and re-seeding.
+- Set `TRIVIA_BUILTIN_PACK=false` in `.env` **before your first game** to skip
+  the shipped pack entirely — items already seeded stay in the bank (pruning
+  after the fact is a `DELETE FROM trivia WHERE source='seed'` in `data/quiz.db`).
+- An LLM drafts a regional pack in minutes if you give it the JSON format above
+  and a firm brief ("well-established, verifiable facts about <your region>'s
+  popular music, no obscure trivia") — but **fact-check what it writes before
+  your family reads it out with confidence.**
+
 ## Notes
 
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
