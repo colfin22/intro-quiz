@@ -129,6 +129,19 @@ def sweep(batch: int = 100, stall_sleep_s: float = 600, max_stalls: int = 6,
     (CLIP_SWEEP_MAX_HOURS): it finishes the batch in hand, stops cleanly, and
     resumes from where it left off on the next start.
     """
+    conn = db.connect()
+    try:
+        tiered = conn.execute(
+            "SELECT COUNT(*) c FROM tracks WHERE active=1 AND tier IS NOT NULL").fetchone()["c"]
+    finally:
+        conn.close()
+    if tiered == 0:
+        # a fresh install hasn't synced/scored yet — "0 cut, complete" would mislead
+        LOGGER.warning("clip sweep: no tiered tracks exist yet, nothing to cut. Run "
+                       "POST /api/sync, then /api/score/lastfm (repeat until done), then "
+                       "/api/score/tiers — the sweep resumes on the next container start. "
+                       "See the README's 'Bootstrapping the clips' section.")
+        return {"cut": 0, "stopped": "nothing-tiered"}
     deadline = clock() + max_hours * 3600 if max_hours > 0 else None
     total = stalls = 0
     while True:

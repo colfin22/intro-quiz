@@ -9,4 +9,5 @@ services:
       - .env
     volumes:
       - ./data:/data
-      - /clips:/clips
+      # override with CLIPS_HOST_DIR in .env (e.g. /clips or C:\quiz-clips)
+      - ${CLIPS_HOST_DIR:-./clips}:/clips

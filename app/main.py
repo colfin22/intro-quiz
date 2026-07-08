@@ -29,12 +29,42 @@ if os.path.isdir(config.CLIPS_DIR):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "version": __version__}
+    """Liveness AND readiness: is the app actually able to run a game yet?"""
+    out = {"ok": True, "version": __version__}
+    try:
+        conn = db.connect()
+        try:
+            out["tracks_synced"] = conn.execute(
+                "SELECT COUNT(*) c FROM tracks WHERE active=1").fetchone()["c"]
+            out["tracks_tiered"] = conn.execute(
+                "SELECT COUNT(*) c FROM tracks WHERE active=1 AND tier IS NOT NULL").fetchone()["c"]
+            playable = conn.execute(
+                f"SELECT COUNT(*) c FROM tracks WHERE {game.QUIZZABLE} "
+                "AND tier IN ('easy','medium')").fetchone()["c"]
+            out["tracks_playable"] = playable
+            out["ready_to_play"] = playable >= 10
+            if not out["ready_to_play"]:
+                out["message"] = ("not enough clipped easy/medium tracks yet — run "
+                                  "POST /api/sync, /api/score/lastfm (repeat), /api/score/tiers, "
+                                  "then cut clips (CLIP_SWEEP_ON_START=true or /api/clips/cut)")
+        finally:
+            conn.close()
+    except Exception as e:  # noqa: BLE001 — health must never 500
+        out["ready_to_play"] = False
+        out["message"] = f"db not readable: {e}"
+    return out
 
 
 @app.on_event("startup")
 async def maybe_clip_sweep():
-    """CLIP_SWEEP_ON_START=true — one long background clip-cutting session."""
+    """Startup checks + CLIP_SWEEP_ON_START background clip-cutting session."""
+    if board_cast.BOARD_URL and not board_cast.BOARD_URL.startswith("https://"):
+        LOGGER.warning("=" * 60)
+        LOGGER.warning("BOARD_URL is not https:// — cast devices REFUSE plain-http "
+                       "pages, so the board will silently fail to appear on the TV. "
+                       "Put the app behind a reverse proxy with TLS and set "
+                       "BOARD_URL=https://... (current: %s)", board_cast.BOARD_URL)
+        LOGGER.warning("=" * 60)
     if config.CLIP_SWEEP_ON_START:
         cap = f" (capped at {config.CLIP_SWEEP_MAX_HOURS}h)" if config.CLIP_SWEEP_MAX_HOURS else ""
         LOGGER.info("CLIP_SWEEP_ON_START set — bulk clip session starting in the background%s", cap)
