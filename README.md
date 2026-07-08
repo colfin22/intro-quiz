@@ -13,6 +13,10 @@ subscriptions.
        alt="The TV board on a reveal — album art, who got it right, and the scores">
 </p>
 <p align="center">
+  <img src="docs/screenshots/board-question.png" width="90%"
+       alt="The TV board mid-round — an animated wave and clip progress, no spoilers">
+</p>
+<p align="center">
   <img src="docs/screenshots/phone-artist-wall.png" width="30%"
        alt="The lobby artist wall — every player picks three artists they know">
   <img src="docs/screenshots/phone-question.png" width="30%"
