@@ -12,7 +12,10 @@ subscriptions.
 
 1. Everyone opens the app on their phone (a plain LAN web page) and joins with a name.
    Whoever started the game is the **game master** — only their phone gets the
-   start / next-song / half-time controls.
+   start / next-song / half-time controls. A 🎤 banner on every phone shows who's
+   in charge, and **the master's chair rotates each game**: the final screen
+   announces who runs the next one (if they're not playing, anyone can take over
+   from the lobby).
 2. While waiting in the lobby, each player **picks 3 artists they know** from a wall
    of your library's most popular artists (freshly randomised each game) — one song
    per player's picks is shuffled invisibly into the rounds, so guests and kids

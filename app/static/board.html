@@ -157,12 +157,12 @@ function connect() {
     document.getElementById("b-live").hidden = s.phase === "idle";
     if (s.phase === "idle") return;
     const st = document.getElementById("b-status");
-    if (s.phase === "lobby") st.textContent = `Lobby — ${s.players.length} in`;
+    if (s.phase === "lobby") st.textContent = `Lobby — ${s.players.length} in` + (s.host ? `  ·  🎤 ${s.host}` : "");
     if (s.phase === "question") st.textContent = `Round ${s.round}/${s.total_rounds} — listen! 🎧`;
     if (s.phase === "reveal") st.textContent = `Round ${s.round}/${s.total_rounds}`;
     if (s.phase === "break") st.textContent = s.break_stage === "tf" && s.tf
       ? `🍿 Half time — true or false? ${s.tf.num}/${s.tf.total}` : "🍿 HALF TIME";
-    if (s.phase === "finished") st.textContent = "🏆 Final!";
+    if (s.phase === "finished") st.textContent = "🏆 Final!" + (s.next_host ? `  ·  🎤 ${s.next_host} masters the next game` : "");
     document.getElementById("b-wave-card").hidden = s.phase !== "question";
     if (s.phase === "question") document.getElementById("b-clip-label").textContent = `${s.clip_len} second clip`;
     const artCard = document.getElementById("b-art-card");

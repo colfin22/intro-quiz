@@ -10,6 +10,7 @@
 <main>
   <h1>🎵 Intro Quiz</h1>
   <div id="err"></div>
+  <p class="center" id="master-banner" hidden style="margin:.2em 0 .8em"></p>
 
   <div id="v-howto" class="card" hidden>
     <p><b>How to play</b></p>
@@ -101,6 +102,7 @@
   <div id="v-finished" hidden>
     <p class="big">🏆 Final scores</p>
     <div class="card"><ul class="scores" id="f-scores"></ul></div>
+    <p class="center" id="f-next-master" hidden style="font-size:1.1em"></p>
     <button class="primary" onclick="send({type:'new_game', rounds:10})">Play again</button>
   </div>
 </main>
