@@ -69,18 +69,15 @@ subscriptions.
   itself up from [Open Trivia DB](https://opentdb.com/) whenever it runs low
   (`POST /api/trivia/topup`, also called automatically at game start). Picks prefer
   never-used items and recycle oldest-first, so repeats take months. Answers never
-  ship to phones before the reveal.
-  **Your region, your questions:** drop a `trivia_custom.json` next to the SQLite
-  DB on the data volume (same format as `app/data/trivia_seed.json` — `{"kind":
-  "fact"|"tf", "text": ..., "answer": 0|1}`) and it seeds alongside; set
-  `TRIVIA_BUILTIN_PACK=false` in `.env` to skip the shipped Irish/UK pack
-  entirely and run purely on your own pack + Open Trivia DB. Do this before your
-  first game — items already seeded stay in the bank.
+  ship to phones before the reveal. Not your region? See
+  [Make your own trivia pack](#make-your-own-trivia-pack) below.
 - **Speaker-only mode** — pick "no scoreboard" at game start and clips cast to a
   speaker via Home Assistant + Music Assistant instead; the phones do the rest.
   A display isn't required to play.
-- **Upkeep** — a nightly job re-syncs the library, refreshes scores, re-tiers and
-  cuts new clips. Clips cost ~1.8 MB per track.
+- **Upkeep** — schedule the four maintenance endpoints nightly with whatever you
+  like (cron, systemd timer): `POST /api/sync`, `/api/score/lastfm`,
+  `/api/score/tiers`, `/api/clips/cut` — the library re-syncs, new tracks get
+  scored, tiered and clipped. Clips cost ~1.8 MB per track.
 
 ## Run
 
