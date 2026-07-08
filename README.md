@@ -108,16 +108,23 @@ subscriptions.
 
 ## Run
 
+**You need:** a [Navidrome](https://www.navidrome.org/) server, Docker, a free
+[Last.fm API key](https://www.last.fm/api) — and **at least one audio output**:
+a cast display / Android TV, **or** Home Assistant + Music Assistant for a
+speaker. With neither, the game is silent and unplayable — the clips have to
+play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
+
     docker compose up -d --build
 
-Create a `.env` beside `docker-compose.yml`:
+Copy [`.env.example`](.env.example) to `.env` beside `docker-compose.yml` and
+fill it in — it marks which variables are required:
 
     NAVIDROME_URL=http://navidrome.local:4533
     NAVIDROME_USER=quiz                     # a dedicated non-admin Navidrome user
     NAVIDROME_PASSWORD=<its password>
     LASTFM_API_KEY=<free key from last.fm/api>
     DISPLAYS=Living Room TV=192.168.1.50    # Name=ip pairs, comma-separated (cast targets)
-    BOARD_URL=https://quiz.example.com/board # HTTPS URL the display loads (cast devices refuse HTTP)
+    BOARD_URL=https://quiz.example.com/board # MUST be https:// — cast devices silently refuse HTTP
     # optional Home Assistant fallback (speaker audio when no display is used):
     HA_URL=http://homeassistant.local:8123
     HA_TOKEN=<long-lived token>
@@ -146,15 +153,22 @@ rather than hammering. Don't want it monopolising your music server all day?
 `CLIP_SWEEP_MAX_HOURS=8` stops the session cleanly after 8 hours (finishing the
 batch in hand) — the next restart picks up exactly where it left off.
 
-Clips land in `CLIPS_DIR` (default `/clips` — bind-mount it somewhere roomy; the
-mount in `docker-compose.yml` maps it). As a real-world sizing example: a
+The Navidrome user needs the standard Subsonic permissions plus **download and
+streaming enabled** — the clip cutter pulls originals via `download` and falls
+back to `stream` (server transcode) for undecodable files. A default non-admin
+user works on stock Navidrome; if clip cutting 403s, check those two toggles
+on the user.
+
+Clips land in `CLIPS_DIR` (container path `/clips`; the host side defaults to
+`./clips` next to the compose file — set `CLIPS_HOST_DIR` in `.env` to put them
+somewhere roomier, e.g. `/mnt/tank/clips` or `C:\quiz-clips`). As a real-world
+sizing example: a
 **565 GB / ~40,000-track library** cuts down to roughly **80 GB of clips**
 (~2 MB per track — four loudness-normalised MP3s each).
 
 **Windows?** Yes — anywhere Docker runs, including Docker Desktop (WSL2).
-Point the clips volume at a Windows folder (`C:\quiz-clips:/clips` in
-`docker-compose.yml`), and allow port 8000 through Windows Firewall so the
-phones can reach it. Casting still works from Docker Desktop because displays
+Set `CLIPS_HOST_DIR=C:\quiz-clips` in `.env` (or keep the default `./clips`),
+and allow port 8000 through Windows Firewall so the phones can reach it. Casting still works from Docker Desktop because displays
 are addressed by IP (`DISPLAYS=...`) — no mDNS discovery needed. Navidrome and
 the optional Home Assistant bits can live anywhere on the network.
 

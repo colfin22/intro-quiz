@@ -92,6 +92,32 @@ def test_intro_offset_respected(tone, tmp_path):
         os.unlink(p)
 
 
+class DummyConn:
+    """Stands in for db.connect() in sweep tests — answers the tiered-count query."""
+    tiered = 100
+
+    def execute(self, *a, **k):
+        class R:
+            def fetchone(_self):
+                return {"c": DummyConn.tiered}
+        return R()
+
+    def close(self):
+        pass
+
+
+def test_sweep_explains_fresh_install(monkeypatch):
+    """First boot with nothing tiered: say WHY nothing was cut, don't claim 'complete'."""
+    monkeypatch.setattr(clips.db, "connect", lambda *a, **k: DummyConn())
+    monkeypatch.setattr(clips.subsonic, "Client", lambda: object())
+    monkeypatch.setattr(DummyConn, "tiered", 0)
+    try:
+        out = clips.sweep(stall_sleep_s=0)
+    finally:
+        monkeypatch.setattr(DummyConn, "tiered", 100)
+    assert out == {"cut": 0, "stopped": "nothing-tiered"}
+
+
 def test_sweep_runs_to_done_and_survives_stalls(monkeypatch):
     """The CLIP_SWEEP_ON_START bootstrap batches to zero and backs off on stalls."""
     results = [
@@ -107,10 +133,6 @@ def test_sweep_runs_to_done_and_survives_stalls(monkeypatch):
             raise r
         return r
 
-    class DummyConn:
-        def close(self):
-            pass
-
     monkeypatch.setattr(clips, "cut_batch", fake_batch)
     monkeypatch.setattr(clips.db, "connect", lambda *a, **k: DummyConn())
     monkeypatch.setattr(clips.subsonic, "Client", lambda: object())
@@ -122,10 +144,6 @@ def test_sweep_runs_to_done_and_survives_stalls(monkeypatch):
 def test_sweep_gives_up_after_max_stalls(monkeypatch):
     def always_fails(conn, client, limit=100):
         raise Exception("still down")
-
-    class DummyConn:
-        def close(self):
-            pass
 
     monkeypatch.setattr(clips, "cut_batch", always_fails)
     monkeypatch.setattr(clips.db, "connect", lambda *a, **k: DummyConn())
@@ -140,10 +158,6 @@ def test_sweep_respects_time_limit(monkeypatch):
 
     def fake_batch(conn, client, limit=100):
         return {"cut": 100, "errors": 0, "remaining": 5000}  # never finishes
-
-    class DummyConn:
-        def close(self):
-            pass
 
     monkeypatch.setattr(clips, "cut_batch", fake_batch)
     monkeypatch.setattr(clips.db, "connect", lambda *a, **k: DummyConn())

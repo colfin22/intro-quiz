@@ -24,7 +24,10 @@ input { width:100%; padding:.9rem; font-size:1.1rem; border-radius:10px; border:
 .timer > div { height:100%; background:var(--accent); transition:width 1s linear; }
 img.art { width:100%; max-width:340px; border-radius:14px; display:block; margin:.6rem auto; }
 .center { text-align:center; }
-#err { color:var(--bad); min-height:1.2em; }
+/* server errors surface as a toast nobody can miss */
+#err { position:sticky; top:.4rem; z-index:20; min-height:0; }
+#err:not(:empty) { background:var(--bad); color:#fff; font-weight:700; padding:.7rem 1rem;
+                   border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,.5); text-align:center; }
 
 .wall { display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0; max-height:40vh; overflow-y:auto; }
 .wall button { width:auto; flex:0 0 auto; padding:.5rem .8rem; font-size:.95rem; margin:0; }

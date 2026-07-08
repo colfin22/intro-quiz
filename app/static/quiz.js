@@ -20,8 +20,9 @@ function connect() {
 }
 
 function send(obj) { ws.send(JSON.stringify(obj)); }
-function showErr(m) { const e = document.getElementById("err"); e.textContent = m;
-                      setTimeout(() => { e.textContent = ""; }, 4000); }
+function showErr(m) { const e = document.getElementById("err"); e.textContent = "⚠️ " + m;
+                      if (navigator.vibrate) navigator.vibrate(100);
+                      setTimeout(() => { e.textContent = ""; }, 7000); }
 
 let wall = [], myArtists = [], artistsSent = false;
 function loadWall() {
