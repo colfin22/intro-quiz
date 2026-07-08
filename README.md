@@ -102,10 +102,22 @@ Create a `.env` beside `docker-compose.yml`:
     CAST_ENABLED=true
     # optional: family devices with fixed IPs get their name prefilled at join
     KNOWN_PLAYERS=Alice=192.168.1.20,Bob=192.168.1.21
+    # first install: cut clips for the WHOLE library in one long session at startup
+    CLIP_SWEEP_ON_START=true
 
 Then: `POST /api/sync` (library), `POST /api/score/lastfm?limit=...` (repeat until done),
 `POST /api/score/tiers`, `POST /api/clips/cut?limit=...` — or just schedule them nightly.
 Phones open `http://<host>:8000`; the board lives at `/board`.
+
+**Bootstrapping the clips:** with `CLIP_SWEEP_ON_START=true`, every container start
+kicks off a background session that cuts clips until every tiered track has them —
+for a big library that's hours (the download from Navidrome is the bottleneck, not
+ffmpeg), and progress is logged batch by batch in `docker logs`. It only cuts
+*tiered* tracks, so run the sync → Last.fm scoring → tiers steps first, then
+`docker compose restart`. It's safe to leave enabled permanently: a start with
+nothing to cut exits immediately, and newly-scored tracks get swept up on the next
+restart. If Navidrome is unreachable it backs off and gives up after an hour
+rather than hammering.
 
 Clips land in `CLIPS_DIR` (default `/clips` — bind-mount it somewhere roomy; the
 mount in `docker-compose.yml` maps it).
@@ -161,7 +173,8 @@ It's a flat JSON list of two kinds of item:
 ## Notes
 
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
-  table exported from Navidrome's DB (see `quiz-nightly.sh` for the pattern).
+  table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
+  (rows of `{"id", "play_count", "starred"}` summed across your users).
 - The board URL must be HTTPS with a real certificate — put the app behind a reverse
   proxy (with websocket support) for that.
 - Tests: `python -m pytest tests/` (includes a node-based smoke that renders every

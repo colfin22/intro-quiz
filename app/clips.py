@@ -11,9 +11,10 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 
-from . import config, subsonic
+from . import config, db, subsonic
 
 CLIP_LENGTHS = (5, 10, 20)
 PAYOFF_LEN = 12
@@ -113,3 +114,39 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
         "AND (duration IS NULL OR duration <= 720)"
     ).fetchone()["c"]
     return {"cut": done, "errors": errors, "remaining": remaining}
+
+
+def sweep(batch: int = 100, stall_sleep_s: float = 600, max_stalls: int = 6) -> dict:
+    """Run-once bulk cutter: batch until every tiered track has clips, then stop.
+
+    This is the CLIP_SWEEP_ON_START bootstrap for fresh installs — one long
+    session (hours for a big library; the download is the bottleneck) instead
+    of drip-feeding /api/clips/cut. Safe to leave enabled: a start with
+    nothing to cut returns immediately. If Navidrome is unreachable or every
+    track in a batch errors, it backs off and eventually gives up until the
+    next start rather than hammering forever.
+    """
+    total = stalls = 0
+    while True:
+        conn = db.connect()
+        try:
+            r = cut_batch(conn, subsonic.Client(), limit=batch)
+        except Exception as e:  # noqa: BLE001 — server down/unconfigured: back off
+            LOGGER.warning("clip sweep: batch failed (%s) — retrying in %ds", e, int(stall_sleep_s))
+            r = None
+        finally:
+            conn.close()
+        if r is None or (r["cut"] == 0 and r["errors"] > 0):
+            stalls += 1
+            if stalls >= max_stalls:
+                LOGGER.error("clip sweep: no progress after %d attempts — giving up until next start", max_stalls)
+                return {"cut": total, "stopped": "stalled"}
+            time.sleep(stall_sleep_s)
+            continue
+        stalls = 0
+        total += r["cut"]
+        if r["cut"] or r["errors"]:
+            LOGGER.info("clip sweep: +%d clips (%d errors), %d remaining", r["cut"], r["errors"], r["remaining"])
+        if r["remaining"] == 0:
+            LOGGER.info("clip sweep complete — %d cut this session", total)
+            return {"cut": total, "stopped": "done"}
