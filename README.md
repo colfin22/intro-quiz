@@ -77,7 +77,7 @@ subscriptions.
 - **Upkeep** — schedule the four maintenance endpoints nightly with whatever you
   like (cron, systemd timer): `POST /api/sync`, `/api/score/lastfm`,
   `/api/score/tiers`, `/api/clips/cut` — the library re-syncs, new tracks get
-  scored, tiered and clipped. Clips cost ~1.8 MB per track.
+  scored, tiered and clipped. Clips cost ~2 MB per track.
 
 ## Run
 
@@ -120,7 +120,9 @@ rather than hammering. Don't want it monopolising your music server all day?
 batch in hand) — the next restart picks up exactly where it left off.
 
 Clips land in `CLIPS_DIR` (default `/clips` — bind-mount it somewhere roomy; the
-mount in `docker-compose.yml` maps it).
+mount in `docker-compose.yml` maps it). As a real-world sizing example: a
+**565 GB / ~40,000-track library** cuts down to roughly **80 GB of clips**
+(~2 MB per track — four loudness-normalised MP3s each).
 
 ## Make your own trivia pack
 
