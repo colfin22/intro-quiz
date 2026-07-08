@@ -77,14 +77,31 @@ async def board_watchdog():
             try:
                 if not (hub.game and hub.game.phase in ("lobby", "question", "reveal", "break")):
                     continue
+                # stale games expire — an abandoned lobby/game must not haunt the TV (#26)
+                idle = _t.time() - hub.last_activity
+                empty_lobby = hub.game.phase == "lobby" and not hub.game.players
+                if (empty_lobby and idle > 600) or idle > 2700:
+                    async with hub.lock:
+                        if hub.game:  # re-check under the lock
+                            LOGGER.warning("stale game (%s, idle %.0f min) — auto-abandoning",
+                                           hub.game.phase, idle / 60)
+                            hub.cancel_deadline()
+                            hub.game = None
+                            asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
+                            await hub.broadcast()
+                    continue
                 if not hub.display or hub.board_live():
+                    hub.cast_attempts = 0
                     continue
                 if hub.board_last_seen == 0.0:
                     continue  # board never arrived — that's the initial cast's job
+                if hub.cast_attempts >= 5:
+                    continue  # board won't come back — a human has the TV; stand down (#26)
                 if _t.time() - last_cast < 20:
                     continue  # give the last attempt a chance to load
-                LOGGER.warning("board watchdog: no heartbeat for %.0fs — recasting to %s",
-                               _t.time() - hub.board_last_seen, hub.display)
+                hub.cast_attempts += 1
+                LOGGER.warning("board watchdog: no heartbeat for %.0fs — recasting to %s (attempt %d/5)",
+                               _t.time() - hub.board_last_seen, hub.display, hub.cast_attempts)
                 last_cast = _t.time()
                 asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
             except Exception:  # noqa: BLE001 — the watchdog must never die
@@ -275,6 +292,8 @@ class Hub:
         self.host_ws = None
         self.display: str | None = (board_cast.display_names() or [None])[0]
         self.next_host: str | None = None  # game-master rotation across games
+        self.last_activity = 0.0   # any game-mutating message — stale games expire (#26)
+        self.cast_attempts = 0     # watchdog re-casts per outage — capped (#26)
         self.games_started = 0  # phones reset per-game state when this changes (#22)
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
@@ -376,6 +395,12 @@ async def ws_endpoint(ws: WebSocket):
             async with hub.lock:
                 try:
                     kind = msg.get("type")
+                    if kind not in ("board_hello", "set_display"):
+                        # phones are actively playing: stale-game clock and the
+                        # watchdog's re-cast budget both reset (#26)
+                        import time as _t
+                        hub.last_activity = _t.time()
+                        hub.cast_attempts = 0
                     if kind == "set_display":
                         want = msg.get("display")
                         if want in (board_cast.display_names() + ["none"]):
