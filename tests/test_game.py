@@ -156,6 +156,95 @@ def test_artist_boost_rounds():
         os.unlink(p)
 
 
+def test_payoff_gates_next():
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, clock=clock)
+        g.join("A"); g.build_rounds(conn)
+        assert g.payoff_wait() == 0  # no gate outside reveal
+        g.start_round()
+        clock.t += 2
+        g.answer("A", 0)
+        g.reveal()
+        assert g.payoff_wait() == game.PAYOFF_S
+        clock.t += 5
+        assert g.payoff_wait() == game.PAYOFF_S - 5
+        clock.t += 10  # past the end
+        assert g.payoff_wait() == 0
+        assert g.snapshot()["payoff_wait"] == 0
+    finally:
+        os.unlink(p)
+
+
+def test_half_time_trivia_flow():
+    from app import trivia
+    conn, p = make_db()
+    try:
+        trivia.ensure_seeded(conn)
+        clock = Clock()
+        g = game.Game(conn, rounds=6, clock=clock)
+        g.join("A"); g.join("B")
+        g.build_rounds(conn)
+        for _ in range(3):  # play to halfway
+            g.start_round()
+            clock.t += 1
+            g.answer("A", g.rounds[g.current]["correct"])
+            g.answer("B", 0 if g.rounds[g.current]["correct"] else 1)
+            g.reveal()
+            clock.t += game.PAYOFF_S
+        assert g.is_halfway()
+        g.start_break(conn)
+        snap = g.snapshot()
+        assert snap["phase"] == "break" and snap["break_stage"] == "facts"
+        assert set(snap["facts"]) == {"A", "B"} and all(snap["facts"].values())
+        assert len(g.tf_qs) == game.TF_COUNT
+        with pytest.raises(game.GameError):  # no T/F live yet
+            g.tf_answer("A", True)
+        scores = {n: pl["score"] for n, pl in g.players.items()}
+        assert g.advance_break() == "tf"
+        for i in range(game.TF_COUNT):
+            q = g.tf_qs[i]
+            snap = g.snapshot()
+            assert snap["break_stage"] == "tf" and snap["tf"]["text"] == q["text"]
+            assert "answer" not in snap["tf"]  # answer never ships early
+            g.tf_answer("A", q["answer"])       # A always right
+            g.tf_answer("B", not q["answer"])   # B always wrong
+            with pytest.raises(game.GameError):  # no double answer
+                g.tf_answer("A", True)
+            assert g.tf_all_answered()
+            assert g.advance_break() == "tf_reveal"
+            snap = g.snapshot()
+            assert snap["tf"]["revealed"] and snap["tf"]["results"]["A"] == game.TF_POINTS
+            expected = "resume" if i + 1 == game.TF_COUNT else "tf"
+            assert g.advance_break() == expected
+        assert g.players["A"]["score"] == scores["A"] + game.TF_COUNT * game.TF_POINTS
+        assert g.players["B"]["score"] == scores["B"]
+        g.start_round()  # play on
+        assert g.phase == "question"
+    finally:
+        os.unlink(p)
+
+
+def test_trivia_seed_and_recycling():
+    from app import trivia
+    conn, p = make_db()
+    try:
+        added = trivia.ensure_seeded(conn)
+        assert added >= 80
+        assert trivia.ensure_seeded(conn) == 0  # idempotent
+        rows = conn.execute("SELECT * FROM trivia").fetchall()
+        assert all(r["answer"] in (0, 1) for r in rows if r["kind"] == "tf")
+        n_facts = sum(1 for r in rows if r["kind"] == "fact")
+        # picking more than the bank holds recycles rather than starving
+        first = trivia.pick(conn, "fact", n_facts)
+        assert len(first) == n_facts
+        again = trivia.pick(conn, "fact", 5)
+        assert len(again) == 5  # recycled from used
+    finally:
+        os.unlink(p)
+
+
 def test_phone_ui_renders_every_phase():
     """Run the JS render smoke in node — catches thrown renders python tests can't see."""
     import shutil

@@ -39,7 +39,7 @@
     <p><b>🎤 You're the game master!</b></p>
     <p class="dim">You started this game, so you run it:<br>
     ▶ you start the rounds and move to the <b>next song</b><br>
-    🍿 you restart after half time<br>
+    🍿 you run the half-time trivia and restart the music<br>
     🚫 you can bin rubbish clips<br>
     🛑 and only you can abandon the game</p>
   </div>
@@ -80,7 +80,18 @@
 
   <div id="v-break" hidden>
     <p class="big">🍿 Half time!</p>
-    <p class="dim center">Grab a drink — standings so far:</p>
+    <div id="bk-fact" class="card" hidden>
+      <p class="dim center">📣 Read this out to the table:</p>
+      <p class="center" id="bk-fact-text"></p>
+    </div>
+    <div id="bk-tf" hidden>
+      <p class="dim center" id="bk-tf-progress"></p>
+      <div class="card"><p class="center" id="bk-tf-text"></p></div>
+      <button id="bk-tf-true" onclick="tfPick(true)">✅ TRUE</button>
+      <button id="bk-tf-false" onclick="tfPick(false)">❌ FALSE</button>
+      <p class="dim center" id="bk-tf-status"></p>
+    </div>
+    <p class="dim center" id="bk-standings-label">Standings so far:</p>
     <div class="card"><ul class="scores" id="bk-scores"></ul></div>
     <button class="primary" id="bk-next" onclick="send({type:'next'})">▶ Second half</button>
     <p class="dim center" id="bk-wait" hidden></p>

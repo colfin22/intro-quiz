@@ -1,6 +1,7 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
 let lastBuzzRound = "";
-let joined = false, myPick = null, timerHandle = null;
+let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
+let myTf = null, tfKey = "";
 
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
@@ -188,19 +189,63 @@ function render() {
     document.getElementById("r-flag").parentElement.hidden = !hostOnly;
     if (!flagArmed) document.getElementById("r-flag").textContent =
       state.flagged ? "🚫 flagged — this song won't appear again" : "🚫 bad clip — don't use this song again";
-    document.getElementById("r-next").hidden = !hostOnly;
+    const nextBtn = document.getElementById("r-next");
+    nextBtn.hidden = !hostOnly;
     document.getElementById("r-wait").hidden = hostOnly;
     if (state.host) document.getElementById("r-wait").textContent = `🎤 ${state.host} has the next-song button`;
-    document.getElementById("r-next").textContent =
-      state.round >= state.total_rounds ? "🏁 Finish" : `▶ Round ${state.round + 1}`;
+    // the payoff plays in full — the next button unlocks when the song's done
+    startPayoffLock(nextBtn,
+      state.round >= state.total_rounds ? "🏁 Finish" : `▶ Round ${state.round + 1}`);
   }
+  if (state.phase !== "reveal") stopPayoffLock();
   if (state.phase === "break") {
     stopTimer();
     show("v-break");
+    const stage = state.break_stage || "facts";
+    const myFact = (state.facts || {})[myName];
+    const factBox = document.getElementById("bk-fact");
+    factBox.hidden = !(stage === "facts" && myFact);
+    if (!factBox.hidden) document.getElementById("bk-fact-text").textContent = myFact;
+    const tfBox = document.getElementById("bk-tf");
+    tfBox.hidden = stage !== "tf";
+    let nextLabel = state.tf || (state.facts && Object.keys(state.facts).length)
+      ? "🎯 On to the true or false…" : "▶ Second half";
+    if (stage === "tf" && state.tf) {
+      const q = state.tf;
+      const key = "tf-" + q.num;
+      if (key !== tfKey) {
+        tfKey = key; myTf = null;
+        if (navigator.vibrate) navigator.vibrate(200);
+      }
+      document.getElementById("bk-tf-progress").textContent =
+        `True or false? ${q.num} of ${q.total} — +50 points`;
+      document.getElementById("bk-tf-text").textContent = q.text;
+      for (const [id, val] of [["bk-tf-true", true], ["bk-tf-false", false]]) {
+        const b = document.getElementById(id);
+        b.disabled = myTf !== null || q.revealed;
+        b.classList[myTf === val ? "add" : "remove"]("picked");
+      }
+      const st = document.getElementById("bk-tf-status");
+      if (q.revealed) {
+        const bits = state.players.map(p => {
+          const pts = (q.results || {})[p.name];
+          return pts === undefined ? `😴 ${p.name}` : (pts > 0 ? `✅ ${p.name} +${pts}` : `❌ ${p.name}`);
+        });
+        st.textContent = `It's ${q.answer ? "TRUE" : "FALSE"}!   ${bits.join("   ")}`;
+        nextLabel = q.last ? "▶ Second half" : "▶ Next question";
+      } else {
+        st.textContent = q.answered.length ? `answered: ${q.answered.join(", ")}` : "";
+        nextLabel = "👀 Reveal the answer";
+      }
+    }
+    document.getElementById("bk-standings-label").hidden = stage === "tf";
+    document.getElementById("bk-scores").parentElement.hidden = stage === "tf";
     scoresInto(document.getElementById("bk-scores"), state.players);
-    document.getElementById("bk-next").hidden = !hostOnly;
+    const nb = document.getElementById("bk-next");
+    nb.hidden = !hostOnly;
+    nb.textContent = nextLabel;
     document.getElementById("bk-wait").hidden = hostOnly;
-    if (state.host) document.getElementById("bk-wait").textContent = `${state.host} restarts when everyone's back`;
+    if (state.host) document.getElementById("bk-wait").textContent = `🎤 ${state.host} runs the half-time show`;
   }
   if (state.phase === "finished") {
     stopTimer();
@@ -222,6 +267,33 @@ function startTimer() {
   }, 1000);
 }
 function stopTimer() { if (timerHandle) clearInterval(timerHandle); timerHandle = null; }
+
+// reveal: hold the next button until the payoff clip has played out (server enforces too)
+function startPayoffLock(btn, label) {
+  stopPayoffLock();
+  let left = Math.ceil(state.payoff_wait || 0);
+  const tick = () => {
+    if (left > 0) {
+      btn.disabled = true;
+      btn.textContent = `🎶 enjoy the song… ${left}s`;
+      left -= 1;
+    } else {
+      btn.disabled = false;
+      btn.textContent = label;
+      stopPayoffLock();
+    }
+  };
+  tick();
+  if (left > 0) payoffHandle = setInterval(tick, 1000);
+}
+function stopPayoffLock() { if (payoffHandle) clearInterval(payoffHandle); payoffHandle = null; }
+
+function tfPick(val) {
+  if (myTf !== null || !state.tf || state.tf.revealed) return;
+  myTf = val;
+  send({type: "tf_answer", answer: val});
+  render();
+}
 
 // family phones have fixed IPs — prefill the name for fresh browsers
 if (!myName) {

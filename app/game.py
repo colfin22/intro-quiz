@@ -8,7 +8,12 @@ import random
 import time
 from datetime import datetime, timezone
 
+from . import trivia
+
 ANSWER_WINDOW_S = 20
+PAYOFF_S = 12          # mirrors clips.PAYOFF_LEN — the reveal payoff plays in full
+TF_COUNT = 3           # true/false questions at half time
+TF_POINTS = 50         # enough to shake the standings, not to decide the game
 MAX_DURATION_S = 720   # >12 min = DJ mix / live jam, not quizzable
 # over-long DJ mixes / live jams never enter the quiz (compilations are fine)
 QUIZZABLE = ("active=1 AND banned=0 AND clipped_at IS NOT NULL "
@@ -81,8 +86,13 @@ class Game:
         self.players: dict[str, dict] = {}  # name -> {score, correct, fastest_ms, artists}
         self.current = -1
         self.host: str | None = None  # the player who started the game — runs the rounds
-        self.phase = "lobby"  # lobby | question | reveal | finished
+        self.phase = "lobby"  # lobby | question | reveal | break | finished
         self.started_at = datetime.now(timezone.utc).isoformat()
+        self.revealed_at: float | None = None  # clock() at reveal — gates "next" behind the payoff
+        # half-time trivia (populated by start_break)
+        self.break_facts: dict[str, str] = {}  # player -> fact to read aloud
+        self.tf_qs: list[dict] = []
+        self.tf_index = -1  # -1 = facts stage, else current T/F question
 
     def set_artists(self, name: str, artists: list[str]) -> None:
         if self.phase != "lobby":
@@ -199,7 +209,73 @@ class Game:
     def reveal(self) -> dict:
         rnd = self._round("question")
         self.phase = "reveal"
+        self.revealed_at = self.clock()
         return rnd
+
+    def payoff_wait(self) -> float:
+        """Seconds until the payoff clip has played out — 'next' is locked until 0."""
+        if self.phase != "reveal" or self.revealed_at is None:
+            return 0.0
+        return max(0.0, PAYOFF_S - (self.clock() - self.revealed_at))
+
+    # -- half time -------------------------------------------------------------
+    def start_break(self, conn) -> None:
+        """Half-time show: a fact per player to read aloud, then T/F questions."""
+        if self.phase != "reveal":
+            raise GameError("half time only follows a reveal")
+        facts = trivia.pick(conn, "fact", len(self.players))
+        names = list(self.players)
+        random.shuffle(names)
+        self.break_facts = {n: f["text"] for n, f in zip(names, facts)}
+        self.tf_qs = [{"text": q["text"], "answer": bool(q["answer"]),
+                       "answers": {}, "revealed": False}
+                      for q in trivia.pick(conn, "tf", TF_COUNT) if q["answer"] is not None]
+        self.tf_index = -1
+        self.phase = "break"
+
+    def _tf_current(self) -> dict:
+        if self.phase != "break" or self.tf_index < 0:
+            raise GameError("no true/false question live")
+        return self.tf_qs[self.tf_index]
+
+    def tf_answer(self, name: str, val: bool) -> None:
+        q = self._tf_current()
+        if name not in self.players:
+            raise GameError("join first")
+        if q["revealed"]:
+            raise GameError("answer's already out")
+        if name in q["answers"]:
+            raise GameError("already answered")
+        q["answers"][name] = {"choice": bool(val), "points": 0}
+
+    def tf_all_answered(self) -> bool:
+        return self.tf_index >= 0 and set(self._tf_current()["answers"]) >= set(self.players)
+
+    def _tf_reveal(self) -> None:
+        q = self._tf_current()
+        q["revealed"] = True
+        for n, a in q["answers"].items():
+            if a["choice"] == q["answer"]:
+                a["points"] = TF_POINTS
+                self.players[n]["score"] += TF_POINTS
+
+    def advance_break(self) -> str:
+        """Host 'next' during the break: facts -> T/F -> reveal -> ... -> resume."""
+        if self.phase != "break":
+            raise GameError("not at half time")
+        if self.tf_index < 0:
+            if not self.tf_qs:
+                return "resume"  # bank empty — plain snacks break
+            self.tf_index = 0
+            return "tf"
+        q = self.tf_qs[self.tf_index]
+        if not q["revealed"]:
+            self._tf_reveal()
+            return "tf_reveal"
+        if self.tf_index + 1 < len(self.tf_qs):
+            self.tf_index += 1
+            return "tf"
+        return "resume"
 
     def is_last_round(self) -> bool:
         return self.current + 1 >= len(self.rounds)
@@ -246,6 +322,19 @@ class Game:
                 s["track"] = {"id": t["id"], "title": t["title"], "artist": t["artist"],
                               "album": t["album"], "year": t["year"]}
                 s["round_answers"] = rnd["answers"]
+                s["payoff_wait"] = round(self.payoff_wait(), 1)
+        if self.phase == "break":
+            s["break_stage"] = "facts" if self.tf_index < 0 else "tf"
+            s["facts"] = self.break_facts  # phones show only their own; it's a kitchen
+            if self.tf_index >= 0:
+                q = self.tf_qs[self.tf_index]
+                tf = {"num": self.tf_index + 1, "total": len(self.tf_qs), "text": q["text"],
+                      "answered": sorted(q["answers"]), "revealed": q["revealed"],
+                      "last": self.tf_index + 1 == len(self.tf_qs)}
+                if q["revealed"]:  # the answer only ships once it's out
+                    tf["answer"] = q["answer"]
+                    tf["results"] = {n: a["points"] for n, a in q["answers"].items()}
+                s["tf"] = tf
         return s
 
     def _round(self, want_phase: str) -> dict:

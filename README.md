@@ -25,10 +25,15 @@ subscriptions.
    once before revealing.
 4. Stuck? Anyone can extend the clip (5 → 10 → 20 seconds).
 5. The reveal shows album art and **who got it right** while a "payoff" chunk of
-   the song plays. Games of 6+ rounds get a **half-time break** with standings.
-6. Rubbish clip (applause intro, ambient noise)? The game master's reveal screen has
+   the song plays — **in full**: the next-song button stays locked with a countdown
+   until the music finishes. No skipping the good bit.
+6. Games of 6+ rounds get a **half-time show**: every player's phone gets a music
+   fact to read out to the table, then three quick **true-or-false** questions —
+   answered on the phones, question up on the TV, +50 points each on the main
+   scoreboard, auto-revealed once everyone's in.
+7. Rubbish clip (applause intro, ambient noise)? The game master's reveal screen has
    a **🚫 bad clip** link — two taps to confirm — that bans the track forever.
-7. Ten rounds a game, persistent all-time leaderboard.
+8. Ten rounds a game, persistent all-time leaderboard.
 
 ## How it works under the hood
 
@@ -58,6 +63,12 @@ subscriptions.
   sound — the board shows an overlay asking for it. If the cast session dies
   mid-game the app re-casts the board automatically, and the board reports playback
   failures back to the server log.
+- **Half-time trivia** — a curated seed pack ships in the repo (50 read-aloud music
+  facts + 50 true/false questions) and lives in SQLite; the true/false pool tops
+  itself up from [Open Trivia DB](https://opentdb.com/) whenever it runs low
+  (`POST /api/trivia/topup`, also called automatically at game start). Picks prefer
+  never-used items and recycle oldest-first, so repeats take months. Answers never
+  ship to phones before the reveal.
 - **Speaker-only mode** — pick "no scoreboard" at game start and clips cast to a
   speaker via Home Assistant + Music Assistant instead; the phones do the rest.
   A display isn't required to play.

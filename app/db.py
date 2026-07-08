@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS games (
     finished_at TEXT,
     rounds INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS trivia (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,           -- 'fact' (read-aloud) | 'tf' (true/false)
+    text TEXT NOT NULL UNIQUE,
+    answer INTEGER,               -- tf only: 1 = true
+    source TEXT NOT NULL,         -- 'seed' | 'opentdb'
+    used_at TEXT                  -- last picked for a game (NULL = fresh)
+);
 CREATE TABLE IF NOT EXISTS results (
     game_id INTEGER NOT NULL REFERENCES games(id),
     player TEXT NOT NULL,

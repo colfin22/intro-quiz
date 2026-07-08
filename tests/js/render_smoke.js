@@ -40,8 +40,17 @@ const snapshots = [
     options: [{title:"a",artist:"b"},{title:"c",artist:"d"},{title:"e",artist:"f"},{title:"g",artist:"h"}],
     answered: ["Colm"], players },
   { phase: "reveal", host: "Colm", round: 3, total_rounds: 10, track,
-    round_answers: { Colm: { points: 120 } }, flagged: false, players },
+    round_answers: { Colm: { points: 120 } }, flagged: false, players, payoff_wait: 0 },
+  { phase: "reveal", host: "Colm", round: 3, total_rounds: 10, track,
+    round_answers: { Colm: { points: 120 } }, flagged: false, players, payoff_wait: 8.4 },
   { phase: "break", host: "Colm", players },
+  { phase: "break", host: "Colm", break_stage: "facts",
+    facts: { Colm: "A fact to read", Oli: "Another fact" }, players },
+  { phase: "break", host: "Colm", break_stage: "tf", facts: {},
+    tf: { num: 1, total: 3, text: "T or F?", answered: ["Colm"], revealed: false, last: false }, players },
+  { phase: "break", host: "Colm", break_stage: "tf", facts: {},
+    tf: { num: 3, total: 3, text: "T or F?", answered: ["Colm", "Oli"], revealed: true,
+          last: true, answer: true, results: { Colm: 50, Oli: 0 } }, players },
   { phase: "finished", host: "Colm", players, track },
 ];
 const scenario = `
@@ -63,6 +72,27 @@ if (!btn.textContent) { console.log("r-next has no text on host reveal"); failur
 if (btn.hidden) { console.log("r-next hidden on host reveal"); failures++; }
 myName = "Oli"; render();
 if (!document.getElementById("r-next").hidden) { console.log("r-next visible for non-host"); failures++; }
+// payoff lock: next button disabled with countdown text while the song plays out
+joined = true; myName = "Colm"; state = ${JSON.stringify(snapshots[4])}; render();
+if (!btn.disabled) { console.log("r-next not locked during payoff"); failures++; }
+if (!/9s/.test(btn.textContent)) { console.log("payoff countdown missing:", btn.textContent); failures++; }
+state = ${JSON.stringify(snapshots[3])}; render();
+if (btn.disabled) { console.log("r-next still locked after payoff"); failures++; }
+// half-time facts: my fact shows, someone else's doesn't leak into my card
+state = ${JSON.stringify(snapshots[6])}; render();
+if (document.getElementById("bk-fact").hidden) { console.log("fact card hidden for fact-holder"); failures++; }
+if (document.getElementById("bk-fact-text").textContent !== "A fact to read") {
+  console.log("wrong fact shown:", document.getElementById("bk-fact-text").textContent); failures++; }
+// T/F question: buttons live before answering, status shows verdict after reveal
+state = ${JSON.stringify(snapshots[7])}; myTf = null; render();
+if (document.getElementById("bk-tf").hidden) { console.log("tf box hidden during tf stage"); failures++; }
+if (document.getElementById("bk-tf-true").disabled) { console.log("tf buttons dead before answering"); failures++; }
+state = ${JSON.stringify(snapshots[8])}; render();
+if (!document.getElementById("bk-tf-true").disabled) { console.log("tf buttons live after reveal"); failures++; }
+if (!/TRUE/.test(document.getElementById("bk-tf-status").textContent)) {
+  console.log("tf verdict missing:", document.getElementById("bk-tf-status").textContent); failures++; }
+if (!/Second half/.test(document.getElementById("bk-next").textContent)) {
+  console.log("bk-next label wrong on last reveal:", document.getElementById("bk-next").textContent); failures++; }
 `;
 eval(src.replace(/^connect\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }
