@@ -91,10 +91,20 @@ function boardLog(msg) {
   try { fetch("/api/board/log", { method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ msg }) }); } catch (e) {}
 }
+let retryTimer = null, retryCount = 0;
 function playAudio(kind, key, isRetry) {
   if (key === lastKey && !isRetry) return;
+  if (key !== lastKey) { retryCount = 0; clearTimeout(retryTimer); }
   lastKey = key;
-  bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`;
+  // keep retrying for the whole round — a storage blip can 404 a clip that
+  // exists; giving up after one attempt made the round permanently silent (#24)
+  const retry = (why) => {
+    if (retryCount === 0 || retryCount % 4 === 0) boardLog(`${why} for ${key} (attempt ${retryCount + 1})`);
+    if (retryCount++ < 15) retryTimer = setTimeout(() => {
+      if (lastKey === key) playAudio(kind, key, true);
+    }, 2000);
+  };
+  bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}&r=${retryCount}`;
   // the muted-start dance is only needed while audio is still locked (touch displays);
   // once unlocked (or on Android TV) play unmuted directly — the 250ms unmute hop
   // was a silent failure point on extended clips
@@ -105,15 +115,13 @@ function playAudio(kind, key, isRetry) {
     setTimeout(() => {
       bAudio.muted = false;
       if (bAudio.paused) {
-        boardLog(`audio stuck paused after play() for ${key}${isRetry ? " (retry failed)" : ""}`);
-        if (!isRetry) playAudio(kind, key, true);
-        else if (!audioUnlocked) showTap();
-      } else aStatus("");
+        if (!audioUnlocked) showTap();
+        else retry("audio stuck paused");
+      } else { aStatus(""); retryCount = 0; }
     }, 250);
   }).catch((e) => {
-    boardLog(`play() rejected for ${key}: ${e && e.name}: ${e && e.message}`);
     if (e && e.name === "NotAllowedError" && !audioUnlocked) showTap();
-    else if (!isRetry) setTimeout(() => playAudio(kind, key, true), 300);
+    else retry(`play() rejected: ${e && e.name}`);
   });
 }
 bAudio.addEventListener("timeupdate", () => {
@@ -149,7 +157,7 @@ bAudio.addEventListener("error", () => { if (audioUnlocked) aStatus("(audio hicc
 // a crashed cast receiver can leave a zombie socket open through a proxy
 setInterval(() => {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: "board_hello"}));
-}, 15000);
+}, 5000);
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.onopen = () => ws.send(JSON.stringify({type: "board_hello"}));
