@@ -64,8 +64,10 @@ subscriptions.
   mid-game the app re-casts the board automatically, and the board reports playback
   failures back to the server log.
 - **Half-time trivia** — a curated seed pack ships in the repo (50 read-aloud music
-  facts + 50 true/false questions) and lives in SQLite; the true/false pool tops
-  itself up from [Open Trivia DB](https://opentdb.com/) whenever it runs low
+  facts + 50 true/false questions, **deliberately Irish/UK-centric** — Eurovision,
+  Thin Lizzy and Westlife feature; edit `app/data/trivia_seed.json` to suit your
+  own table) and lives in SQLite; the true/false pool tops itself up from
+  [Open Trivia DB](https://opentdb.com/) whenever it runs low
   (`POST /api/trivia/topup`, also called automatically at game start). Picks prefer
   never-used items and recycle oldest-first, so repeats take months. Answers never
   ship to phones before the reveal.

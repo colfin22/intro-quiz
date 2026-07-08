@@ -20,9 +20,15 @@ TOPUP_MIN_UNUSED = 30  # fetch more T/F once the fresh pool dips below this
 
 
 def ensure_seeded(conn) -> int:
-    """Idempotent — text is UNIQUE, so re-running only inserts new items."""
-    with open(SEED_PATH, encoding="utf-8") as f:
-        seed = json.load(f)
+    """Idempotent — text is UNIQUE, so re-running only inserts new items.
+    A missing/broken seed pack must never block a game — half time just
+    degrades to a plain snacks break."""
+    try:
+        with open(SEED_PATH, encoding="utf-8") as f:
+            seed = json.load(f)
+    except (OSError, ValueError) as e:
+        LOGGER.error("trivia seed pack unusable (%s) — half time will be trivia-less", e)
+        return 0
     added = 0
     for item in seed:
         cur = conn.execute(
