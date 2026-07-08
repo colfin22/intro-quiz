@@ -116,7 +116,8 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
     return {"cut": done, "errors": errors, "remaining": remaining}
 
 
-def sweep(batch: int = 100, stall_sleep_s: float = 600, max_stalls: int = 6) -> dict:
+def sweep(batch: int = 100, stall_sleep_s: float = 600, max_stalls: int = 6,
+          max_hours: float = 0, clock=time.monotonic) -> dict:
     """Run-once bulk cutter: batch until every tiered track has clips, then stop.
 
     This is the CLIP_SWEEP_ON_START bootstrap for fresh installs — one long
@@ -124,10 +125,16 @@ def sweep(batch: int = 100, stall_sleep_s: float = 600, max_stalls: int = 6) -> 
     of drip-feeding /api/clips/cut. Safe to leave enabled: a start with
     nothing to cut returns immediately. If Navidrome is unreachable or every
     track in a batch errors, it backs off and eventually gives up until the
-    next start rather than hammering forever.
+    next start rather than hammering forever. max_hours > 0 caps the session
+    (CLIP_SWEEP_MAX_HOURS): it finishes the batch in hand, stops cleanly, and
+    resumes from where it left off on the next start.
     """
+    deadline = clock() + max_hours * 3600 if max_hours > 0 else None
     total = stalls = 0
     while True:
+        if deadline and clock() >= deadline:
+            LOGGER.info("clip sweep: %.1fh time limit reached — %d cut; resumes next start", max_hours, total)
+            return {"cut": total, "stopped": "time-limit"}
         conn = db.connect()
         try:
             r = cut_batch(conn, subsonic.Client(), limit=batch)

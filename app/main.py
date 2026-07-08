@@ -36,8 +36,10 @@ def health():
 async def maybe_clip_sweep():
     """CLIP_SWEEP_ON_START=true — one long background clip-cutting session."""
     if config.CLIP_SWEEP_ON_START:
-        LOGGER.info("CLIP_SWEEP_ON_START set — bulk clip session starting in the background")
-        asyncio.get_event_loop().run_in_executor(None, clips.sweep)
+        cap = f" (capped at {config.CLIP_SWEEP_MAX_HOURS}h)" if config.CLIP_SWEEP_MAX_HOURS else ""
+        LOGGER.info("CLIP_SWEEP_ON_START set — bulk clip session starting in the background%s", cap)
+        asyncio.get_event_loop().run_in_executor(
+            None, lambda: clips.sweep(max_hours=config.CLIP_SWEEP_MAX_HOURS))
 
 
 @app.post("/api/sync")
