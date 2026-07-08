@@ -8,6 +8,19 @@ screen), or **just as happily on a cast speaker** — no scoreboard, phones carr
 questions, the speaker carries the music. All local — your music, your network, no
 subscriptions.
 
+<p align="center">
+  <img src="docs/screenshots/board-reveal.png" width="90%"
+       alt="The TV board on a reveal — album art, who got it right, and the scores">
+</p>
+<p align="center">
+  <img src="docs/screenshots/phone-question.png" width="30%"
+       alt="A round on the phone — four choices and a countdown">
+  <img src="docs/screenshots/phone-artist-wall.png" width="30%"
+       alt="The lobby artist wall — every player picks three artists they know">
+  <img src="docs/screenshots/phone-fact.png" width="30%"
+       alt="Half time — this phone got a trivia fact to read out to the table">
+</p>
+
 ## How a game works
 
 1. Everyone opens the app on their phone (a plain LAN web page) and joins with a name.
@@ -37,6 +50,13 @@ subscriptions.
 7. Rubbish clip (applause intro, ambient noise)? The game master's reveal screen has
    a **🚫 bad clip** link — two taps to confirm — that bans the track forever.
 8. Ten rounds a game, persistent all-time leaderboard.
+
+<p align="center">
+  <img src="docs/screenshots/board-question.png" width="49%"
+       alt="The TV board mid-round — an animated wave and clip progress, no spoilers">
+  <img src="docs/screenshots/board-halftime.png" width="49%"
+       alt="Half time on the TV board — a true-or-false question for the table">
+</p>
 
 ## How it works under the hood
 
