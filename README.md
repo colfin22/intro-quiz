@@ -104,6 +104,7 @@ Create a `.env` beside `docker-compose.yml`:
     KNOWN_PLAYERS=Alice=192.168.1.20,Bob=192.168.1.21
     # first install: cut clips for the WHOLE library in one long session at startup
     CLIP_SWEEP_ON_START=true
+    CLIP_SWEEP_MAX_HOURS=8    # optional cap per session (0/unset = run until done)
 
 Then: `POST /api/sync` (library), `POST /api/score/lastfm?limit=...` (repeat until done),
 `POST /api/score/tiers`, `POST /api/clips/cut?limit=...` — or just schedule them nightly.
@@ -117,7 +118,9 @@ ffmpeg), and progress is logged batch by batch in `docker logs`. It only cuts
 `docker compose restart`. It's safe to leave enabled permanently: a start with
 nothing to cut exits immediately, and newly-scored tracks get swept up on the next
 restart. If Navidrome is unreachable it backs off and gives up after an hour
-rather than hammering.
+rather than hammering. Don't want it monopolising your music server all day?
+`CLIP_SWEEP_MAX_HOURS=8` stops the session cleanly after 8 hours (finishing the
+batch in hand) — the next restart picks up exactly where it left off.
 
 Clips land in `CLIPS_DIR` (default `/clips` — bind-mount it somewhere roomy; the
 mount in `docker-compose.yml` maps it).

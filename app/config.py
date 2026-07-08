@@ -12,3 +12,6 @@ TRIVIA_BUILTIN_PACK = os.environ.get("TRIVIA_BUILTIN_PACK", "true").lower() not 
 # run-once bulk clip cutter at startup: cuts until every tiered track has clips,
 # then stops. Safe to leave set — a start with nothing to cut exits immediately.
 CLIP_SWEEP_ON_START = os.environ.get("CLIP_SWEEP_ON_START", "false").lower() in ("true", "1", "yes")
+# optional cap on that session's length in hours (0 = run until the pool is dry);
+# a capped run stops cleanly after the current batch and resumes on next start
+CLIP_SWEEP_MAX_HOURS = float(os.environ.get("CLIP_SWEEP_MAX_HOURS", "0") or 0)

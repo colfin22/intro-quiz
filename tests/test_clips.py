@@ -132,3 +132,22 @@ def test_sweep_gives_up_after_max_stalls(monkeypatch):
     monkeypatch.setattr(clips.subsonic, "Client", lambda: object())
     out = clips.sweep(stall_sleep_s=0, max_stalls=3)
     assert out == {"cut": 0, "stopped": "stalled"}
+
+
+def test_sweep_respects_time_limit(monkeypatch):
+    """CLIP_SWEEP_MAX_HOURS: stops cleanly at the deadline, resumes next start."""
+    ticker = iter(range(0, 100000, 1800))  # each clock() call advances 30 min
+
+    def fake_batch(conn, client, limit=100):
+        return {"cut": 100, "errors": 0, "remaining": 5000}  # never finishes
+
+    class DummyConn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(clips, "cut_batch", fake_batch)
+    monkeypatch.setattr(clips.db, "connect", lambda *a, **k: DummyConn())
+    monkeypatch.setattr(clips.subsonic, "Client", lambda: object())
+    out = clips.sweep(stall_sleep_s=0, max_hours=1, clock=lambda: next(ticker))
+    assert out["stopped"] == "time-limit"
+    assert out["cut"] > 0  # got at least one batch in before the cap
