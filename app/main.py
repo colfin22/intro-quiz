@@ -62,8 +62,9 @@ def health():
 async def board_watchdog():
     """While a game is on and a display is chosen, keep the board alive.
 
-    Runs forever, checks every 20s: no heartbeat from any board for 45s
-    -> re-cast, retrying every tick until the board reports back (#21).
+    Runs forever, checks every 10s: no heartbeat from any board for 20s
+    -> re-cast, retrying every 20s until the board reports back (#21, #25 —
+    the receiver dies often enough that 45-65s recoveries ate half a round).
     The old one-shot on websocket disconnect never fired when a dead cast
     receiver left a zombie socket open through the reverse proxy.
     """
@@ -72,7 +73,7 @@ async def board_watchdog():
     async def _loop():
         last_cast = 0.0
         while True:
-            await asyncio.sleep(20)
+            await asyncio.sleep(10)
             try:
                 if not (hub.game and hub.game.phase in ("lobby", "question", "reveal", "break")):
                     continue
@@ -80,7 +81,7 @@ async def board_watchdog():
                     continue
                 if hub.board_last_seen == 0.0:
                     continue  # board never arrived — that's the initial cast's job
-                if _t.time() - last_cast < 30:
+                if _t.time() - last_cast < 20:
                     continue  # give the last attempt a chance to load
                 LOGGER.warning("board watchdog: no heartbeat for %.0fs — recasting to %s",
                                _t.time() - hub.board_last_seen, hub.display)
@@ -305,7 +306,7 @@ class Hub:
         both the re-cast watchdog and the speaker fallback (#21)."""
         import time as _t
         return (any(b in self.sockets for b in self.boards)
-                and (_t.time() - self.board_last_seen) < 45)
+                and (_t.time() - self.board_last_seen) < 20)  # heartbeat is 5s (#25)
 
     def board_expected(self) -> bool:
         """A board was here recently — don't fall back to a speaker over a WS blip."""
@@ -556,6 +557,11 @@ def api_round_audio(kind: str = "5"):
         return Response(status_code=404)
     path = os.path.join(config.CLIPS_DIR, rnd["track"]["id"], f"{kind}.mp3")
     if not os.path.exists(path):
+        # a clip we KNOW was cut is unreachable mid-game — almost always a
+        # storage blip (soft-mounted share timing out), not a missing file (#24)
+        t = rnd["track"]
+        LOGGER.error("clip unreachable for ACTIVE round: %s — %s - %s (%s.mp3) — storage blip? "
+                     "board will keep retrying", t["id"], t["artist"], t["title"], kind)
         return Response(status_code=404)
     return FileResponse(path, media_type="audio/mpeg",
                         headers={"Cache-Control": "no-store"})
