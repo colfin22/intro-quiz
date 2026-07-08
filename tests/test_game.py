@@ -313,3 +313,38 @@ def test_phone_ui_renders_every_phase():
     r = subprocess.run(["node", os.path.join(os.path.dirname(__file__), "js", "render_smoke.js")],
                        capture_output=True, text=True, timeout=30)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_bootstrap_job_sequence(monkeypatch):
+    """/api/bootstrap chains sync -> lastfm(loop) -> tiers -> clips and resolves."""
+    from app import main
+
+    calls = []
+    lastfm_runs = iter([
+        {"scored": 200, "errors": 0, "remaining": 150},
+        {"scored": 150, "errors": 0, "remaining": 0},
+    ])
+
+    class DummyConn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(main.db, "connect", lambda *a, **k: DummyConn())
+    monkeypatch.setattr(main.subsonic, "Client", lambda: object())
+    monkeypatch.setattr(main.sync, "sync_library",
+                        lambda c, cl: calls.append("sync") or {"tracks_active": 42})
+    monkeypatch.setattr(main.lastfm, "score_batch",
+                        lambda c, limit: calls.append("lastfm") or next(lastfm_runs))
+    monkeypatch.setattr(main.scoring, "assign_tiers",
+                        lambda c: calls.append("tiers") or {"easy": 1})
+    monkeypatch.setattr(main.clips, "sweep",
+                        lambda: calls.append("clips") or {"cut": 7, "stopped": "done"})
+    main.BOOTSTRAP.clear()
+    main.BOOTSTRAP.update({"running": True, "stage": "starting"})
+    main._bootstrap_job()
+    assert calls == ["sync", "lastfm", "lastfm", "tiers", "clips"]
+    assert main.BOOTSTRAP["stage"] == "done"
+    assert main.BOOTSTRAP["running"] is False
+    assert main.BOOTSTRAP["clips_cut"] == 7
+    assert main.BOOTSTRAP["tracks_synced"] == 42
+    main.BOOTSTRAP.clear()

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import shutil
 
 import httpx
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -52,6 +53,8 @@ def health():
     except Exception as e:  # noqa: BLE001 — health must never 500
         out["ready_to_play"] = False
         out["message"] = f"db not readable: {e}"
+    if BOOTSTRAP:
+        out["bootstrap"] = dict(BOOTSTRAP)
     return out
 
 
@@ -137,6 +140,92 @@ def api_clips_cut(limit: int = 50):
         return clips.cut_batch(conn, subsonic.Client(), limit=limit)
     finally:
         conn.close()
+
+
+@app.post("/api/clips/recut")
+def api_clips_recut(track_id: str = "", q: str = ""):
+    """Queue tracks for re-cutting (e.g. after the silence-aware cutter landed).
+
+    Clears clipped_at + deletes the clip files; the sweep/nightly re-cuts them
+    with silence detection. Target one track_id, or q= a LIKE pattern matched
+    against artist and title (e.g. q=%Sunn O%%%).
+    """
+    if not track_id and not q:
+        return Response(status_code=400, content="give track_id= or q= (SQL LIKE pattern)")
+    conn = db.connect()
+    try:
+        if track_id:
+            rows = conn.execute("SELECT id FROM tracks WHERE id=?", (track_id,)).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id FROM tracks WHERE clipped_at IS NOT NULL AND (artist LIKE ? OR title LIKE ?)",
+                (q, q)).fetchall()
+        for r in rows:
+            conn.execute("UPDATE tracks SET clipped_at=NULL WHERE id=?", (r["id"],))
+            shutil.rmtree(os.path.join(config.CLIPS_DIR, r["id"]), ignore_errors=True)
+        conn.commit()
+        return {"queued_for_recut": len(rows)}
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# One-call first-time setup: sync -> Last.fm scoring -> tiers -> clips.
+# ---------------------------------------------------------------------------
+BOOTSTRAP: dict = {}
+
+
+def _bootstrap_job():
+    def stage(name):
+        BOOTSTRAP["stage"] = name
+        LOGGER.info("bootstrap: %s", name)
+    try:
+        conn = db.connect()
+        try:
+            stage("sync")
+            r = sync.sync_library(conn, subsonic.Client())
+            BOOTSTRAP["tracks_synced"] = r.get("tracks_active")
+            stage("lastfm")
+            for _ in range(2000):  # safety bound, ~400k tracks
+                r = lastfm.score_batch(conn, limit=200)
+                BOOTSTRAP["lastfm_remaining"] = r["remaining"]
+                if r["remaining"] == 0:
+                    break
+                if r["scored"] == 0:
+                    # no progress (key revoked / network down) — stop; POST again resumes
+                    BOOTSTRAP["warning"] = ("lastfm scoring made no progress — check "
+                                            "LASTFM_API_KEY / network, then POST /api/bootstrap "
+                                            "again to resume where it left off")
+                    break
+            stage("tiers")
+            BOOTSTRAP["tiers"] = scoring.assign_tiers(conn)
+        finally:
+            conn.close()
+        stage("clips")
+        r = clips.sweep()
+        BOOTSTRAP.update({"stage": "done", "clips_cut": r.get("cut"),
+                          "clips_stopped": r.get("stopped")})
+    except Exception as e:  # noqa: BLE001 — status must always resolve
+        LOGGER.exception("bootstrap failed")
+        BOOTSTRAP.update({"stage": "failed", "error": str(e)})
+    finally:
+        BOOTSTRAP["running"] = False
+
+
+@app.post("/api/bootstrap")
+async def api_bootstrap():
+    """Chain the whole first-time setup as one background job.
+
+    Idempotent and resumable: every step only processes what's missing, so
+    re-POSTing after a failure continues where it stopped. Progress shows in
+    /health under "bootstrap" (and in the logs).
+    """
+    if BOOTSTRAP.get("running"):
+        return {"started": False, "already_running": True, "status": dict(BOOTSTRAP)}
+    BOOTSTRAP.clear()
+    BOOTSTRAP.update({"running": True, "stage": "starting"})
+    asyncio.get_event_loop().run_in_executor(None, _bootstrap_job)
+    return {"started": True, "watch": "/health"}
 
 
 # ---------------------------------------------------------------------------
