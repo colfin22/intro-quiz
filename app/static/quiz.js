@@ -1,7 +1,7 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
 let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
-let myTf = null, tfKey = "";
+let myTf = null, tfKey = "", timerKey = "";
 
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
@@ -109,6 +109,7 @@ function renderDisplays() {
 
 function render() {
   renderDisplays();
+  if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
   document.getElementById("abort-row").hidden = !(hostOnly && state.phase && state.phase !== "idle" && state.phase !== "finished");
   if (state.phase === "idle") { show("v-idle"); joined = false; return; }
@@ -165,7 +166,13 @@ function render() {
     });
     document.getElementById("q-answered").textContent =
       state.answered.length ? `answered: ${state.answered.join(", ")}` : "";
-    startTimer();
+    // restart the countdown only when the window actually changed (new round,
+    // replay, or an extended clip) — not on every broadcast
+    const tKey = `${state.round}-${state.replay || 0}-${state.clip_len}`;
+    if (tKey !== timerKey) {
+      timerKey = tKey;
+      startTimer(state.window_left || 20);
+    }
   }
   if (state.phase === "reveal") {
     stopTimer();
@@ -255,14 +262,15 @@ function render() {
   }
 }
 
-function startTimer() {
+function startTimer(seconds) {
   stopTimer();
   const bar = document.getElementById("q-bar");
-  let left = 20;
+  const total = Math.max(1, Math.ceil(seconds || 20));
+  let left = total;
   bar.style.width = "100%";
   timerHandle = setInterval(() => {
     left -= 1;
-    bar.style.width = Math.max(0, left * 5) + "%";
+    bar.style.width = Math.max(0, (left / total) * 100) + "%";
     if (left <= 0) stopTimer();
   }, 1000);
 }

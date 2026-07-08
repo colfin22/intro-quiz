@@ -156,6 +156,33 @@ def test_artist_boost_rounds():
         os.unlink(p)
 
 
+def test_extend_clip_extends_the_window():
+    """Extending to a 20s clip near the deadline must not cut the clip off —
+    the answer window moves out with the replayed clip."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, clock=clock)
+        g.join("A"); g.join("B"); g.build_rounds(conn)
+        g.start_round()
+        assert g.window_left() == game.ANSWER_WINDOW_S
+        clock.t += 18  # extend just before the old deadline
+        assert g.extend_clip() == 10
+        assert g.window_left() == game.ANSWER_WINDOW_S  # fresh 20s
+        clock.t += 15
+        assert g.extend_clip() == 20
+        assert g.window_left() == 30  # 20s clip + 10s thinking time
+        clock.t += 28  # 61s after round start — old window long gone
+        a = g.answer("A", g.rounds[0]["correct"])
+        assert a["points"] == game.BASE_POINTS  # correct, but speed bonus decayed to 0
+        clock.t += 5   # now past even the extended window
+        with pytest.raises(game.GameError):
+            g.answer("B", 0)
+        assert g.snapshot().get("window_left") == 0
+    finally:
+        os.unlink(p)
+
+
 def test_payoff_gates_next():
     conn, p = make_db()
     try:

@@ -120,6 +120,7 @@ class Game:
                             if o["title"] == t["title"] and o["artist"] == t["artist"]),
             "answers": {},        # player -> {choice, elapsed_ms, points}
             "started_at": None,   # clock() when the clip started
+            "deadline_at": None,  # clock() when the answer window shuts (moves on extend)
             "clip_len": 5,
         }
 
@@ -158,17 +159,29 @@ class Game:
         self.current += 1
         rnd = self.rounds[self.current]
         rnd["started_at"] = self.clock()
+        rnd["deadline_at"] = rnd["started_at"] + ANSWER_WINDOW_S
         self.phase = "question"
         return rnd
 
     def extend_clip(self) -> int:
-        """Bump the current round to the next clip length (5 -> 10 -> 20)."""
+        """Bump the current round to the next clip length (5 -> 10 -> 20).
+
+        The clip replays from the start, so the answer window moves out with
+        it — long enough to hear the whole clip plus thinking time. Without
+        this, extending to 20s near the deadline cut the clip off mid-play.
+        """
         rnd = self._round("question")
         for length in (10, 20):
             if rnd["clip_len"] < length:
                 rnd["clip_len"] = length
+                rnd["deadline_at"] = self.clock() + max(ANSWER_WINDOW_S, length + 10)
                 return length
         raise GameError("already at the longest clip")
+
+    def window_left(self) -> float:
+        """Seconds until the current round's answer window shuts."""
+        rnd = self._round("question")
+        return max(0.0, rnd["deadline_at"] - self.clock())
 
     def answer(self, name: str, choice: int) -> dict:
         rnd = self._round("question")
@@ -177,7 +190,7 @@ class Game:
         if name in rnd["answers"]:
             raise GameError("already answered")
         elapsed = self.clock() - rnd["started_at"]
-        if elapsed > ANSWER_WINDOW_S:
+        if self.clock() > rnd["deadline_at"]:
             raise GameError("too late")
         points = 0
         if choice == rnd["correct"]:
@@ -314,6 +327,8 @@ class Game:
             s["options"] = [f'{o["title"]} — {o["artist"]}' for o in rnd["options"]]
             s["clip_len"] = rnd["clip_len"]
             s["replay"] = rnd.get("replay", 0)
+            if self.phase == "question":
+                s["window_left"] = round(self.window_left(), 1)
             s["flagged"] = bool(rnd.get("flagged"))
             s["answered"] = sorted(rnd["answers"])
             if self.phase == "reveal":
