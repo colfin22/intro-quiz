@@ -251,6 +251,32 @@ def test_trivia_seed_and_recycling():
         os.unlink(p)
 
 
+def test_trivia_custom_pack_and_builtin_optout(tmp_path, monkeypatch):
+    import json
+
+    from app import config, trivia
+    conn, p = make_db()
+    try:
+        # custom pack sits beside the DB on the data volume
+        monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "quiz.db"))
+        pack = [{"kind": "fact", "text": "A local fact"},
+                {"kind": "tf", "text": "A local claim.", "answer": 1},
+                {"kind": "tf", "text": "broken item, no answer"},   # skipped, not fatal
+                {"kind": "nonsense", "text": "bad kind"}]           # skipped, not fatal
+        (tmp_path / "trivia_custom.json").write_text(json.dumps(pack))
+        # builtin off: only the two valid custom items land
+        monkeypatch.setattr(config, "TRIVIA_BUILTIN_PACK", False)
+        assert trivia.ensure_seeded(conn) == 2
+        rows = conn.execute("SELECT source, COUNT(*) c FROM trivia GROUP BY source").fetchall()
+        assert {r["source"]: r["c"] for r in rows} == {"custom": 2}
+        # builtin back on: shipped pack joins the custom one, custom rows kept
+        monkeypatch.setattr(config, "TRIVIA_BUILTIN_PACK", True)
+        assert trivia.ensure_seeded(conn) >= 80
+        assert conn.execute("SELECT COUNT(*) c FROM trivia WHERE source='custom'").fetchone()["c"] == 2
+    finally:
+        os.unlink(p)
+
+
 def test_phone_ui_renders_every_phase():
     """Run the JS render smoke in node — catches thrown renders python tests can't see."""
     import shutil
