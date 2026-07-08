@@ -121,6 +121,7 @@ class Hub:
         self.board_last_seen: float = 0.0
         self.host_ws = None
         self.display: str | None = (board_cast.display_names() or [None])[0]
+        self.next_host: str | None = None  # game-master rotation across games
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
 
@@ -129,6 +130,7 @@ class Hub:
         snap["type"] = "state"
         snap["displays"] = board_cast.display_names()
         snap["display"] = self.display or "none"
+        snap["next_host"] = self.next_host  # shown on the finished screen
         dead = []
         for ws in self.sockets:
             try:
@@ -237,6 +239,8 @@ async def ws_endpoint(ws: WebSocket):
                             trivia.ensure_seeded(conn)
                         finally:
                             conn.close()
+                        if hub.next_host:  # the master's chair rotates each game
+                            hub.game.host = hub.next_host
                         # refill the T/F pool in the background if it's running low
 
                         def _topup():
@@ -268,7 +272,10 @@ async def ws_endpoint(ws: WebSocket):
                         if hub.game.host is None and name:
                             hub.game.host = name  # starter never joined from that socket — first driver takes the wheel
                         if hub.game.host and name != hub.game.host:
-                            raise game.GameError(f"only {hub.game.host} controls the rounds")
+                            if hub.game.phase == "lobby" and hub.game.host not in hub.game.players:
+                                hub.game.host = name  # rotated master isn't playing — presser takes over
+                            else:
+                                raise game.GameError(f"only {hub.game.host} controls the rounds")
                         if hub.game.phase == "lobby":
                             waiting = hub.game.waiting_on()
                             if waiting:
@@ -336,6 +343,14 @@ async def ws_endpoint(ws: WebSocket):
                                 hub.game.finish(conn)
                             finally:
                                 conn.close()
+                            # rotate the game master: next player in join order
+                            order = list(hub.game.players)
+                            if order:
+                                try:
+                                    i = order.index(hub.game.host)
+                                except ValueError:
+                                    i = -1
+                                hub.next_host = order[(i + 1) % len(order)]
                             loop = asyncio.get_event_loop()
                             loop.call_later(60, lambda: loop.run_in_executor(None, board_cast.hide_board, hub.display))
                             await hub.broadcast()

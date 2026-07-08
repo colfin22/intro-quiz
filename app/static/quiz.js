@@ -111,6 +111,14 @@ function render() {
   renderDisplays();
   if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
+  // who's holding the mic — pinned above every screen for the whole game
+  const mb = document.getElementById("master-banner");
+  if (state.host && joined && state.phase && !["idle", "finished"].includes(state.phase)) {
+    mb.hidden = false;
+    mb.innerHTML = state.host === myName
+      ? '🎤 <b style="color:var(--accent)">You\'re the game master</b>'
+      : `🎤 Game master: <b>${state.host}</b>`;
+  } else mb.hidden = true;
   document.getElementById("abort-row").hidden = !(hostOnly && state.phase && state.phase !== "idle" && state.phase !== "finished");
   if (state.phase === "idle") { show("v-idle"); joined = false; return; }
   if (state.phase === "lobby" || (!joined && state.phase !== "finished")) {
@@ -136,10 +144,12 @@ function render() {
       document.getElementById("artist-picked").hidden = !artistsSent;
       if (!artistsSent && wall.length === 0) loadWall();
       const sb = document.querySelector("#v-lobby > button.primary");
-      sb.hidden = !hostOnly;
+      const hostJoined = !state.host || state.players.some(p => p.name === state.host);
+      sb.hidden = !(hostOnly || !hostJoined);  // absent rotated master: anyone can take over
       sb.disabled = !allReady;
-      sb.textContent = allReady ? "▶ Start round 1" : "waiting for everyone to be ready…";
-      document.getElementById("lobby-wait").hidden = hostOnly;
+      sb.textContent = !allReady ? "waiting for everyone to be ready…"
+        : (hostOnly ? "▶ Start round 1" : `▶ Start (take over from ${state.host})`);
+      document.getElementById("lobby-wait").hidden = hostOnly || !hostJoined;
       if (state.host) document.getElementById("lobby-wait").textContent = `${state.host} starts the game 🎤`;
       show("v-lobby");
     }
@@ -258,6 +268,11 @@ function render() {
     stopTimer();
     show("v-finished");
     scoresInto(document.getElementById("f-scores"), state.players);
+    const nm = document.getElementById("f-next-master");
+    nm.hidden = !state.next_host;
+    if (state.next_host) nm.innerHTML = state.next_host === myName
+      ? '🎤 <b style="color:var(--accent)">You\'re the game master next game!</b>'
+      : `🎤 <b>${state.next_host}</b> is the game master next game`;
     joined = false;
   }
 }

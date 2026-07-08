@@ -32,18 +32,18 @@ def test_full_game_flow():
     try:
         clock = Clock()
         g = game.Game(conn, rounds=2, tiers=["easy", "medium"], clock=clock)
-        g.join("Colm"); g.join("Olivia")
+        g.join("Alice"); g.join("Bob")
         g.build_rounds(conn)
         rnd = g.start_round()
         assert g.phase == "question" and len(rnd["options"]) == 4
         correct = rnd["correct"]
         # correct answer at t+2s: base + speed bonus
         clock.t += 2
-        a = g.answer("Colm", correct)
+        a = g.answer("Alice", correct)
         assert a["points"] == 100 + int(50 * (1 - 2 / 20))
         # wrong answer scores nothing
         clock.t += 3
-        assert g.answer("Olivia", (correct + 1) % 4)["points"] == 0
+        assert g.answer("Bob", (correct + 1) % 4)["points"] == 0
         assert g.all_answered()
         g.reveal()
         snap = g.snapshot()
@@ -52,15 +52,15 @@ def test_full_game_flow():
         g.start_round()
         clock.t += 25  # window expired
         with pytest.raises(game.GameError):
-            g.answer("Colm", 0)
+            g.answer("Alice", 0)
         g.reveal()
         assert g.is_last_round()
         gid = g.finish(conn)
         rows = {r["player"]: r for r in conn.execute("SELECT * FROM results WHERE game_id=?", (gid,))}
-        assert rows["Colm"]["score"] > 0 and rows["Colm"]["correct"] == 1
-        assert rows["Olivia"]["score"] == 0
+        assert rows["Alice"]["score"] > 0 and rows["Alice"]["correct"] == 1
+        assert rows["Bob"]["score"] == 0
         lb = game.all_time_leaderboard(conn)
-        assert lb[0]["player"] == "Colm"
+        assert lb[0]["player"] == "Alice"
     finally:
         os.unlink(p)
 
@@ -139,9 +139,9 @@ def test_artist_boost_rounds():
     conn, p = make_db()
     try:
         g = game.Game(conn, rounds=4, clock=Clock())
-        g.join("Olivia")
-        g.set_artists("Olivia", ["Artist 7", "Artist 9"])
-        g.join("Cian")  # no picks — no boost round for him
+        g.join("Bob")
+        g.set_artists("Bob", ["Artist 7", "Artist 9"])
+        g.join("Carol")  # no picks — no boost round for him
         g.build_rounds(conn)
         artists = [r["track"]["artist"] for r in g.rounds]
         assert any(a in ("Artist 7", "Artist 9") for a in artists), artists
@@ -149,9 +149,9 @@ def test_artist_boost_rounds():
         assert len({r["track"]["id"] for r in g.rounds}) == 4  # no dupes
         snap = g.snapshot()
         by = {pl["name"]: pl for pl in snap["players"]}
-        assert by["Olivia"]["picked_artists"] is True
-        assert by["Cian"]["picked_artists"] is False
-        assert "artists" not in by["Olivia"]  # picks never leak in snapshots
+        assert by["Bob"]["picked_artists"] is True
+        assert by["Carol"]["picked_artists"] is False
+        assert "artists" not in by["Bob"]  # picks never leak in snapshots
     finally:
         os.unlink(p)
 
