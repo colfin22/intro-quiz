@@ -72,8 +72,11 @@ subscriptions.
   play are "medium" — the sweet spot where everyone has a chance.
 - **Clip cutting** — a background job downloads originals and cuts loudness-normalised
   MP3 clips with ffmpeg (5/10/20s intros + a payoff from ~40% in), working through the
-  library in global-popularity order. **ID3 tags are stripped and re-titled** so a
-  display's now-playing overlay can't leak the answer. Tracks over 12 minutes (DJ
+  library in global-popularity order. **Silence-aware**: if a track opens with a long
+  quiet stretch (rain, feedback, ambience — looking at you, metal and post-rock), the
+  intro clips start where the audible song does (`silencedetect`, capped at 60s; re-cut
+  existing tracks via `POST /api/clips/recut?q=%pattern%`). **ID3 tags are stripped and
+  re-titled** so a display's now-playing overlay can't leak the answer. Tracks over 12 minutes (DJ
   mixes) are excluded; whole albums can be banned by pattern (`POST /api/ban/album`).
   Undecodable originals retry via the music server's transcode before being banned,
   and a stream that returns an error document (stale index after files were renamed)
@@ -137,9 +140,16 @@ fill it in — it marks which variables are required:
     CLIP_SWEEP_ON_START=true
     CLIP_SWEEP_MAX_HOURS=8    # optional cap per session (0/unset = run until done)
 
-Then: `POST /api/sync` (library), `POST /api/score/lastfm?limit=...` (repeat until done),
-`POST /api/score/tiers`, `POST /api/clips/cut?limit=...` — or just schedule them nightly.
-Phones open `http://<host>:8000`; the board lives at `/board`.
+Then one call does the whole first-time setup:
+
+    curl -X POST http://<host>:8000/api/bootstrap
+
+It chains library sync → Last.fm scoring → difficulty tiers → clip cutting as a
+background job; watch progress in `/health` (which also reports `ready_to_play`)
+or the logs. It's resumable — if it stops (Last.fm hiccup, restart), POST it
+again and it continues where it left off. The individual steps also exist for
+nightly scheduling: `POST /api/sync`, `/api/score/lastfm`, `/api/score/tiers`,
+`/api/clips/cut`. Phones open `http://<host>:8000`; the board lives at `/board`.
 
 **Bootstrapping the clips:** with `CLIP_SWEEP_ON_START=true`, every container start
 kicks off a background session that cuts clips until every tiered track has them —

@@ -57,7 +57,44 @@ def _cut_all(src: str, dest: str, offset: float, duration: int) -> None:
     _ffmpeg_cut(src, os.path.join(dest, "payoff.mp3"), payoff_start, PAYOFF_LEN)
 
 
-def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> None:
+SILENCE_NOISE = "-35dB"   # quieter than this counts as "nothing to hear"
+SILENCE_MIN_S = 2.0       # ...if it lasts at least this long
+MAX_AUTO_OFFSET = 60.0    # never skip more than a minute of ambience
+
+
+def detect_intro_offset(src: str) -> float:
+    """Where does the audible song actually start?
+
+    Metal/post-rock/ambient tracks often open with 30-60s of silence, rain or
+    feedback — a 5s clip of that is unguessable for the wrong reason. If the
+    track opens with a long quiet stretch, the intro clips start where it ends.
+    """
+    r = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-t", "90", "-i", src, "-af",
+         f"silencedetect=noise={SILENCE_NOISE}:d={SILENCE_MIN_S}", "-f", "null", "-"],
+        capture_output=True, text=True)
+    start = end = None
+    for line in r.stderr.splitlines():
+        if "silence_start:" in line and start is None:
+            try:
+                start = float(line.rsplit("silence_start:", 1)[1].strip())
+            except ValueError:
+                pass
+        elif "silence_end:" in line and start is not None:
+            try:
+                end = float(line.rsplit("silence_end:", 1)[1].split("|")[0].strip())
+            except ValueError:
+                pass
+            break
+    if start is None or start > 1.0:  # the song opens audibly — leave it alone
+        return 0.0
+    if end is None:  # quiet right through the probe window
+        return MAX_AUTO_OFFSET
+    return min(max(end, 0.0), MAX_AUTO_OFFSET)
+
+
+def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> float:
+    """Cut all clips for one track. Returns the intro offset actually used."""
     clips_dir = clips_dir or config.CLIPS_DIR
     dest = os.path.join(clips_dir, row["id"])
     os.makedirs(dest, exist_ok=True)
@@ -70,6 +107,9 @@ def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> Non
         except subsonic.SubsonicError as e:
             # missing/renamed file — the next library scan reconciles it; skip quietly
             raise ClipError(f"source unavailable on server: {e}") from e
+        offset = max(offset, detect_intro_offset(src))
+        if duration and offset > duration - 25:  # keep room for the 20s clip
+            offset = max(0.0, duration - 25)
         try:
             _cut_all(src, dest, offset, duration)
         except ClipError:
@@ -77,6 +117,7 @@ def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> Non
             LOGGER.info("retrying %s - %s via server transcode", row["artist"], row["title"])
             client.download_transcoded(row["id"], src)
             _cut_all(src, dest, offset, duration)
+    return offset
 
 
 def cut_batch(conn, client: subsonic.Client, limit: int = 50,
@@ -89,7 +130,7 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
     done = errors = 0
     for row in rows:
         try:
-            cut_track(client, row, clips_dir)
+            used_offset = cut_track(client, row, clips_dir)
         except ClipError as e:
             # deterministic decode failure (corrupt/odd source) — retrying is
             # futile and the track can never be played: ban it from the pool
@@ -105,8 +146,8 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
             LOGGER.warning("clip cut failed (will retry) for %s - %s: %s", row["artist"], row["title"], e)
             shutil.rmtree(os.path.join(clips_dir or config.CLIPS_DIR, row["id"]), ignore_errors=True)
             continue
-        conn.execute("UPDATE tracks SET clipped_at=? WHERE id=?",
-                     (datetime.now(timezone.utc).isoformat(), row["id"]))
+        conn.execute("UPDATE tracks SET clipped_at=?, intro_offset=? WHERE id=?",
+                     (datetime.now(timezone.utc).isoformat(), used_offset, row["id"]))
         conn.commit()
         done += 1
     remaining = conn.execute(

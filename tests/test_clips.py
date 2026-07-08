@@ -165,3 +165,35 @@ def test_sweep_respects_time_limit(monkeypatch):
     out = clips.sweep(stall_sleep_s=0, max_hours=1, clock=lambda: next(ticker))
     assert out["stopped"] == "time-limit"
     assert out["cut"] > 0  # got at least one batch in before the cap
+
+
+@pytest.fixture()
+def quiet_intro_tone(tmp_path):
+    """8 seconds of near-silence, then tone — the metal/ambient intro problem."""
+    src = tmp_path / "quiet.mp3"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "sine=frequency=440:duration=60",
+                    "-af", "adelay=8000|8000",
+                    "-codec:a", "libmp3lame", str(src)], check=True)
+    return str(src)
+
+
+def test_detect_intro_offset(tone, quiet_intro_tone):
+    assert clips.detect_intro_offset(tone) == 0.0          # audible from the start
+    off = clips.detect_intro_offset(quiet_intro_tone)
+    assert 6.5 <= off <= 9.5, off                          # skips the quiet opening
+
+
+def test_cut_batch_persists_detected_offset(quiet_intro_tone, tmp_path):
+    conn, p = make_db([{"id": "q1", "duration": 68}])
+    clips_dir = tmp_path / "clips"
+    try:
+        r = clips.cut_batch(conn, FakeClient(quiet_intro_tone), limit=5, clips_dir=str(clips_dir))
+        assert r["cut"] == 1
+        row = conn.execute("SELECT intro_offset, clipped_at FROM tracks WHERE id='q1'").fetchone()
+        assert 6.5 <= row["intro_offset"] <= 9.5
+        assert row["clipped_at"] is not None
+        # the 5s clip must contain audio, not the quiet opening
+        assert probe_duration(str(clips_dir / "q1" / "5.mp3")) >= 4.5
+    finally:
+        os.unlink(p)
