@@ -59,6 +59,39 @@ def health():
 
 
 @app.on_event("startup")
+async def board_watchdog():
+    """While a game is on and a display is chosen, keep the board alive.
+
+    Runs forever, checks every 20s: no heartbeat from any board for 45s
+    -> re-cast, retrying every tick until the board reports back (#21).
+    The old one-shot on websocket disconnect never fired when a dead cast
+    receiver left a zombie socket open through the reverse proxy.
+    """
+    import time as _t
+
+    async def _loop():
+        last_cast = 0.0
+        while True:
+            await asyncio.sleep(20)
+            try:
+                if not (hub.game and hub.game.phase in ("lobby", "question", "reveal", "break")):
+                    continue
+                if not hub.display or hub.board_live():
+                    continue
+                if hub.board_last_seen == 0.0:
+                    continue  # board never arrived — that's the initial cast's job
+                if _t.time() - last_cast < 30:
+                    continue  # give the last attempt a chance to load
+                LOGGER.warning("board watchdog: no heartbeat for %.0fs — recasting to %s",
+                               _t.time() - hub.board_last_seen, hub.display)
+                last_cast = _t.time()
+                asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
+            except Exception:  # noqa: BLE001 — the watchdog must never die
+                LOGGER.exception("board watchdog tick failed")
+    asyncio.create_task(_loop())
+
+
+@app.on_event("startup")
 async def maybe_clip_sweep():
     """Startup checks + CLIP_SWEEP_ON_START background clip-cutting session."""
     if board_cast.BOARD_URL and not board_cast.BOARD_URL.startswith("https://"):
@@ -241,6 +274,7 @@ class Hub:
         self.host_ws = None
         self.display: str | None = (board_cast.display_names() or [None])[0]
         self.next_host: str | None = None  # game-master rotation across games
+        self.games_started = 0  # phones reset per-game state when this changes (#22)
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
 
@@ -250,6 +284,7 @@ class Hub:
         snap["displays"] = board_cast.display_names()
         snap["display"] = self.display or "none"
         snap["next_host"] = self.next_host  # shown on the finished screen
+        snap["game_no"] = self.games_started
         dead = []
         for ws in self.sockets:
             try:
@@ -264,11 +299,13 @@ class Hub:
             self.deadline_task.cancel()
 
     def board_live(self) -> bool:
-        live = any(b in self.sockets for b in self.boards)
-        if live:
-            import time as _t
-            self.board_last_seen = _t.time()
-        return live
+        """A board is live only if it has HEARTBEATED recently. A socket merely
+        being open is not enough: behind a reverse proxy, a dead cast receiver
+        can leave a zombie websocket that lingers open — trusting it blocked
+        both the re-cast watchdog and the speaker fallback (#21)."""
+        import time as _t
+        return (any(b in self.sockets for b in self.boards)
+                and (_t.time() - self.board_last_seen) < 45)
 
     def board_expected(self) -> bool:
         """A board was here recently — don't fall back to a speaker over a WS blip."""
@@ -344,7 +381,10 @@ async def ws_endpoint(ws: WebSocket):
                             hub.display = None if want == "none" else want
                         await hub.broadcast()
                     elif kind == "board_hello":
+                        # also the board's 15s heartbeat — liveness, not just registration
                         hub.boards.add(ws)
+                        import time as _t
+                        hub.board_last_seen = _t.time()
                     elif kind == "new_game":
                         if hub.game and hub.game.phase not in ("finished", "lobby"):
                             raise game.GameError("a game is already running")
@@ -358,6 +398,7 @@ async def ws_endpoint(ws: WebSocket):
                             trivia.ensure_seeded(conn)
                         finally:
                             conn.close()
+                        hub.games_started += 1
                         if hub.next_host:  # the master's chair rotates each game
                             hub.game.host = hub.next_host
                         # refill the T/F pool in the background if it's running low
@@ -484,13 +525,8 @@ async def ws_endpoint(ws: WebSocket):
             hub.sockets.remove(ws)
         if ws in hub.boards:
             hub.boards.discard(ws)
-            if hub.game and hub.game.phase in ("question", "reveal", "break", "lobby"):
-                async def _recast():
-                    await asyncio.sleep(15)
-                    if hub.game and not hub.board_live() and hub.display:
-                        LOGGER.warning("board lost mid-game — recasting to %s", hub.display)
-                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
-                asyncio.create_task(_recast())
+            # re-casting is handled by the periodic board watchdog (#21) —
+            # a clean disconnect just means it notices within one tick
 
 
 @app.get("/")

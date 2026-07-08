@@ -145,6 +145,11 @@ document.addEventListener("pointerdown", () => {
 bAudio.addEventListener("playing", () => aStatus(""));
 // a genuine media load failure (not the benign AbortError) is worth one quiet line
 bAudio.addEventListener("error", () => { if (audioUnlocked) aStatus("(audio hiccup — next round will recover)"); });
+// heartbeat: the server only trusts a board it has heard from recently —
+// a crashed cast receiver can leave a zombie socket open through a proxy
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: "board_hello"}));
+}, 15000);
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.onopen = () => ws.send(JSON.stringify({type: "board_hello"}));
