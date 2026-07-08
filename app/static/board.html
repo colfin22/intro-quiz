@@ -57,6 +57,11 @@
         <p class="big" id="b-title" style="font-size:1.6rem"></p>
         <p class="dim" id="b-detail"></p>
       </div>
+      <div class="card center" id="b-break-card" hidden
+           style="display:flex;flex-direction:column;justify-content:center">
+        <p id="b-break-big" style="font-size:clamp(1.2rem,5vh,2.2rem);margin:1vh 0"></p>
+        <p class="dim" id="b-break-detail" style="font-size:clamp(1rem,3.2vh,1.5rem)"></p>
+      </div>
       <div class="card">
         <p class="dim">Scores</p>
         <ul class="scores" id="b-scores"></ul>
@@ -155,7 +160,8 @@ function connect() {
     if (s.phase === "lobby") st.textContent = `Lobby — ${s.players.length} in`;
     if (s.phase === "question") st.textContent = `Round ${s.round}/${s.total_rounds} — listen! 🎧`;
     if (s.phase === "reveal") st.textContent = `Round ${s.round}/${s.total_rounds}`;
-    if (s.phase === "break") st.textContent = "🍿 HALF TIME";
+    if (s.phase === "break") st.textContent = s.break_stage === "tf" && s.tf
+      ? `🍿 Half time — true or false? ${s.tf.num}/${s.tf.total}` : "🍿 HALF TIME";
     if (s.phase === "finished") st.textContent = "🏆 Final!";
     document.getElementById("b-wave-card").hidden = s.phase !== "question";
     if (s.phase === "question") document.getElementById("b-clip-label").textContent = `${s.clip_len} second clip`;
@@ -166,6 +172,29 @@ function connect() {
       document.getElementById("b-title").textContent = s.track.title;
       document.getElementById("b-detail").textContent =
         `${s.track.artist}${s.track.year ? " (" + s.track.year + ")" : ""}`;
+    }
+    // half-time show: facts prompt, then the T/F question front and centre
+    const bkCard = document.getElementById("b-break-card");
+    bkCard.hidden = s.phase !== "break";
+    if (s.phase === "break") {
+      const big = document.getElementById("b-break-big");
+      const detail = document.getElementById("b-break-detail");
+      if (s.break_stage === "tf" && s.tf) {
+        big.textContent = s.tf.text;
+        if (s.tf.revealed) {
+          const bits = s.players.map(p => {
+            const pts = (s.tf.results || {})[p.name];
+            return pts === undefined ? `${p.name} —` : (pts > 0 ? `${p.name} ✅ +${pts}` : `${p.name} ❌`);
+          });
+          detail.textContent = `It's ${s.tf.answer ? "TRUE" : "FALSE"}!   ·   ` + bits.join("   ");
+        } else {
+          detail.textContent = "✅ true or ❌ false? Answer on your phones — +50 points"
+            + (s.tf.answered.length ? `   ·   answered: ${s.tf.answered.join(", ")}` : "");
+        }
+      } else {
+        big.textContent = "🍿 Half-time trivia!";
+        detail.textContent = "Check your phones — everyone has a music fact to read out 📣";
+      }
     }
     // per-round results under the art on reveal
     if (s.phase === "reveal" && s.round_answers) {

@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, board_cast, clips, config, db, game, ha, lastfm, scoring, subsonic, sync
+from . import __version__, board_cast, clips, config, db, game, ha, lastfm, scoring, subsonic, sync, trivia
 
 LOGGER = logging.getLogger(__name__)
 app = FastAPI(title="Intro Quiz", version=__version__)
@@ -223,8 +223,20 @@ async def ws_endpoint(ws: WebSocket):
                         try:
                             hub.game = game.Game(conn, rounds=int(msg.get("rounds", 10)),
                                                  tiers=msg.get("tiers") or ["easy", "medium"])
+                            trivia.ensure_seeded(conn)
                         finally:
                             conn.close()
+                        # refill the T/F pool in the background if it's running low
+
+                        def _topup():
+                            c = db.connect()
+                            try:
+                                trivia.topup_tf(c)
+                            except Exception as e:  # noqa: BLE001 — opentdb down ≠ no game
+                                LOGGER.warning("trivia topup failed: %s", e)
+                            finally:
+                                c.close()
+                        asyncio.get_event_loop().run_in_executor(None, _topup)
                         asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
                         await hub.broadcast()
                     elif kind == "join":
@@ -281,11 +293,28 @@ async def ws_endpoint(ws: WebSocket):
                         hub.game = None
                         asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
                         await hub.broadcast()
+                    elif kind == "tf_answer":
+                        hub.game.tf_answer(name or msg.get("name", ""), bool(msg.get("answer")))
+                        if hub.game.tf_all_answered():
+                            hub.game.advance_break()  # everyone's in — reveal the answer
+                        await hub.broadcast()
                     elif kind == "next":
                         if hub.game.host and name != hub.game.host:
                             raise game.GameError(f"only {hub.game.host} controls the rounds")
-                        if hub.game.phase == "reveal" and hub.game.is_halfway() and not hub.game.is_last_round():
-                            hub.game.phase = "break"
+                        wait = hub.game.payoff_wait()
+                        if wait > 0:  # the payoff plays in full — no skipping the song
+                            raise game.GameError(f"let the song play out — {int(wait) + 1}s left")
+                        if hub.game.phase == "break":
+                            if hub.game.advance_break() == "resume":
+                                await hub.start_round()
+                            else:
+                                await hub.broadcast()
+                        elif hub.game.phase == "reveal" and hub.game.is_halfway() and not hub.game.is_last_round():
+                            conn = db.connect()
+                            try:
+                                hub.game.start_break(conn)
+                            finally:
+                                conn.close()
                             await hub.broadcast()
                         elif hub.game.phase == "reveal" and hub.game.is_last_round():
                             conn = db.connect()
@@ -416,6 +445,17 @@ def api_leaderboard_reset(confirm: str = ""):
         conn.execute("DELETE FROM games")
         conn.commit()
         return {"reset": True, "games_removed": games}
+    finally:
+        conn.close()
+
+
+@app.post("/api/trivia/topup")
+def api_trivia_topup():
+    """Seed the bundled trivia pack and top up T/F from Open Trivia DB if low."""
+    conn = db.connect()
+    try:
+        seeded = trivia.ensure_seeded(conn)
+        return {"seeded": seeded, **trivia.topup_tf(conn)}
     finally:
         conn.close()
 
