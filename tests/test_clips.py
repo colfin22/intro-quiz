@@ -90,3 +90,45 @@ def test_intro_offset_respected(tone, tmp_path):
         assert abs(probe_duration(os.path.join(clips_dir, "off", "20.mp3")) - 20) < 0.6
     finally:
         os.unlink(p)
+
+
+def test_sweep_runs_to_done_and_survives_stalls(monkeypatch):
+    """The CLIP_SWEEP_ON_START bootstrap batches to zero and backs off on stalls."""
+    results = [
+        Exception("navidrome down"),          # transient failure -> back off
+        {"cut": 0, "errors": 5, "remaining": 10},   # all-error batch -> back off
+        {"cut": 8, "errors": 2, "remaining": 2},
+        {"cut": 2, "errors": 0, "remaining": 0},    # done
+    ]
+
+    def fake_batch(conn, client, limit=100):
+        r = results.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    class DummyConn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(clips, "cut_batch", fake_batch)
+    monkeypatch.setattr(clips.db, "connect", lambda *a, **k: DummyConn())
+    monkeypatch.setattr(clips.subsonic, "Client", lambda: object())
+    out = clips.sweep(stall_sleep_s=0)
+    assert out == {"cut": 10, "stopped": "done"}
+    assert not results  # consumed everything
+
+
+def test_sweep_gives_up_after_max_stalls(monkeypatch):
+    def always_fails(conn, client, limit=100):
+        raise Exception("still down")
+
+    class DummyConn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(clips, "cut_batch", always_fails)
+    monkeypatch.setattr(clips.db, "connect", lambda *a, **k: DummyConn())
+    monkeypatch.setattr(clips.subsonic, "Client", lambda: object())
+    out = clips.sweep(stall_sleep_s=0, max_stalls=3)
+    assert out == {"cut": 0, "stopped": "stalled"}

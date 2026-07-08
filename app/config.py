@@ -9,3 +9,6 @@ CLIPS_DIR = os.environ.get("CLIPS_DIR", "/clips")
 # half-time trivia: set false to skip the shipped (Irish/UK-centric) pack and run
 # purely on your own data/trivia_custom.json + the Open Trivia DB top-up
 TRIVIA_BUILTIN_PACK = os.environ.get("TRIVIA_BUILTIN_PACK", "true").lower() not in ("false", "0", "no")
+# run-once bulk clip cutter at startup: cuts until every tiered track has clips,
+# then stops. Safe to leave set — a start with nothing to cut exits immediately.
+CLIP_SWEEP_ON_START = os.environ.get("CLIP_SWEEP_ON_START", "false").lower() in ("true", "1", "yes")

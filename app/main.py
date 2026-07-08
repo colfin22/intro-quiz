@@ -32,6 +32,14 @@ def health():
     return {"ok": True, "version": __version__}
 
 
+@app.on_event("startup")
+async def maybe_clip_sweep():
+    """CLIP_SWEEP_ON_START=true — one long background clip-cutting session."""
+    if config.CLIP_SWEEP_ON_START:
+        LOGGER.info("CLIP_SWEEP_ON_START set — bulk clip session starting in the background")
+        asyncio.get_event_loop().run_in_executor(None, clips.sweep)
+
+
 @app.post("/api/sync")
 def api_sync():
     conn = db.connect()
