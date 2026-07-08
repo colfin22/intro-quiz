@@ -504,6 +504,10 @@ async def ws_endpoint(ws: WebSocket):
                                 hub.game.finish(conn)
                             finally:
                                 conn.close()
+                            if not hub.board_expected():  # board plays its own fanfare
+                                asyncio.get_event_loop().run_in_executor(
+                                    None, ha.play_url,
+                                    f"{ha.APP_BASE_URL}/static/fanfare.mp3", "fanfare")
                             # rotate the game master: next player in join order
                             order = list(hub.game.players)
                             if order:

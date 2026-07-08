@@ -59,7 +59,8 @@ subscriptions.
    scoreboard, auto-revealed once everyone's in.
 7. Rubbish clip (applause intro, ambient noise)? The game master's reveal screen has
    a **🚫 bad clip** link — two taps to confirm — that bans the track forever.
-8. Ten rounds a game, persistent all-time leaderboard.
+8. Ten rounds a game, a 🎺 fanfare on the final scores, persistent all-time
+   leaderboard.
 
 <p align="center">
   <img src="docs/screenshots/board-halftime.png" width="90%"

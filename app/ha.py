@@ -28,8 +28,12 @@ def configured() -> bool:
 
 def play_clip(track_id: str, kind: str) -> bool:
     """kind: '5', '10', '20' or 'payoff'. Returns whether a cast happened."""
+    return play_url(f"{APP_BASE_URL}/clips/{track_id}/{kind}.mp3", f"{track_id}/{kind}")
+
+
+def play_url(url: str, label: str = "") -> bool:
     if not (CAST_ENABLED and configured()):
-        LOGGER.info("cast skipped (disabled/unconfigured): %s/%s", track_id, kind)
+        LOGGER.info("cast skipped (disabled/unconfigured): %s", label or url)
         return False
     try:
         _call("media_player.volume_set",
@@ -39,7 +43,7 @@ def play_clip(track_id: str, kind: str) -> bool:
         # (chime, no audio; found 07-07-2026). Target the _ma entities.
         _call("music_assistant.play_media", {
             "entity_id": MEDIA_PLAYER,
-            "media_id": f"{APP_BASE_URL}/clips/{track_id}/{kind}.mp3",
+            "media_id": url,
             "media_type": "track"})
         return True
     except httpx.HTTPError as e:

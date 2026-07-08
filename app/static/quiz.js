@@ -1,7 +1,7 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
 let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
-let myTf = null, tfKey = "", timerKey = "", lastGameNo;
+let myTf = null, tfKey = "", timerKey = "", lastGameNo, finishedBuzz;
 
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
@@ -275,6 +275,10 @@ function render() {
   }
   if (state.phase === "finished") {
     stopTimer();
+    if (finishedBuzz !== state.game_no && navigator.vibrate) {  // 🎺 once per game
+      finishedBuzz = state.game_no;
+      navigator.vibrate([120, 60, 120, 60, 350]);
+    }
     show("v-finished");
     scoresInto(document.getElementById("f-scores"), state.players);
     const nm = document.getElementById("f-next-master");
