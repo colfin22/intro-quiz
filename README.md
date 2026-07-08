@@ -27,7 +27,7 @@ subscriptions.
 5. The reveal shows album art and **who got it right** while a "payoff" chunk of
    the song plays — **in full**: the next-song button stays locked with a countdown
    until the music finishes. No skipping the good bit.
-6. Games of 6+ rounds get a **half-time show**: every player's phone gets a music
+6. At the midpoint, the game breaks for a **half-time show**: every player's phone gets a music
    fact to read out to the table, then three quick **true-or-false** questions —
    answered on the phones, question up on the TV, +50 points each on the main
    scoreboard, auto-revealed once everyone's in.
