@@ -9,12 +9,12 @@ questions, the speaker carries the music. All local — your music, your network
 subscriptions.
 
 <p align="center">
-  <img src="docs/screenshots/board-reveal.png" width="90%"
-       alt="The TV board on a reveal — album art, who got it right, and the scores">
-</p>
-<p align="center">
   <img src="docs/screenshots/board-question.png" width="90%"
        alt="The TV board mid-round — an animated wave and clip progress, no spoilers">
+</p>
+<p align="center">
+  <img src="docs/screenshots/board-reveal.png" width="90%"
+       alt="The TV board on a reveal — album art, who got it right, and the scores">
 </p>
 <p align="center">
   <img src="docs/screenshots/phone-artist-wall.png" width="30%"
