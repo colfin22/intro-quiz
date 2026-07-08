@@ -69,10 +69,12 @@ def detect_intro_offset(src: str) -> float:
     feedback — a 5s clip of that is unguessable for the wrong reason. If the
     track opens with a long quiet stretch, the intro clips start where it ends.
     """
+    # ffmpeg echoes the file's tags into stderr — non-UTF-8 metadata (latin-1
+    # "Scheiße") must not crash us; the timestamps we parse are ASCII anyway (#23)
     r = subprocess.run(
         ["ffmpeg", "-hide_banner", "-t", "90", "-i", src, "-af",
          f"silencedetect=noise={SILENCE_NOISE}:d={SILENCE_MIN_S}", "-f", "null", "-"],
-        capture_output=True, text=True)
+        capture_output=True, text=True, errors="replace")
     start = end = None
     for line in r.stderr.splitlines():
         if "silence_start:" in line and start is None:

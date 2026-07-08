@@ -1,7 +1,7 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
 let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
-let myTf = null, tfKey = "", timerKey = "";
+let myTf = null, tfKey = "", timerKey = "", lastGameNo;
 
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
@@ -10,6 +10,14 @@ function connect() {
     if (msg.type === "error") { showErr(msg.message); return; }
     if (msg.type === "state") {
       const prevRound = state.round;
+      // a NEW game (Play Again included) resets all per-game state — resetting
+      // only on "idle" left stale artist picks hiding the wall after rotation
+      if (msg.game_no !== undefined && msg.game_no !== lastGameNo) {
+        lastGameNo = msg.game_no;
+        artistsSent = false; myArtists = []; myPick = null; myTf = null;
+        tfKey = ""; timerKey = ""; lastBuzzRound = ""; flagArmed = false;
+        joined = false;  // fresh roster — everyone joins the new game
+      }
       state = msg;
       if (state.phase !== "question" || state.round !== prevRound) myPick = null;
       if (state.phase === "idle") { artistsSent = false; myArtists = []; }
