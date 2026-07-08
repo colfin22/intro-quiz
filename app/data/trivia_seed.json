@@ -1,105 +1,1793 @@
 [
-  {"kind": "fact", "text": "Queen's 'Bohemian Rhapsody' has no chorus at all — and it was UK number one twice, in 1975 and again in 1991 after Freddie Mercury died."},
-  {"kind": "fact", "text": "The Beatles were originally called The Quarrymen, after John Lennon's school, Quarry Bank High."},
-  {"kind": "fact", "text": "U2 formed in 1976 after 14-year-old drummer Larry Mullen Jr. pinned a note to the noticeboard of his Dublin school looking for musicians."},
-  {"kind": "fact", "text": "Bono got his nickname from 'Bonavox', a hearing-aid shop on Dublin's North Earl Street."},
-  {"kind": "fact", "text": "Thin Lizzy's 'Whiskey in the Jar' is a rocked-up version of a traditional Irish folk song that's centuries old."},
-  {"kind": "fact", "text": "Phil Lynott of Thin Lizzy grew up in Crumlin, Dublin — his statue stands just off Grafton Street."},
-  {"kind": "fact", "text": "Elvis Presley never performed a single concert outside North America."},
-  {"kind": "fact", "text": "ABBA is an acronym of the members' first names: Agnetha, Björn, Benny and Anni-Frid."},
-  {"kind": "fact", "text": "Michael Jackson's 'Thriller' is the best-selling studio album of all time."},
-  {"kind": "fact", "text": "The blistering guitar solo on Michael Jackson's 'Beat It' was played by Eddie Van Halen — for free."},
-  {"kind": "fact", "text": "Dolly Parton reportedly wrote 'Jolene' and 'I Will Always Love You' on the very same day."},
-  {"kind": "fact", "text": "The Cranberries' 'Zombie' was written by Dolores O'Riordan about the 1993 IRA bombing in Warrington."},
-  {"kind": "fact", "text": "Sinéad O'Connor's 'Nothing Compares 2 U' was written by Prince — his version came first, but hers conquered the world."},
-  {"kind": "fact", "text": "Freddie Mercury was born Farrokh Bulsara on the island of Zanzibar."},
-  {"kind": "fact", "text": "Freddie Mercury studied graphic design and drew Queen's royal crest himself, working the band members' star signs into it."},
-  {"kind": "fact", "text": "Bob Marley's 'No Woman, No Cry' is credited to his friend Vincent Ford, who ran a soup kitchen in Trenchtown — the royalties kept it open."},
-  {"kind": "fact", "text": "David Bowie turned down a knighthood in 2003, saying he never intended to accept anything like that."},
-  {"kind": "fact", "text": "The Rolling Stones named themselves after a Muddy Waters song, 'Rollin' Stone'."},
-  {"kind": "fact", "text": "Westlife have had 14 UK number one singles — more than any act in history except Elvis Presley and The Beatles."},
-  {"kind": "fact", "text": "Riverdance began life as a seven-minute interval act at the 1994 Eurovision Song Contest in Dublin."},
-  {"kind": "fact", "text": "Ireland and Sweden are tied for the most Eurovision wins ever — seven each."},
-  {"kind": "fact", "text": "Ireland's Johnny Logan is the only performer to win Eurovision twice as a singer — and he wrote a third winning song on top of that."},
-  {"kind": "fact", "text": "The Beatles' 'Yesterday' had the working title 'Scrambled Eggs' while Paul McCartney hunted for lyrics."},
-  {"kind": "fact", "text": "Beyoncé has won more Grammy Awards than any other artist in history."},
-  {"kind": "fact", "text": "Daft Punk almost never appeared in public without their robot helmets on."},
-  {"kind": "fact", "text": "Adele named her albums after her age when she wrote them: 19, 21, 25 and 30."},
-  {"kind": "fact", "text": "Both Gallagher brothers of Oasis are children of Irish emigrants — their mother Peggy is from County Mayo."},
-  {"kind": "fact", "text": "Enya is one of Ireland's best-selling artists ever — and she has never toured."},
-  {"kind": "fact", "text": "Hozier wrote 'Take Me to Church' in the attic of his parents' house in County Wicklow."},
-  {"kind": "fact", "text": "U2's guitarist The Edge was actually born in England, to Welsh parents — his real name is David Howell Evans."},
-  {"kind": "fact", "text": "'Fairytale of New York' by The Pogues and Kirsty MacColl famously never reached UK Christmas number one — it was beaten in 1987 by the Pet Shop Boys."},
-  {"kind": "fact", "text": "Elton John's real name is Reginald Kenneth Dwight."},
-  {"kind": "fact", "text": "Nirvana's 'Smells Like Teen Spirit' got its name from graffiti a friend wrote on Kurt Cobain's wall — he had no idea Teen Spirit was a deodorant brand."},
-  {"kind": "fact", "text": "'Gangnam Style' by PSY was the first video ever to hit one billion views on YouTube."},
-  {"kind": "fact", "text": "Taylor Swift was named after the singer-songwriter James Taylor."},
-  {"kind": "fact", "text": "Ed Sheeran co-wrote Justin Bieber's hit 'Love Yourself' — it started life as an Ed Sheeran song."},
-  {"kind": "fact", "text": "AC/DC got their name from the label on a sewing machine belonging to the Young brothers' sister."},
-  {"kind": "fact", "text": "Legend has it that when Jimi Hendrix was called the world's greatest guitarist, he replied: 'I don't know — ask Rory Gallagher.'"},
-  {"kind": "fact", "text": "Queen's 1985 Live Aid set at Wembley is regularly voted the greatest live performance of all time."},
-  {"kind": "fact", "text": "Kate Bush's 'Running Up That Hill' hit UK number one in 2022 — 37 years after its release — thanks to Stranger Things."},
-  {"kind": "fact", "text": "Wings' 'Mull of Kintyre' was the UK's best-selling single ever until Band Aid's 'Do They Know It's Christmas?' overtook it in 1984."},
-  {"kind": "fact", "text": "'Do They Know It's Christmas?' was co-written by a Dubliner — Bob Geldof, with Midge Ure."},
-  {"kind": "fact", "text": "Shane MacGowan of The Pogues was born on Christmas Day."},
-  {"kind": "fact", "text": "Bruce Springsteen's 'Born in the U.S.A.' is actually a protest song about how Vietnam veterans were treated — not a patriotic anthem."},
-  {"kind": "fact", "text": "The Killers' 'Mr. Brightside' is one of the longest-charting songs in UK history — it has spent well over 400 weeks in the Top 100."},
-  {"kind": "fact", "text": "Van Morrison's 'Brown Eyed Girl' was originally written as 'Brown Skinned Girl'."},
-  {"kind": "fact", "text": "Mozart was composing his own pieces by the age of five."},
-  {"kind": "fact", "text": "Madonna is the best-selling female recording artist of all time."},
-  {"kind": "fact", "text": "Vinyl records now outsell CDs again — a comeback nobody saw coming in the 2000s."},
-  {"kind": "fact", "text": "Fleetwood Mac recorded 'Rumours' while both couples in the band were splitting up — with each other in the room."},
-
-  {"kind": "tf", "text": "Ringo Starr's real name is Richard Starkey.", "answer": 1},
-  {"kind": "tf", "text": "Madonna's first UK number one single was 'Like a Virgin'.", "answer": 0},
-  {"kind": "tf", "text": "U2's album 'The Joshua Tree' is named after a tree in Ireland.", "answer": 0},
-  {"kind": "tf", "text": "ABBA won the Eurovision Song Contest with 'Waterloo'.", "answer": 1},
-  {"kind": "tf", "text": "Elvis Presley wrote most of his own hit songs.", "answer": 0},
-  {"kind": "tf", "text": "The Beatles played their famous final rooftop concert in New York.", "answer": 0},
-  {"kind": "tf", "text": "Bob Dylan has won the Nobel Prize in Literature.", "answer": 1},
-  {"kind": "tf", "text": "'Dancing Queen' was ABBA's only US number one single.", "answer": 1},
-  {"kind": "tf", "text": "Thin Lizzy's Phil Lynott was born in Dublin.", "answer": 0},
-  {"kind": "tf", "text": "The Cranberries came from Cork.", "answer": 0},
-  {"kind": "tf", "text": "Michael Jackson wrote 'We Are the World' together with Lionel Richie.", "answer": 1},
-  {"kind": "tf", "text": "'Wonderwall' is on the Oasis album '(What's the Story) Morning Glory?'.", "answer": 1},
-  {"kind": "tf", "text": "The Spice Girls had five UK Christmas number ones in a row.", "answer": 0},
-  {"kind": "tf", "text": "Eminem's real name is Marshall Mathers.", "answer": 1},
-  {"kind": "tf", "text": "'We Will Rock You' and 'We Are the Champions' were released together on the same single.", "answer": 1},
-  {"kind": "tf", "text": "Riverdance made its debut at a Eurovision held in London.", "answer": 0},
-  {"kind": "tf", "text": "Johnny Cash recorded a famous live album inside a prison.", "answer": 1},
-  {"kind": "tf", "text": "'I Will Always Love You' was written by Whitney Houston.", "answer": 0},
-  {"kind": "tf", "text": "Coldplay's debut album was called 'Parachutes'.", "answer": 1},
-  {"kind": "tf", "text": "Queen and David Bowie recorded 'Under Pressure' together.", "answer": 1},
-  {"kind": "tf", "text": "Mick Jagger and Keith Richards first met as adults at art school.", "answer": 0},
-  {"kind": "tf", "text": "Sinéad O'Connor wrote 'Nothing Compares 2 U' herself.", "answer": 0},
-  {"kind": "tf", "text": "Van Morrison was the frontman of the band Them before going solo.", "answer": 1},
-  {"kind": "tf", "text": "Enya was once a member of Clannad.", "answer": 1},
-  {"kind": "tf", "text": "Westlife are from Dublin.", "answer": 0},
-  {"kind": "tf", "text": "'Hey Jude' was written by Paul McCartney to comfort John Lennon's son Julian.", "answer": 1},
-  {"kind": "tf", "text": "Beyoncé started her career in the group Destiny's Child.", "answer": 1},
-  {"kind": "tf", "text": "Elton John writes the lyrics to his own songs.", "answer": 0},
-  {"kind": "tf", "text": "Nirvana's Kurt Cobain played guitar left-handed.", "answer": 1},
-  {"kind": "tf", "text": "Deep Purple's 'Smoke on the Water' is about a fire at a casino in Switzerland.", "answer": 1},
-  {"kind": "tf", "text": "The Bee Gees were born in Australia.", "answer": 0},
-  {"kind": "tf", "text": "Amy Winehouse won five Grammy Awards in a single night.", "answer": 1},
-  {"kind": "tf", "text": "'Despacito' is sung in Portuguese.", "answer": 0},
-  {"kind": "tf", "text": "Hozier is from County Wicklow.", "answer": 1},
-  {"kind": "tf", "text": "Sweden has never won the Eurovision Song Contest.", "answer": 0},
-  {"kind": "tf", "text": "Louis Armstrong recorded 'What a Wonderful World'.", "answer": 1},
-  {"kind": "tf", "text": "Meat Loaf's 'Bat Out of Hell' is one of the best-selling albums of all time.", "answer": 1},
-  {"kind": "tf", "text": "Radio stations initially refused to play 'Bohemian Rhapsody' because it was too long.", "answer": 1},
-  {"kind": "tf", "text": "Prince played nearly all the instruments on his early albums himself.", "answer": 1},
-  {"kind": "tf", "text": "The Titanic theme 'My Heart Will Go On' was sung by Mariah Carey.", "answer": 0},
-  {"kind": "tf", "text": "Bono and The Edge wrote the music for a Spider-Man musical on Broadway.", "answer": 1},
-  {"kind": "tf", "text": "'Sweet Caroline' was written and first recorded by Neil Diamond.", "answer": 1},
-  {"kind": "tf", "text": "Shakira is from Brazil.", "answer": 0},
-  {"kind": "tf", "text": "Kylie Minogue starred in 'Home and Away' before her music career.", "answer": 0},
-  {"kind": "tf", "text": "The Cranberries' 'Zombie' won an MTV Europe Music Award for Best Song.", "answer": 1},
-  {"kind": "tf", "text": "The Corrs are three sisters and one brother from Dundalk.", "answer": 1},
-  {"kind": "tf", "text": "Christy Moore was a founding member of Planxty.", "answer": 1},
-  {"kind": "tf", "text": "'Teenage Dirtbag' was recorded by Blink-182.", "answer": 0},
-  {"kind": "tf", "text": "'Torn' by Natalie Imbruglia is a cover version.", "answer": 1},
-  {"kind": "tf", "text": "Britney Spears' '...Baby One More Time' was written by a Swedish songwriter.", "answer": 1},
-  {"kind": "tf", "text": "'Africa' was recorded by the band Toto.", "answer": 1},
-  {"kind": "tf", "text": "Robbie Williams left Take That before they ever had a UK number one.", "answer": 0}
+ {
+  "kind": "fact",
+  "text": "Queen's 'Bohemian Rhapsody' has no chorus at all — and it was UK number one twice, in 1975 and again in 1991 after Freddie Mercury died."
+ },
+ {
+  "kind": "fact",
+  "text": "The Beatles were originally called The Quarrymen, after John Lennon's school, Quarry Bank High."
+ },
+ {
+  "kind": "fact",
+  "text": "U2 formed in 1976 after 14-year-old drummer Larry Mullen Jr. pinned a note to the noticeboard of his Dublin school looking for musicians."
+ },
+ {
+  "kind": "fact",
+  "text": "Bono got his nickname from 'Bonavox', a hearing-aid shop on Dublin's North Earl Street."
+ },
+ {
+  "kind": "fact",
+  "text": "Thin Lizzy's 'Whiskey in the Jar' is a rocked-up version of a traditional Irish folk song that's centuries old."
+ },
+ {
+  "kind": "fact",
+  "text": "Phil Lynott of Thin Lizzy grew up in Crumlin, Dublin — his statue stands just off Grafton Street."
+ },
+ {
+  "kind": "fact",
+  "text": "Elvis Presley never performed a single concert outside North America."
+ },
+ {
+  "kind": "fact",
+  "text": "ABBA is an acronym of the members' first names: Agnetha, Björn, Benny and Anni-Frid."
+ },
+ {
+  "kind": "fact",
+  "text": "Michael Jackson's 'Thriller' is the best-selling studio album of all time."
+ },
+ {
+  "kind": "fact",
+  "text": "The blistering guitar solo on Michael Jackson's 'Beat It' was played by Eddie Van Halen — for free."
+ },
+ {
+  "kind": "fact",
+  "text": "Dolly Parton reportedly wrote 'Jolene' and 'I Will Always Love You' on the very same day."
+ },
+ {
+  "kind": "fact",
+  "text": "The Cranberries' 'Zombie' was written by Dolores O'Riordan about the 1993 IRA bombing in Warrington."
+ },
+ {
+  "kind": "fact",
+  "text": "Sinéad O'Connor's 'Nothing Compares 2 U' was written by Prince — his version came first, but hers conquered the world."
+ },
+ {
+  "kind": "fact",
+  "text": "Freddie Mercury was born Farrokh Bulsara on the island of Zanzibar."
+ },
+ {
+  "kind": "fact",
+  "text": "Freddie Mercury studied graphic design and drew Queen's royal crest himself, working the band members' star signs into it."
+ },
+ {
+  "kind": "fact",
+  "text": "Bob Marley's 'No Woman, No Cry' is credited to his friend Vincent Ford, who ran a soup kitchen in Trenchtown — the royalties kept it open."
+ },
+ {
+  "kind": "fact",
+  "text": "David Bowie turned down a knighthood in 2003, saying he never intended to accept anything like that."
+ },
+ {
+  "kind": "fact",
+  "text": "The Rolling Stones named themselves after a Muddy Waters song, 'Rollin' Stone'."
+ },
+ {
+  "kind": "fact",
+  "text": "Westlife have had 14 UK number one singles — more than any act in history except Elvis Presley and The Beatles."
+ },
+ {
+  "kind": "fact",
+  "text": "Riverdance began life as a seven-minute interval act at the 1994 Eurovision Song Contest in Dublin."
+ },
+ {
+  "kind": "fact",
+  "text": "Ireland and Sweden are tied for the most Eurovision wins ever — seven each."
+ },
+ {
+  "kind": "fact",
+  "text": "Ireland's Johnny Logan is the only performer to win Eurovision twice as a singer — and he wrote a third winning song on top of that."
+ },
+ {
+  "kind": "fact",
+  "text": "The Beatles' 'Yesterday' had the working title 'Scrambled Eggs' while Paul McCartney hunted for lyrics."
+ },
+ {
+  "kind": "fact",
+  "text": "Beyoncé has won more Grammy Awards than any other artist in history."
+ },
+ {
+  "kind": "fact",
+  "text": "Daft Punk almost never appeared in public without their robot helmets on."
+ },
+ {
+  "kind": "fact",
+  "text": "Adele named her albums after her age when she wrote them: 19, 21, 25 and 30."
+ },
+ {
+  "kind": "fact",
+  "text": "Both Gallagher brothers of Oasis are children of Irish emigrants — their mother Peggy is from County Mayo."
+ },
+ {
+  "kind": "fact",
+  "text": "Enya is one of Ireland's best-selling artists ever — and she has never toured."
+ },
+ {
+  "kind": "fact",
+  "text": "Hozier wrote 'Take Me to Church' in the attic of his parents' house in County Wicklow."
+ },
+ {
+  "kind": "fact",
+  "text": "U2's guitarist The Edge was actually born in England, to Welsh parents — his real name is David Howell Evans."
+ },
+ {
+  "kind": "fact",
+  "text": "'Fairytale of New York' by The Pogues and Kirsty MacColl famously never reached UK Christmas number one — it was beaten in 1987 by the Pet Shop Boys."
+ },
+ {
+  "kind": "fact",
+  "text": "Elton John's real name is Reginald Kenneth Dwight."
+ },
+ {
+  "kind": "fact",
+  "text": "Nirvana's 'Smells Like Teen Spirit' got its name from graffiti a friend wrote on Kurt Cobain's wall — he had no idea Teen Spirit was a deodorant brand."
+ },
+ {
+  "kind": "fact",
+  "text": "'Gangnam Style' by PSY was the first video ever to hit one billion views on YouTube."
+ },
+ {
+  "kind": "fact",
+  "text": "Taylor Swift was named after the singer-songwriter James Taylor."
+ },
+ {
+  "kind": "fact",
+  "text": "Ed Sheeran co-wrote Justin Bieber's hit 'Love Yourself' — it started life as an Ed Sheeran song."
+ },
+ {
+  "kind": "fact",
+  "text": "AC/DC got their name from the label on a sewing machine belonging to the Young brothers' sister."
+ },
+ {
+  "kind": "fact",
+  "text": "Legend has it that when Jimi Hendrix was called the world's greatest guitarist, he replied: 'I don't know — ask Rory Gallagher.'"
+ },
+ {
+  "kind": "fact",
+  "text": "Queen's 1985 Live Aid set at Wembley is regularly voted the greatest live performance of all time."
+ },
+ {
+  "kind": "fact",
+  "text": "Kate Bush's 'Running Up That Hill' hit UK number one in 2022 — 37 years after its release — thanks to Stranger Things."
+ },
+ {
+  "kind": "fact",
+  "text": "Wings' 'Mull of Kintyre' was the UK's best-selling single ever until Band Aid's 'Do They Know It's Christmas?' overtook it in 1984."
+ },
+ {
+  "kind": "fact",
+  "text": "'Do They Know It's Christmas?' was co-written by a Dubliner — Bob Geldof, with Midge Ure."
+ },
+ {
+  "kind": "fact",
+  "text": "Shane MacGowan of The Pogues was born on Christmas Day."
+ },
+ {
+  "kind": "fact",
+  "text": "Bruce Springsteen's 'Born in the U.S.A.' is actually a protest song about how Vietnam veterans were treated — not a patriotic anthem."
+ },
+ {
+  "kind": "fact",
+  "text": "The Killers' 'Mr. Brightside' is one of the longest-charting songs in UK history — it has spent well over 400 weeks in the Top 100."
+ },
+ {
+  "kind": "fact",
+  "text": "Van Morrison's 'Brown Eyed Girl' was originally written as 'Brown Skinned Girl'."
+ },
+ {
+  "kind": "fact",
+  "text": "Mozart was composing his own pieces by the age of five."
+ },
+ {
+  "kind": "fact",
+  "text": "Madonna is the best-selling female recording artist of all time."
+ },
+ {
+  "kind": "fact",
+  "text": "Vinyl records now outsell CDs again — a comeback nobody saw coming in the 2000s."
+ },
+ {
+  "kind": "fact",
+  "text": "Fleetwood Mac recorded 'Rumours' while both couples in the band were splitting up — with each other in the room."
+ },
+ {
+  "kind": "tf",
+  "text": "Ringo Starr's real name is Richard Starkey.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Madonna's first UK number one single was 'Like a Virgin'.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "U2's album 'The Joshua Tree' is named after a tree in Ireland.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "ABBA won the Eurovision Song Contest with 'Waterloo'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Elvis Presley wrote most of his own hit songs.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Beatles played their famous final rooftop concert in New York.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Bob Dylan has won the Nobel Prize in Literature.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Dancing Queen' was ABBA's only US number one single.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Thin Lizzy's Phil Lynott was born in Dublin.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Cranberries came from Cork.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Michael Jackson wrote 'We Are the World' together with Lionel Richie.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Wonderwall' is on the Oasis album '(What's the Story) Morning Glory?'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Spice Girls had five UK Christmas number ones in a row.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Eminem's real name is Marshall Mathers.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'We Will Rock You' and 'We Are the Champions' were released together on the same single.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Riverdance made its debut at a Eurovision held in London.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Johnny Cash recorded a famous live album inside a prison.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'I Will Always Love You' was written by Whitney Houston.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Coldplay's debut album was called 'Parachutes'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Queen and David Bowie recorded 'Under Pressure' together.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Mick Jagger and Keith Richards first met as adults at art school.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Sinéad O'Connor wrote 'Nothing Compares 2 U' herself.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Van Morrison was the frontman of the band Them before going solo.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Enya was once a member of Clannad.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Westlife are from Dublin.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Hey Jude' was written by Paul McCartney to comfort John Lennon's son Julian.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Beyoncé started her career in the group Destiny's Child.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Elton John writes the lyrics to his own songs.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Nirvana's Kurt Cobain played guitar left-handed.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Deep Purple's 'Smoke on the Water' is about a fire at a casino in Switzerland.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Bee Gees were born in Australia.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Amy Winehouse won five Grammy Awards in a single night.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Despacito' is sung in Portuguese.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Hozier is from County Wicklow.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Sweden has never won the Eurovision Song Contest.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Louis Armstrong recorded 'What a Wonderful World'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Meat Loaf's 'Bat Out of Hell' is one of the best-selling albums of all time.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Radio stations initially refused to play 'Bohemian Rhapsody' because it was too long.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Prince played nearly all the instruments on his early albums himself.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Titanic theme 'My Heart Will Go On' was sung by Mariah Carey.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Bono and The Edge wrote the music for a Spider-Man musical on Broadway.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Sweet Caroline' was written and first recorded by Neil Diamond.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Shakira is from Brazil.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Kylie Minogue starred in 'Home and Away' before her music career.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Cranberries' 'Zombie' won an MTV Europe Music Award for Best Song.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Corrs are three sisters and one brother from Dundalk.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Christy Moore was a founding member of Planxty.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Teenage Dirtbag' was recorded by Blink-182.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Torn' by Natalie Imbruglia is a cover version.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Britney Spears' '...Baby One More Time' was written by a Swedish songwriter.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Africa' was recorded by the band Toto.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Robbie Williams left Take That before they ever had a UK number one.",
+  "answer": 0
+ },
+ {
+  "kind": "fact",
+  "text": "The Cranberries' debut album 'Everybody Else Is Doing It, So Why Can't We?' went to number one in both the UK and Ireland."
+ },
+ {
+  "kind": "fact",
+  "text": "Dolores O'Riordan of The Cranberries grew up in County Limerick — she joined the band by answering an ad for a female singer."
+ },
+ {
+  "kind": "fact",
+  "text": "Rory Gallagher's battered 1961 Stratocaster is said to have been the first Fender Stratocaster ever brought into Ireland."
+ },
+ {
+  "kind": "fact",
+  "text": "Thin Lizzy's 'The Boys Are Back in Town' was nearly left off the Jailbreak album — the band didn't rate it as a single."
+ },
+ {
+  "kind": "fact",
+  "text": "Van Morrison's 'Astral Weeks' was recorded in just a handful of sessions in the autumn of 1968."
+ },
+ {
+  "kind": "fact",
+  "text": "Snow Patrol's Gary Lightbody is from Bangor, County Down."
+ },
+ {
+  "kind": "fact",
+  "text": "The Undertones' 'Teenage Kicks' was John Peel's favourite song of all time — a line from it is carved on his gravestone."
+ },
+ {
+  "kind": "fact",
+  "text": "Dana won Ireland's first ever Eurovision in 1970 with 'All Kinds of Everything' — she was just 18."
+ },
+ {
+  "kind": "fact",
+  "text": "Niall Horan of One Direction is from Mullingar, County Westmeath."
+ },
+ {
+  "kind": "fact",
+  "text": "Sinéad O'Connor refused her Grammy in 1991 — the first artist ever to decline one."
+ },
+ {
+  "kind": "fact",
+  "text": "Enya's 'Orinoco Flow' spent three weeks at UK number one in 1988."
+ },
+ {
+  "kind": "fact",
+  "text": "Enya lives in a Victorian castle in Killiney, County Dublin, bought with her royalties."
+ },
+ {
+  "kind": "fact",
+  "text": "Glen Hansard and Markéta Irglová won an Oscar for 'Falling Slowly' from the Dublin film Once."
+ },
+ {
+  "kind": "fact",
+  "text": "Glen Hansard played guitarist Outspan Foster in The Commitments before The Frames took off."
+ },
+ {
+  "kind": "fact",
+  "text": "The Script's Danny O'Donoghue was a coach on the very first series of The Voice UK."
+ },
+ {
+  "kind": "fact",
+  "text": "B*witched's first four singles all went straight in at UK number one."
+ },
+ {
+  "kind": "fact",
+  "text": "Boyzone were put together by Louis Walsh after open auditions in Dublin in 1993."
+ },
+ {
+  "kind": "fact",
+  "text": "The Corrs met their manager while auditioning for The Commitments — Andrea landed a small part in the film."
+ },
+ {
+  "kind": "fact",
+  "text": "U2 have won more Grammy Awards than any other band in history."
+ },
+ {
+  "kind": "fact",
+  "text": "U2's 'One' was written in Berlin during the Achtung Baby sessions that nearly split the band."
+ },
+ {
+  "kind": "fact",
+  "text": "The Joshua Tree won U2 the Grammy for Album of the Year in 1988."
+ },
+ {
+  "kind": "fact",
+  "text": "In 2014, U2's album Songs of Innocence appeared automatically in half a billion iTunes libraries — to widespread annoyance."
+ },
+ {
+  "kind": "fact",
+  "text": "Westlife's cover of 'Uptown Girl' was the official Comic Relief single in 2001."
+ },
+ {
+  "kind": "fact",
+  "text": "Ronan Keating co-presented the 1997 Eurovision Song Contest in Dublin."
+ },
+ {
+  "kind": "fact",
+  "text": "Ireland hosted Eurovision three years running in the 1990s — 1993, 1994 and 1995."
+ },
+ {
+  "kind": "fact",
+  "text": "'Rock 'n' Roll Kids' in 1994 gave Ireland its third Eurovision win in a row."
+ },
+ {
+  "kind": "fact",
+  "text": "Chris de Burgh wrote 'The Lady in Red' about his wife Diane."
+ },
+ {
+  "kind": "fact",
+  "text": "Gilbert O'Sullivan — born Raymond O'Sullivan in Waterford — spent six weeks at US number one with 'Alone Again (Naturally)'."
+ },
+ {
+  "kind": "fact",
+  "text": "'Gloria', one of the most covered garage-rock songs ever, was written by Van Morrison for his Belfast band Them."
+ },
+ {
+  "kind": "fact",
+  "text": "Horslips are widely credited with inventing Celtic rock."
+ },
+ {
+  "kind": "fact",
+  "text": "The Dubliners appeared on Top of the Pops in 1967 with 'Seven Drunken Nights'."
+ },
+ {
+  "kind": "fact",
+  "text": "Fontaines D.C. added the 'D.C.' — for Dublin City — after discovering an American band already called The Fontaines."
+ },
+ {
+  "kind": "fact",
+  "text": "Dermot Kennedy busked on Grafton Street for years before selling out arenas."
+ },
+ {
+  "kind": "fact",
+  "text": "Imelda May grew up in the Liberties in Dublin."
+ },
+ {
+  "kind": "fact",
+  "text": "Ash's members were still doing their A-levels in Downpatrick when their first records charted."
+ },
+ {
+  "kind": "fact",
+  "text": "Stiff Little Fingers took their name from a song by The Vibrators."
+ },
+ {
+  "kind": "fact",
+  "text": "Two Door Cinema Club formed in Bangor and Donaghadee, County Down."
+ },
+ {
+  "kind": "fact",
+  "text": "The Boomtown Rats' 'I Don't Like Mondays' was inspired by a 1979 school shooting in San Diego."
+ },
+ {
+  "kind": "fact",
+  "text": "The Boomtown Rats were the first Irish rock band to top the UK singles chart, with 'Rat Trap' in 1978."
+ },
+ {
+  "kind": "fact",
+  "text": "Clannad's 'Theme from Harry's Game' made the UK top five — the first Irish-language song ever to do it."
+ },
+ {
+  "kind": "fact",
+  "text": "Father Ted's Eurovision spoof 'My Lovely Horse' was co-written by Neil Hannon of The Divine Comedy — he wrote the Father Ted theme too."
+ },
+ {
+  "kind": "fact",
+  "text": "The Saw Doctors' 'I Useta Lover' spent nine weeks at Irish number one and was for years the country's best-selling single."
+ },
+ {
+  "kind": "fact",
+  "text": "As the story goes, the poet Patrick Kavanagh himself gave 'Raglan Road' to Luke Kelly of The Dubliners in a Dublin pub."
+ },
+ {
+  "kind": "fact",
+  "text": "Cork's Sultans of Ping FC had an indie hit about a lost jumper — 'Where's Me Jumper?'"
+ },
+ {
+  "kind": "fact",
+  "text": "Bell X1 and Damien Rice were once in the same band, Juniper."
+ },
+ {
+  "kind": "fact",
+  "text": "The Chieftains were the first Western group to perform on the Great Wall of China, in 1983."
+ },
+ {
+  "kind": "fact",
+  "text": "The Coronas' singer Danny O'Reilly is the son of singer Mary Black."
+ },
+ {
+  "kind": "fact",
+  "text": "Brian May built his Red Special guitar with his dad, using wood from an old fireplace."
+ },
+ {
+  "kind": "fact",
+  "text": "Queen's Brian May has a PhD in astrophysics."
+ },
+ {
+  "kind": "fact",
+  "text": "Queen's bassist John Deacon wrote 'Another One Bites the Dust' — and Michael Jackson talked the band into releasing it as a single."
+ },
+ {
+  "kind": "fact",
+  "text": "David Bowie retired Ziggy Stardust live on stage at the Hammersmith Odeon in 1973."
+ },
+ {
+  "kind": "fact",
+  "text": "The BBC used Bowie's 'Space Oddity' in its coverage of the 1969 moon landing."
+ },
+ {
+  "kind": "fact",
+  "text": "A young Elton John played piano on The Hollies' 'He Ain't Heavy, He's My Brother' as a session musician."
+ },
+ {
+  "kind": "fact",
+  "text": "Ringo Starr sang lead on 'Yellow Submarine' and 'With a Little Help from My Friends'."
+ },
+ {
+  "kind": "fact",
+  "text": "The Beatles hold the record for the most UK number one albums."
+ },
+ {
+  "kind": "fact",
+  "text": "George Harrison mortgaged his house to fund Monty Python's Life of Brian — because he wanted to see the film."
+ },
+ {
+  "kind": "fact",
+  "text": "The riff for 'Satisfaction' came to Keith Richards in his sleep — he recorded it half-awake and dozed off with the tape running."
+ },
+ {
+  "kind": "fact",
+  "text": "Pink Floyd's 'The Dark Side of the Moon' spent more than 900 weeks on the US album chart."
+ },
+ {
+  "kind": "fact",
+  "text": "Pink Floyd took their name from two bluesmen: Pink Anderson and Floyd Council."
+ },
+ {
+  "kind": "fact",
+  "text": "The Kinks were banned from touring America for four years in the mid-1960s."
+ },
+ {
+  "kind": "fact",
+  "text": "Led Zeppelin never released 'Stairway to Heaven' as a single in the UK."
+ },
+ {
+  "kind": "fact",
+  "text": "Led Zeppelin's name came from a joke that the band would go down like a lead balloon."
+ },
+ {
+  "kind": "fact",
+  "text": "Oasis's 'Wonderwall' never reached UK number one — it was kept off the top by Robson & Jerome."
+ },
+ {
+  "kind": "fact",
+  "text": "In the 1995 'Battle of Britpop', Blur's 'Country House' outsold Oasis's 'Roll With It' to number one."
+ },
+ {
+  "kind": "fact",
+  "text": "Pulp's Jarvis Cocker invaded the stage during Michael Jackson's performance at the 1996 Brit Awards."
+ },
+ {
+  "kind": "fact",
+  "text": "Radiohead released 'In Rainbows' as a pay-what-you-want download."
+ },
+ {
+  "kind": "fact",
+  "text": "Chris Martin says the melody of Coldplay's 'Yellow' started as a Neil Young impression."
+ },
+ {
+  "kind": "fact",
+  "text": "Adele's '21' is the best-selling album of the 21st century in the UK."
+ },
+ {
+  "kind": "fact",
+  "text": "Ed Sheeran played around 300 gigs in 2009 alone, sleeping on friends' sofas between them."
+ },
+ {
+  "kind": "fact",
+  "text": "Amy Winehouse wrote 'Rehab' after her family really did try to send her to one."
+ },
+ {
+  "kind": "fact",
+  "text": "George Michael said he wrote 'Careless Whisper' at 17, on the bus to his job as a cinema usher."
+ },
+ {
+  "kind": "fact",
+  "text": "Wham! were the first Western pop act to play communist China, in 1985."
+ },
+ {
+  "kind": "fact",
+  "text": "With 'Wuthering Heights', Kate Bush became the first woman to top the UK chart with a song she wrote herself."
+ },
+ {
+  "kind": "fact",
+  "text": "The Sex Pistols' 'God Save the Queen' was kept off UK number one in Jubilee week — amid claims the chart was fixed."
+ },
+ {
+  "kind": "fact",
+  "text": "The cover of The Clash's 'London Calling' shows Paul Simonon smashing his bass on stage in New York."
+ },
+ {
+  "kind": "fact",
+  "text": "Sting has said himself that 'Every Breath You Take' is a sinister stalker's song, not a love song."
+ },
+ {
+  "kind": "fact",
+  "text": "Sting was a schoolteacher before The Police made it."
+ },
+ {
+  "kind": "fact",
+  "text": "Mark Knopfler wrote 'Money for Nothing' from things he overheard a deliveryman say in a New York appliance store."
+ },
+ {
+  "kind": "fact",
+  "text": "Phil Collins played Live Aid in London AND Philadelphia on the same day — flying between them on Concorde."
+ },
+ {
+  "kind": "fact",
+  "text": "Tom Jones's 'It's Not Unusual' was originally meant for Sandie Shaw."
+ },
+ {
+  "kind": "fact",
+  "text": "Shirley Bassey has sung three James Bond themes — more than anyone else."
+ },
+ {
+  "kind": "fact",
+  "text": "Eurythmics' Annie Lennox and Dave Stewart wrote 'Sweet Dreams' just after splitting up as a couple."
+ },
+ {
+  "kind": "fact",
+  "text": "Jim Steinman said 'Total Eclipse of the Heart' began life as a vampire love song."
+ },
+ {
+  "kind": "fact",
+  "text": "Slade misspelled their hits on purpose — 'Cum On Feel the Noize', 'Mama Weer All Crazee Now'."
+ },
+ {
+  "kind": "fact",
+  "text": "Noddy Holder calls 'Merry Xmas Everybody' his pension — it charts again every single December."
+ },
+ {
+  "kind": "fact",
+  "text": "Slade beat Wizzard to the 1973 Christmas number one in the great glam-rock Christmas battle."
+ },
+ {
+  "kind": "fact",
+  "text": "Black Sabbath's Tony Iommi lost his fingertips in a factory accident — his workaround invented the downtuned metal sound."
+ },
+ {
+  "kind": "fact",
+  "text": "Ozzy Osbourne bit the head off a bat on stage, insisting afterwards he thought it was rubber."
+ },
+ {
+  "kind": "fact",
+  "text": "Deep Purple were once listed in the Guinness Book of Records as the world's loudest band."
+ },
+ {
+  "kind": "fact",
+  "text": "Iron Maiden's Bruce Dickinson is a qualified airline pilot who has flown the band's own Boeing on tour."
+ },
+ {
+  "kind": "fact",
+  "text": "Def Leppard's drummer Rick Allen lost an arm in a car crash and kept the job with a custom electronic kit."
+ },
+ {
+  "kind": "fact",
+  "text": "Motörhead's Lemmy was a roadie for Jimi Hendrix."
+ },
+ {
+  "kind": "fact",
+  "text": "Elvis Costello was born Declan MacManus — his family roots are Irish."
+ },
+ {
+  "kind": "fact",
+  "text": "When Ian Curtis died, Joy Division honoured a pact to retire the name — and became New Order."
+ },
+ {
+  "kind": "fact",
+  "text": "New Order's 'Blue Monday' is the best-selling 12-inch single ever — and its fancy die-cut sleeve reportedly lost money on every copy."
+ },
+ {
+  "kind": "fact",
+  "text": "The Proclaimers finally got a UK number one in 2007, when '500 Miles' was re-recorded with Peter Kay for Comic Relief."
+ },
+ {
+  "kind": "fact",
+  "text": "Every penny of 'Bitter Sweet Symphony' went to the Rolling Stones for 22 years — until Jagger and Richards handed the rights back in 2019."
+ },
+ {
+  "kind": "fact",
+  "text": "Arctic Monkeys' debut is the fastest-selling debut album by a band in UK chart history."
+ },
+ {
+  "kind": "fact",
+  "text": "Stereophonics took their name from a make of record player."
+ },
+ {
+  "kind": "fact",
+  "text": "Girls Aloud were formed on the ITV show Popstars: The Rivals in 2002."
+ },
+ {
+  "kind": "fact",
+  "text": "One Direction never actually won The X Factor — they finished third."
+ },
+ {
+  "kind": "fact",
+  "text": "Robbie Williams' 'Angels' regularly tops polls of the songs Britons want played at their funerals."
+ },
+ {
+  "kind": "fact",
+  "text": "Gary Barlow says he wrote 'Back for Good' in about 15 minutes."
+ },
+ {
+  "kind": "fact",
+  "text": "The Spice Girls' 'Wannabe' hit number one in 37 countries."
+ },
+ {
+  "kind": "fact",
+  "text": "Geri Halliwell's famous Union Jack dress was a tea towel her sister sewed onto a black dress."
+ },
+ {
+  "kind": "fact",
+  "text": "Sam Smith's 'Writing's on the Wall' was the first James Bond theme ever to reach UK number one."
+ },
+ {
+  "kind": "fact",
+  "text": "Lewis Capaldi and Doctor Who's Peter Capaldi are related — Peter even starred in the 'Someone You Loved' video."
+ },
+ {
+  "kind": "fact",
+  "text": "Fatboy Slim was the bassist in The Housemartins before dance music fame."
+ },
+ {
+  "kind": "fact",
+  "text": "Guinness World Records lists Gorillaz as the most successful virtual band ever."
+ },
+ {
+  "kind": "fact",
+  "text": "Stormzy funds scholarships for Black British students at Cambridge University."
+ },
+ {
+  "kind": "fact",
+  "text": "As the story goes, Florence Welch was signed after singing to a record executive in a nightclub toilet."
+ },
+ {
+  "kind": "fact",
+  "text": "'Three Lions' has returned to UK number one in different decades — 1996 and again in 2018."
+ },
+ {
+  "kind": "fact",
+  "text": "Band Aid's 'Do They Know It's Christmas?' was written, recorded and mixed inside 24 hours."
+ },
+ {
+  "kind": "fact",
+  "text": "An estimated 1.5 billion people watched Live Aid in July 1985."
+ },
+ {
+  "kind": "fact",
+  "text": "Lulu won Eurovision for the UK in 1969 — in an unprecedented four-way tie."
+ },
+ {
+  "kind": "fact",
+  "text": "Sandie Shaw sang her winning 1967 Eurovision song 'Puppet on a String' barefoot."
+ },
+ {
+  "kind": "fact",
+  "text": "Bucks Fizz won Eurovision 1981 with 'Making Your Mind Up' — and that skirt-ripping dance move."
+ },
+ {
+  "kind": "fact",
+  "text": "Cliff Richard had UK number one singles in five consecutive decades, from the 1950s to the 1990s."
+ },
+ {
+  "kind": "fact",
+  "text": "Mr Blobby beat Take That to the 1993 UK Christmas number one."
+ },
+ {
+  "kind": "fact",
+  "text": "LadBaby took five consecutive UK Christmas number ones from 2018 to 2022 — beating The Beatles' record run."
+ },
+ {
+  "kind": "fact",
+  "text": "'Bohemian Rhapsody' is the UK's third best-selling single of all time."
+ },
+ {
+  "kind": "fact",
+  "text": "Elton John's 'Candle in the Wind 1997' is the UK's best-selling single ever."
+ },
+ {
+  "kind": "fact",
+  "text": "The first ever UK singles chart, in 1952, was topped by Al Martino's 'Here in My Heart'."
+ },
+ {
+  "kind": "fact",
+  "text": "Top of the Pops ran for 42 years, from 1964 to 2006."
+ },
+ {
+  "kind": "fact",
+  "text": "The first Glastonbury was held in 1970, the day after Jimi Hendrix died — tickets cost £1 and included free milk from the farm."
+ },
+ {
+  "kind": "fact",
+  "text": "Around 2.5 million people applied for tickets to Oasis at Knebworth in 1996 — roughly 4% of Britain."
+ },
+ {
+  "kind": "fact",
+  "text": "Electric Picnic began in 2004 as a one-day boutique festival in Stradbally."
+ },
+ {
+  "kind": "fact",
+  "text": "Féile — 'the Trip to Tipp' — packed Semple Stadium in Thurles every summer in the early 1990s."
+ },
+ {
+  "kind": "fact",
+  "text": "The first Slane Castle concert in 1981 was headlined by Thin Lizzy — with a young U2 further down the bill."
+ },
+ {
+  "kind": "tf",
+  "text": "Freddie Mercury and opera star Montserrat Caballé recorded 'Barcelona' together.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Queen's first UK number one single was 'Bohemian Rhapsody'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Brian May played guitar on the roof of Buckingham Palace for the Queen's Golden Jubilee.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Beatles' first single was 'Please Please Me'.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "John Lennon's middle name was Winston.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Paul McCartney plays bass left-handed.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Beatles never won a Grammy.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "George Harrison was the youngest Beatle.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Octopus's Garden' was written by Ringo Starr.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Rolling Stones have had more UK number one singles than The Beatles.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Rolling Stones' early hit 'I Wanna Be Your Man' was written by Lennon and McCartney.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "David Bowie's real surname was Jones.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "David Bowie recorded a Christmas duet with Bing Crosby.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Elton John was once the chairman and owner of Watford Football Club.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Rod Stewart is Welsh.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Tom Jones is from Wales.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Tom Jones's 'Delilah' is a murder ballad.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Dusty Springfield sang 'Son of a Preacher Man'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Cilla Black was The Beatles' hairdresser before her singing career.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Oasis are from Liverpool.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Blur's Damon Albarn also created Gorillaz.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Pulp are from Sheffield.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Jarvis Cocker wrote 'Common People' about a girl he met at art college.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Radiohead named themselves after a Talking Heads song.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Coldplay were originally called Starfish.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The members of Coldplay met at university in London.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Adele is from Manchester.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Adele's Bond theme 'Skyfall' won an Oscar.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Ed Sheeran was born in Halifax, Yorkshire.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Ed Sheeran appeared in an episode of Game of Thrones.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Amy Winehouse was from Glasgow.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Valerie' was written by Amy Winehouse.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "George Michael and Andrew Ridgeley met at school.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Wham!'s 'Last Christmas' didn't reach UK number one until decades after its release.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Kate Bush wrote 'Wuthering Heights' when she was 18.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Kate Bush is Peter Gabriel's sister.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Peter Gabriel was the original lead singer of Genesis.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Phil Collins joined Genesis as the drummer before becoming its singer.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'In the Air Tonight' was Phil Collins' first solo single.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Sting's real name is Gordon Sumner.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Message in a Bottle' was The Police's first UK number one.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Mark Knopfler wrote the theme music for the film Local Hero.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Sultans of Swing' is about a jazz band Mark Knopfler saw playing in a pub.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Queen's drummer Roger Taylor wrote 'Radio Ga Ga'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Lady Gaga took her stage name from Queen's 'Radio Ga Ga'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The instrumental 'Albatross' is Fleetwood Mac's only UK number one single.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Fleetwood Mac's 'Dreams' was written by Stevie Nicks.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Bee Gees wrote 'Islands in the Stream' for Kenny Rogers and Dolly Parton.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Barry and Robin Gibb of the Bee Gees were twins.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Sinéad O'Connor was once ordained as a priest.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "In U2's early days, bassist Adam Clayton acted as the band's manager.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Bono's real name is Paul Hewson.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "U2's The Edge was born in Wales.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "U2 played the Super Bowl half-time show a few months after 9/11.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Twin harmony lead guitars were Thin Lizzy's signature sound.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Phil Lynott published books of poetry.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Thin Lizzy's 'Dancing in the Moonlight' and Toploader's 'Dancing in the Moonlight' are the same song.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Have I Told You Lately' was written by Van Morrison, not Rod Stewart.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Enya sings mostly in made-up languages.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Enya's siblings were in the band Clannad.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Hozier's 'Take Me to Church' lost the Song of the Year Grammy to Sam Smith's 'Stay with Me'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Niall Horan is from Cork.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Script are from Belfast.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Snow Patrol's 'Chasing Cars' was named the most-played song of the 21st century on UK radio.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Westlife recorded a hit duet with Mariah Carey.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Ronan Keating's 'When You Say Nothing at All' was recorded for the film Notting Hill.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Ireland's 1996 Eurovision winner was 'The Voice' by Eimear Quinn.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Riverdance's original lead dancers were Michael Flatley and Jean Butler.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Michael Flatley is from Dublin.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The 'Nothing Compares 2 U' video is almost entirely one close-up of Sinéad O'Connor's face.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Undertones' 'Teenage Kicks' reached UK number one.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Shane MacGowan was born in Ireland.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Kirsty MacColl's father was the folk singer Ewan MacColl.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Bob Geldof worked as a music journalist in Canada before forming The Boomtown Rats.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Live Aid took place in London and Philadelphia on the same day.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Midge Ure, co-writer of 'Do They Know It's Christmas?', is Scottish.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Ultravox's 'Vienna' was kept off UK number one by Joe Dolce's 'Shaddap You Face'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "ABBA's Björn and Benny wrote the musical Chess with Tim Rice.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "ABBA returned in the 2020s with a virtual 'ABBA Voyage' concert show in London.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Mamma Mia' was ABBA's first UK number one.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Corrs had a hit with a cover of Fleetwood Mac's 'Dreams'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "A US metal band called Bad Wolves had a huge hit covering The Cranberries' 'Zombie'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Damien Rice's 'The Blower's Daughter' opens the film Closer.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Glen Hansard and Bono have busked together on Grafton Street on Christmas Eve.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Lisa Hannigan sang with Damien Rice before going solo.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Glen Hansard won his Oscar for the film Sing Street.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Sing Street and The Commitments were made by the same director.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Commitments is based on a Roddy Doyle novel.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Victoria Beckham had more solo UK number ones than any other Spice Girl.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Girls Aloud's Nadine Coyle is from Derry.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Nadine Coyle was disqualified from Irish Popstars for being under age.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Harry Styles worked in a bakery before The X Factor.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Little Mix were originally called Rhythmix.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Simon Cowell created The X Factor.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Louis Walsh managed both Boyzone and Westlife.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Jedward represented Ireland at Eurovision twice.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Dustin the Turkey once represented Ireland at Eurovision.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Loreen won Eurovision 2012 for Sweden with 'Euphoria'.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The UK has won Eurovision five times.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Bucks Fizz won Eurovision for Ireland.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Wurzels' 'The Combine Harvester' was a UK number one.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Chas & Dave were from Newcastle.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Madness are from Camden in London.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Specials' 'Ghost Town' was UK number one during the summer riots of 1981.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "UB40 named themselves after an unemployment benefit form.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "UB40's 'Red Red Wine' was written by Neil Diamond.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Simply Red's Mick Hucknall started writing 'Holding Back the Years' as a teenager.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Depeche Mode come from Basildon in Essex.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Cure's Robert Smith also played guitar in Siouxsie and the Banshees.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Duran Duran are named after a character in the film Barbarella.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Boy George's parents were Irish.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The BBC banned Frankie Goes to Hollywood's 'Relax' — which then went to number one.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Rick Astley worked as the studio tea boy before being signed.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Bananarama hold a world record for the most chart entries by an all-female group.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Annie Lennox is Welsh.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Simple Minds are from Edinburgh.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Don't You (Forget About Me)' was Simple Minds' biggest hit in America.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Franz Ferdinand are named after an archduke.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Proclaimers are twin brothers.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Biffy Clyro are Scottish.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Lewis Capaldi's 'Someone You Loved' spent seven weeks at UK number one.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Calvin Harris's real name is Adam Wiles.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Snow Patrol formed at university in Scotland.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Two Door Cinema Club are from the Republic of Ireland.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Ash's album '1977' is named after the year the band members were born.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Molly Malone' was written in the 19th century — by a Scotsman.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The lyrics of 'Danny Boy' were written by an English lawyer.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'The Fields of Athenry' was written in the 1970s.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Chieftains have won multiple Grammy Awards.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "The Dubliners and The Pogues recorded 'The Irish Rover' together.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Seven Drunken Nights' was banned from Irish radio.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "'Riptide' singer Vance Joy is Irish.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Christy Moore's 'Ride On' was written by Christy Moore.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Picture This come from Athy, County Kildare.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Kodaline were previously called 21 Demands.",
+  "answer": 1
+ },
+ {
+  "kind": "tf",
+  "text": "Freddie Mercury was born in London.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'We Are the Champions' was written by Brian May.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Beatles came from Manchester.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Hey Jude' was written by John Lennon.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Bohemian Rhapsody' was Queen's only UK number one single.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "U2 formed in London.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Cranberries' lead singer was Andrea Corr.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Riverdance made its debut at the Oscars.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Van Morrison is from Dublin.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Thin Lizzy's 'Whiskey in the Jar' is an original song written by Phil Lynott.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Fairytale of New York' features Cilla Black.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Oasis's 'Wonderwall' was a UK number one single.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Ed Sheeran won The X Factor before his career took off.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Adele names her albums after her lucky numbers.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Spice Girls had six members.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "ABBA are from Norway.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Daft Punk are British.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Cranberries' 'Zombie' was written about the Vietnam War.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Kate Bush's 'Running Up That Hill' returned to number one thanks to Breaking Bad.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Live Aid took place in 1990.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Bono is U2's drummer.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Corrs are four sisters.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Johnny Logan won Eurovision for the UK.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Mr. Brightside' is by Coldplay.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Phil Lynott was Thin Lizzy's drummer.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "'Nothing Compares 2 U' was written by Dolly Parton.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "The Eurovision Song Contest is held every four years.",
+  "answer": 0
+ },
+ {
+  "kind": "tf",
+  "text": "Glastonbury festival takes place in Scotland.",
+  "answer": 0
+ }
 ]

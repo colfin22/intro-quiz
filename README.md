@@ -63,8 +63,8 @@ subscriptions.
   sound — the board shows an overlay asking for it. If the cast session dies
   mid-game the app re-casts the board automatically, and the board reports playback
   failures back to the server log.
-- **Half-time trivia** — a curated seed pack ships in the repo (50 read-aloud music
-  facts + 50 true/false questions, **deliberately Irish/UK-centric** — Eurovision,
+- **Half-time trivia** — a curated seed pack ships in the repo (~180 read-aloud music
+  facts + ~215 true/false questions, **deliberately Irish/UK-centric** — Eurovision,
   Thin Lizzy and Westlife feature; edit `app/data/trivia_seed.json` to suit your
   own table) and lives in SQLite; the true/false pool tops itself up from
   [Open Trivia DB](https://opentdb.com/) whenever it runs low
