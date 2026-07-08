@@ -230,6 +230,12 @@ def test_trivia_seed_and_recycling():
     from app import trivia
     conn, p = make_db()
     try:
+        # the pack must actually be shipped — a gitignore once ate app/data/
+        import subprocess
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", trivia.SEED_PATH],
+            capture_output=True, cwd=os.path.dirname(trivia.SEED_PATH))
+        assert tracked.returncode == 0, "trivia_seed.json is not tracked by git"
         added = trivia.ensure_seeded(conn)
         assert added >= 80
         assert trivia.ensure_seeded(conn) == 0  # idempotent

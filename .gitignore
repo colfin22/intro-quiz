@@ -1,6 +1,6 @@
 # runtime secrets + data — never tracked (repo will be public)
 .env
-data/
+/data/
 __pycache__/
 *.pyc
 .venv/
