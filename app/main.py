@@ -178,6 +178,7 @@ class Hub:
                 # nobody answered — the table is probably talking. One more go.
                 rnd["replay"] = 1
                 rnd["started_at"] = self.game.clock()
+                rnd["deadline_at"] = rnd["started_at"] + game.ANSWER_WINDOW_S
                 if not self.board_expected():
                     asyncio.get_event_loop().run_in_executor(
                         None, ha.play_clip, rnd["track"]["id"], str(rnd["clip_len"]))
@@ -275,6 +276,9 @@ async def ws_endpoint(ws: WebSocket):
                         await hub.start_round()
                     elif kind == "extend_clip":
                         length = hub.game.extend_clip()
+                        # the window moved out with the longer clip — move the reveal too
+                        hub.cancel_deadline()
+                        hub.deadline_task = asyncio.create_task(hub._deadline(hub.game.window_left()))
                         if not hub.board_expected():
                             asyncio.get_event_loop().run_in_executor(
                                 None, ha.play_clip, hub.game.rounds[hub.game.current]["track"]["id"], str(length))
