@@ -124,6 +124,13 @@ mount in `docker-compose.yml` maps it). As a real-world sizing example: a
 **565 GB / ~40,000-track library** cuts down to roughly **80 GB of clips**
 (~2 MB per track — four loudness-normalised MP3s each).
 
+**Windows?** Yes — anywhere Docker runs, including Docker Desktop (WSL2).
+Point the clips volume at a Windows folder (`C:\quiz-clips:/clips` in
+`docker-compose.yml`), and allow port 8000 through Windows Firewall so the
+phones can reach it. Casting still works from Docker Desktop because displays
+are addressed by IP (`DISPLAYS=...`) — no mDNS discovery needed. Navidrome and
+the optional Home Assistant bits can live anywhere on the network.
+
 ## Make your own trivia pack
 
 The shipped half-time pack is Irish/UK-centric. To localise it, put a
