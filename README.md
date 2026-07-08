@@ -1,5 +1,9 @@
 # Intro Quiz
 
+[![CI](https://github.com/colfin22/intro-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/colfin22/intro-quiz/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/colfin22/intro-quiz)](https://github.com/colfin22/intro-quiz/releases)
+[![License: MIT](https://img.shields.io/github/license/colfin22/intro-quiz)](LICENSE)
+
 Self-hosted "guess the intro" music quiz for family game night, built on your own
 [Navidrome](https://www.navidrome.org/) library. A song's **first 5 seconds** play
 and everyone races to name it on their phones — fastest correct answer scores most.
