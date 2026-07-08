@@ -13,10 +13,10 @@ subscriptions.
        alt="The TV board on a reveal — album art, who got it right, and the scores">
 </p>
 <p align="center">
-  <img src="docs/screenshots/phone-question.png" width="30%"
-       alt="A round on the phone — four choices and a countdown">
   <img src="docs/screenshots/phone-artist-wall.png" width="30%"
        alt="The lobby artist wall — every player picks three artists they know">
+  <img src="docs/screenshots/phone-question.png" width="30%"
+       alt="A round on the phone — four choices and a countdown">
   <img src="docs/screenshots/phone-fact.png" width="30%"
        alt="Half time — this phone got a trivia fact to read out to the table">
 </p>
