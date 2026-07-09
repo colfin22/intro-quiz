@@ -1,4 +1,4 @@
-fastapi==0.115.*
+fastapi==0.139.*
 uvicorn[standard]==0.51.*
 httpx==0.28.*
 pychromecast==14.0.10
