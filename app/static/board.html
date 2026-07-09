@@ -66,6 +66,10 @@
         <p class="dim">Scores</p>
         <ul class="scores" id="b-scores"></ul>
       </div>
+      <div class="card" id="b-alltime-card" hidden>
+        <p class="dim">🏆 All-time</p>
+        <ul class="scores" id="b-alltime"></ul>
+      </div>
     </div>
   </div>
 </main>
@@ -75,7 +79,7 @@
 </div>
 <p class="dim center" id="b-audio-status"></p>
 <script>
-let ws, lastKey = "", audioUnlocked = false;
+let ws, lastKey = "", audioUnlocked = false, alltimeKey = "";
 const bAudio = document.getElementById("b-audio");
 // 100ms of silence — used to probe/consume the autoplay permission up front
 const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
@@ -224,6 +228,25 @@ function connect() {
         return a.points > 0 ? `${p.name} ✅ +${a.points}` : `${p.name} ❌`;
       });
       res.textContent = res.textContent + "   ·   " + bits.join("   ");
+    }
+    // all-time leaderboard beside the scores in the lobby and on the final screen;
+    // fetched once per phase entry (finish() saves before broadcasting, so the
+    // finished fetch already includes this game)
+    const atCard = document.getElementById("b-alltime-card");
+    atCard.hidden = !(s.phase === "lobby" || s.phase === "finished");
+    if (!atCard.hidden && alltimeKey !== `${s.phase}-${s.game_no}`) {
+      alltimeKey = `${s.phase}-${s.game_no}`;
+      fetch("/api/leaderboard").then(r => r.json()).then(rows => {
+        const al = document.getElementById("b-alltime");
+        al.innerHTML = "";
+        rows.slice(0, 8).forEach((r, i) => {
+          const li = document.createElement("li");
+          li.innerHTML = `<span>${["🥇","🥈","🥉"][i] || "&nbsp;&nbsp;"} ${r.player}</span>` +
+            `<b>${r.total_score}</b>`;
+          al.appendChild(li);
+        });
+        if (!rows.length) al.innerHTML = '<li class="dim">no games recorded yet</li>';
+      }).catch(() => {});
     }
     const ul = document.getElementById("b-scores");
     ul.innerHTML = "";
