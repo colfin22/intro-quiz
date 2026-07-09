@@ -245,6 +245,14 @@ It's a flat JSON list of two kinds of item:
 - Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
   phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
 - The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
+- **Mis-tag detection:** scrappy rips sometimes carry junk in the *subtitle* tag
+  ("Teenage Kicks (PMEDIA)"), which breaks Last.fm matching — the track scores zero
+  and never gets picked. `GET /api/quality` lists tracks that score ~no listeners while
+  their artist is clearly popular (the tell-tale of a mangled title); a periodic
+  `POST /api/quality/check` pushes fresh suspects via Home Assistant if
+  `HA_NOTIFY_SERVICE` is set. Run `POST /api/quality/check?push=false` once after
+  install to baseline your library so only future misses alert. Fix = clean the tags,
+  rescan your server, then re-sync and re-score (`POST /api/bootstrap` handles it).
 
 ## Licence
 

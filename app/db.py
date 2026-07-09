@@ -70,7 +70,8 @@ def connect(path: str | None = None) -> sqlite3.Connection:
     for ddl in ("ALTER TABLE tracks ADD COLUMN clipped_at TEXT",
                 "ALTER TABLE tracks ADD COLUMN banned INTEGER DEFAULT 0",
                 "ALTER TABLE tracks ADD COLUMN album_artist TEXT",
-                "ALTER TABLE tracks ADD COLUMN ban_reason TEXT"):
+                "ALTER TABLE tracks ADD COLUMN ban_reason TEXT",
+                "ALTER TABLE tracks ADD COLUMN quality_notified_at TEXT"):
         col = ddl.split(" ADD COLUMN ")[1].split()[0]
         if col not in cols:
             try:

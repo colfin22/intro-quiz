@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, board_cast, clips, config, db, game, ha, lastfm, scoring, subsonic, sync, trivia
+from . import __version__, board_cast, clips, config, db, game, ha, lastfm, quality, scoring, subsonic, sync, trivia
 
 LOGGER = logging.getLogger(__name__)
 app = FastAPI(title="Intro Quiz", version=__version__)
@@ -664,6 +664,29 @@ def api_leaderboard_reset(confirm: str = ""):
         conn.execute("DELETE FROM games")
         conn.commit()
         return {"reset": True, "games_removed": games}
+    finally:
+        conn.close()
+
+
+@app.get("/api/quality")
+def api_quality():
+    """Tracks that probably failed Last.fm matching (mangled titles)."""
+    conn = db.connect()
+    try:
+        return {"floor": quality.LISTENER_FLOOR, "artist_ceiling": quality.ARTIST_CEILING,
+                "suspects": quality.find_suspects(conn)}
+    finally:
+        conn.close()
+
+
+@app.post("/api/quality/check")
+def api_quality_check(push: bool = True):
+    """Run the match-quality check; HA-push any fresh suspects and mark them.
+
+    ?push=false baselines the current library without notifying."""
+    conn = db.connect()
+    try:
+        return quality.check(conn, push=push)
     finally:
         conn.close()
 

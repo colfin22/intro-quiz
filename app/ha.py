@@ -10,6 +10,7 @@ MEDIA_PLAYER = os.environ.get("MEDIA_PLAYER", "")
 MEDIA_VOLUME = float(os.environ.get("MEDIA_VOLUME", "0.45"))
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "").rstrip("/")
 CAST_ENABLED = os.environ.get("CAST_ENABLED", "true").lower() == "true"
+NOTIFY_SERVICE = os.environ.get("HA_NOTIFY_SERVICE", "")  # e.g. notify.mobile_app_myphone
 
 LOGGER = logging.getLogger(__name__)
 
@@ -48,6 +49,18 @@ def play_url(url: str, label: str = "") -> bool:
         return True
     except httpx.HTTPError as e:
         LOGGER.error("cast failed: %s", e)
+        return False
+
+
+def notify(title: str, message: str) -> bool:
+    """Push a notification via HA. Opt-in: needs HA_NOTIFY_SERVICE set."""
+    if not (HA_URL and HA_TOKEN and NOTIFY_SERVICE):
+        return False
+    try:
+        _call(NOTIFY_SERVICE, {"title": title, "message": message})
+        return True
+    except httpx.HTTPError as e:
+        LOGGER.error("notify failed: %s", e)
         return False
 
 
