@@ -128,6 +128,12 @@ play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
 Copy [`.env.example`](.env.example) to `.env` beside `docker-compose.yml` and
 fill it in — it marks which variables are required:
 
+> **Your library stays yours:** the app only ever talks to Navidrome through a
+> non-admin Subsonic login. It never reads or writes your music files directly —
+> clips are cut from streamed audio into the app's own clips folder, and nothing
+> in this project modifies tags or files in your library (the mis-tag detector
+> only *reports*; fixing tags is yours to do with your own tools).
+
     NAVIDROME_URL=http://navidrome.local:4533
     NAVIDROME_USER=quiz                     # a dedicated non-admin Navidrome user
     NAVIDROME_PASSWORD=<its password>
