@@ -112,7 +112,8 @@ subscriptions.
 - **Upkeep** — schedule the four maintenance endpoints nightly with whatever you
   like (cron, systemd timer): `POST /api/sync`, `/api/score/lastfm`,
   `/api/score/tiers`, `/api/clips/cut` — the library re-syncs, new tracks get
-  scored, tiered and clipped. Clips cost ~2 MB per track.
+  scored, tiered and clipped. Optionally add `POST /api/quality/check` as a fifth
+  step to get told when new tracks look mis-tagged (see Notes). Clips cost ~2 MB per track.
 
 ## Run
 
