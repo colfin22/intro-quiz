@@ -256,8 +256,14 @@ It's a flat JSON list of two kinds of item:
   ("Teenage Kicks (PMEDIA)"), which breaks Last.fm matching — the track scores zero
   and never gets picked. `GET /api/quality` lists tracks that score ~no listeners while
   their artist is clearly popular (the tell-tale of a mangled title); a periodic
-  `POST /api/quality/check` pushes fresh suspects via Home Assistant if
-  `HA_NOTIFY_SERVICE` is set. Run `POST /api/quality/check?push=false` once after
+  `POST /api/quality/check` pushes fresh suspects via Home Assistant.
+  To enable the push you need three env vars: `HA_URL` and `HA_TOKEN` (the same pair
+  used for speaker casting — a long-lived access token from your HA profile page) plus
+  `HA_NOTIFY_SERVICE`, the notify action for your phone. Find it in HA under
+  **Developer tools → Actions** — with the companion app installed it's
+  `notify.mobile_app_<your device name>`. Without these set the check still runs;
+  you just read `GET /api/quality` yourself instead of getting pushed.
+  Run `POST /api/quality/check?push=false` once after
   install to baseline your library so only future misses alert. Fix = clean the tags,
   rescan your server, then re-sync and re-score (`POST /api/bootstrap` handles it).
 
