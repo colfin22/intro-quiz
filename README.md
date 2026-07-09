@@ -82,7 +82,7 @@ subscriptions.
   intro clips start where the audible song does (`silencedetect`, capped at 60s; re-cut
   existing tracks via `POST /api/clips/recut?q=%pattern%`). **ID3 tags are stripped and
   re-titled** so a display's now-playing overlay can't leak the answer. Tracks over 12 minutes (DJ
-  mixes) are excluded; whole albums can be banned by pattern (`POST /api/ban/album`).
+  mixes) are excluded (tunable via `MAX_DURATION_S`, seconds); whole albums can be banned by pattern (`POST /api/ban/album`).
   Undecodable originals retry via the music server's transcode before being banned,
   and a stream that returns an error document (stale index after files were renamed)
   is recognised rather than fed to ffmpeg.

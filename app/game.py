@@ -4,6 +4,7 @@ One game at a time (it's a kitchen, not a casino). The websocket layer in
 main.py drives this and broadcasts snapshots; timing uses an injectable
 clock so tests don't sleep.
 """
+import os
 import random
 import time
 from datetime import datetime, timezone
@@ -14,7 +15,7 @@ ANSWER_WINDOW_S = 20
 PAYOFF_S = 12          # mirrors clips.PAYOFF_LEN — the reveal payoff plays in full
 TF_COUNT = 3           # true/false questions at half time
 TF_POINTS = 50         # enough to shake the standings, not to decide the game
-MAX_DURATION_S = 720   # >12 min = DJ mix / live jam, not quizzable
+MAX_DURATION_S = int(os.environ.get("MAX_DURATION_S", "720"))  # longer = DJ mix / live jam, not quizzable
 # over-long DJ mixes / live jams never enter the quiz (compilations are fine)
 QUIZZABLE = ("active=1 AND banned=0 AND clipped_at IS NOT NULL "
              f"AND (duration IS NULL OR duration <= {MAX_DURATION_S})")
