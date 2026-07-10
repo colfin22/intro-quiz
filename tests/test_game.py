@@ -83,7 +83,8 @@ def test_options_contain_answer_and_unique_artists():
 def test_snapshot_hides_answer_during_question():
     conn, p = make_db()
     try:
-        g = game.Game(conn, rounds=1, clock=Clock())
+        clock = Clock()
+        g = game.Game(conn, rounds=1, clock=clock)
         g.join("X")
         g.build_rounds(conn)
         g.start_round()
@@ -99,7 +100,8 @@ def test_guards():
     try:
         with pytest.raises(game.GameError):  # not enough clipped tracks
             game.Game(conn, rounds=10, clock=Clock())
-        g = game.Game(conn, rounds=1, clock=Clock())
+        clock = Clock()
+        g = game.Game(conn, rounds=1, clock=clock)
         with pytest.raises(game.GameError):  # no players yet
             g.start_round()
         g.join("A")
@@ -110,7 +112,10 @@ def test_guards():
         g.answer("A", 0)
         with pytest.raises(game.GameError):  # no double answer
             g.answer("A", 1)
-        assert g.extend_clip() == 10 and g.extend_clip() == 20
+        assert g.extend_clip() == 10
+        clock.t += 10.1  # the lock (#27): next extend only after the clip plays out
+        assert g.extend_clip() == 20
+        clock.t += 20.1
         with pytest.raises(game.GameError):
             g.extend_clip()
     finally:
@@ -120,7 +125,8 @@ def test_guards():
 def test_flag_current_bans_track():
     conn, p = make_db()
     try:
-        g = game.Game(conn, rounds=1, clock=Clock())
+        clock = Clock()
+        g = game.Game(conn, rounds=1, clock=clock)
         g.join("A")
         g.build_rounds(conn)
         g.start_round()
@@ -348,3 +354,26 @@ def test_bootstrap_job_sequence(monkeypatch):
     assert main.BOOTSTRAP["clips_cut"] == 7
     assert main.BOOTSTRAP["tracks_synced"] == 42
     main.BOOTSTRAP.clear()
+
+
+def test_extend_lock_one_at_a_time():
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=clock)
+        g.join("A")
+        g.build_rounds(conn)
+        g.start_round()
+        assert g.extend_clip() == 10
+        # a second press while the 10s clip is still playing is refused (#27)
+        with pytest.raises(game.GameError):
+            g.extend_clip()
+        snap = g.snapshot()
+        assert snap["extend_wait"] > 0
+        clock.t += 10.1  # the 10s clip has played out
+        assert g.extend_clip() == 20
+        clock.t += 20.1
+        with pytest.raises(game.GameError):  # nothing beyond 20s
+            g.extend_clip()
+    finally:
+        conn.close(); os.unlink(p)

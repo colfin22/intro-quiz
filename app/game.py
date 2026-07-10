@@ -172,9 +172,15 @@ class Game:
         this, extending to 20s near the deadline cut the clip off mid-play.
         """
         rnd = self._round("question")
+        # one extend at a time: the longer clip must play out in full before
+        # another press can bump again — a second player mashing the button
+        # right behind the first was jumping 5->20 unheard (#27)
+        if self.clock() < rnd.get("extend_locked_until", 0):
+            raise GameError(f"the {rnd['clip_len']}s clip is still playing — extend again when it finishes")
         for length in (10, 20):
             if rnd["clip_len"] < length:
                 rnd["clip_len"] = length
+                rnd["extend_locked_until"] = self.clock() + length
                 rnd["deadline_at"] = self.clock() + max(ANSWER_WINDOW_S, length + 10)
                 return length
         raise GameError("already at the longest clip")
@@ -330,6 +336,7 @@ class Game:
             s["replay"] = rnd.get("replay", 0)
             if self.phase == "question":
                 s["window_left"] = round(self.window_left(), 1)
+                s["extend_wait"] = round(max(0.0, rnd.get("extend_locked_until", 0) - self.clock()), 1)
             s["flagged"] = bool(rnd.get("flagged"))
             s["answered"] = sorted(rnd["answers"])
             if self.phase == "reveal":

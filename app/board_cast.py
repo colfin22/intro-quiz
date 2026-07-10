@@ -42,18 +42,29 @@ def _connect(name: str):
     return _casts[name]
 
 
-def show_board(name: str | None) -> bool:
+def show_board(name: str | None, fresh: bool = False) -> bool:
+    """Cast the board. fresh=True quits the receiver app first so every game
+    starts with a brand-new DashCast instance — the receiver degrades with
+    session age and reliably crashed mid-game-2 when reused (#28)."""
     if not configured(name):
         LOGGER.info("board cast skipped (no display selected)")
         return False
     try:
         with _lock:
+            import time as _t
             from pychromecast.controllers.dashcast import DashCastController
             cast = _connect(name)
+            if fresh:
+                try:
+                    cast.quit_app()
+                    _t.sleep(2)  # give the device a beat to tear down
+                    cast.wait(timeout=15)
+                except Exception as e:  # noqa: BLE001 - nothing running is fine
+                    LOGGER.info("pre-cast quit skipped: %s", e)
             dc = DashCastController()
             cast.register_handler(dc)
             dc.load_url(BOARD_URL, force=True)  # top-level load: iframe autoplay policy blocks board audio
-        LOGGER.info("board cast to %s (%s)", name, DISPLAYS[name])
+        LOGGER.info("board cast to %s (%s)%s", name, DISPLAYS[name], " [fresh]" if fresh else "")
         return True
     except Exception as e:  # noqa: BLE001 - board is cosmetic, never break the game
         LOGGER.error("board cast failed: %s", e)

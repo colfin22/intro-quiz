@@ -1,7 +1,7 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
 let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
-let myTf = null, tfKey = "", timerKey = "", lastGameNo, finishedBuzz;
+let myTf = null, tfKey = "", timerKey = "", lastGameNo, finishedBuzz, extendTimer = null;
 
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
@@ -185,6 +185,18 @@ function render() {
     });
     document.getElementById("q-answered").textContent =
       state.answered.length ? `answered: ${state.answered.join(", ")}` : "";
+    // one extend at a time: while the longer clip plays, the button locks
+    // (server enforces too — this just stops the mash, #27)
+    const ext = document.getElementById("q-extend");
+    const extWait = state.extend_wait || 0;
+    ext.hidden = state.clip_len >= 20;
+    ext.disabled = extWait > 0;
+    ext.textContent = extWait > 0 ? "🎧 listen — extend unlocks when the clip ends" : "🔁 Play a bit more";
+    clearTimeout(extendTimer);
+    if (extWait > 0) extendTimer = setTimeout(() => {
+      ext.disabled = false;
+      ext.textContent = "🔁 Play a bit more";
+    }, extWait * 1000 + 300);
     // restart the countdown only when the window actually changed (new round,
     // replay, or an extended clip) — not on every broadcast
     const tKey = `${state.round}-${state.replay || 0}-${state.clip_len}`;

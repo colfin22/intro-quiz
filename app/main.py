@@ -103,7 +103,9 @@ async def board_watchdog():
                 LOGGER.warning("board watchdog: no heartbeat for %.0fs — recasting to %s (attempt %d/5)",
                                _t.time() - hub.board_last_seen, hub.display, hub.cast_attempts)
                 last_cast = _t.time()
-                asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
+                # fresh here too — the watchdog only fires when the receiver is
+                # dead, and loading a URL into a dead session recovers nothing (#28)
+                asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, True)
             except Exception:  # noqa: BLE001 — the watchdog must never die
                 LOGGER.exception("board watchdog tick failed")
     asyncio.create_task(_loop())
@@ -438,7 +440,9 @@ async def ws_endpoint(ws: WebSocket):
                             finally:
                                 c.close()
                         asyncio.get_event_loop().run_in_executor(None, _topup)
-                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display)
+                        # fresh receiver every game — a reused DashCast session
+                        # reliably died mid-game-2 (#28)
+                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, True)
                         await hub.broadcast()
                     elif kind == "join":
                         if not hub.game:
