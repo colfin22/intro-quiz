@@ -100,6 +100,11 @@ function abandonTap() {
   send({type: "abort"});
 }
 
+function stopBoard() {
+  // one tap — quitting a stuck cast is idempotent and reversible (re-pick the display)
+  send({type: "stop_board"});
+}
+
 function join() {
   myName = document.getElementById("name").value.trim();
   if (!myName) return;
@@ -150,6 +155,9 @@ function render() {
       : `🎤 Game master: <b>${state.host}</b>`;
   } else mb.hidden = true;
   document.getElementById("abort-row").hidden = !(hostOnly && state.phase && state.phase !== "idle" && state.phase !== "finished");
+  // let the master (or anyone when idle) kill a stuck cast on the active TV (#31)
+  const casting = state.display && state.display !== "none";
+  document.getElementById("stop-board-row").hidden = !(casting && hostOnly);
   if (state.phase === "idle") { show("v-idle"); joined = false; return; }
   if (state.phase === "lobby" || (!joined && state.phase !== "finished")) {
     if (!joined) {

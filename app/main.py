@@ -423,7 +423,25 @@ async def ws_endpoint(ws: WebSocket):
                     if kind == "set_display":
                         want = msg.get("display")
                         if want in (board_cast.display_names() + ["none"]):
-                            hub.display = None if want == "none" else want
+                            new = None if want == "none" else want
+                            # quit the cast on the display we're leaving so a
+                            # DashCast session never lingers/zombies on that TV (#31)
+                            if hub.display and hub.display != new:
+                                asyncio.get_event_loop().run_in_executor(
+                                    None, board_cast.hide_board, hub.display)
+                            hub.display = new
+                            hub.cast_attempts = 0
+                        await hub.broadcast()
+                    elif kind == "stop_board":
+                        # kill a stuck/zombie DashCast on demand and stand the
+                        # watchdog down; music falls back to the speaker (#31)
+                        if hub.game and hub.game.host and name and name != hub.game.host:
+                            raise game.GameError(f"only {hub.game.host} can turn off the TV board")
+                        if hub.display:
+                            asyncio.get_event_loop().run_in_executor(
+                                None, board_cast.hide_board, hub.display)
+                        hub.display = None
+                        hub.cast_attempts = 999  # don't auto-recast for this game
                         await hub.broadcast()
                     elif kind == "board_hello":
                         # also the board's 15s heartbeat — liveness, not just registration
