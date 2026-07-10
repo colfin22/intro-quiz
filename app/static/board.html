@@ -95,6 +95,21 @@ function boardLog(msg) {
   try { fetch("/api/board/log", { method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ msg }) }); } catch (e) {}
 }
+// a full page reload re-inits the audio + socket in ~2s and clears a wedged
+// cast far faster than 30s of element retries — loop-guarded so a genuine 404
+// can't thrash it (#29)
+function boardReload(reason) {
+  const now = Date.now();
+  let hist = [];
+  try { hist = JSON.parse(sessionStorage.getItem("reloads") || "[]"); } catch (e) {}
+  hist = hist.filter(t => now - t < 40000);
+  if (hist.length >= 2) { boardLog("reload suppressed (loop guard): " + reason); return false; }
+  hist.push(now);
+  try { sessionStorage.setItem("reloads", JSON.stringify(hist)); } catch (e) {}
+  boardLog("board self-reload: " + reason);
+  setTimeout(() => location.reload(), 150);  // let the log POST flush first
+  return true;
+}
 let retryTimer = null, retryCount = 0;
 function playAudio(kind, key, isRetry) {
   if (key === lastKey && !isRetry) return;
@@ -104,9 +119,13 @@ function playAudio(kind, key, isRetry) {
   // exists; giving up after one attempt made the round permanently silent (#24)
   const retry = (why) => {
     if (retryCount === 0 || retryCount % 4 === 0) boardLog(`${why} for ${key} (attempt ${retryCount + 1})`);
-    if (retryCount++ < 15) retryTimer = setTimeout(() => {
+    retryCount++;
+    // a couple of fast retries cover a transient blip; if audio still won't
+    // play, reload the board (much faster than grinding 15×2s of retries) (#29)
+    if (retryCount === 2 && boardReload(`audio failed ${retryCount}x: ${why}`)) return;
+    if (retryCount < 15) retryTimer = setTimeout(() => {
       if (lastKey === key) playAudio(kind, key, true);
-    }, 2000);
+    }, retryCount < 4 ? 1200 : 2000);
   };
   bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}&r=${retryCount}`;
   // the muted-start dance is only needed while audio is still locked (touch displays);

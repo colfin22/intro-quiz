@@ -57,7 +57,7 @@ def show_board(name: str | None, fresh: bool = False) -> bool:
             if fresh:
                 try:
                     cast.quit_app()
-                    _t.sleep(2)  # give the device a beat to tear down
+                    _t.sleep(1)  # a beat to tear down (was 2s — #29 speed-up)
                     cast.wait(timeout=15)
                 except Exception as e:  # noqa: BLE001 - nothing running is fine
                     LOGGER.info("pre-cast quit skipped: %s", e)

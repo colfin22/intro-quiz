@@ -62,8 +62,8 @@ def health():
 async def board_watchdog():
     """While a game is on and a display is chosen, keep the board alive.
 
-    Runs forever, checks every 10s: no heartbeat from any board for 20s
-    -> re-cast, retrying every 20s until the board reports back (#21, #25 —
+    Runs forever, checks every 5s: no heartbeat from any board for 12s
+    -> re-cast, retrying every 12s until the board reports back (#21, #25 —
     the receiver dies often enough that 45-65s recoveries ate half a round).
     The old one-shot on websocket disconnect never fired when a dead cast
     receiver left a zombie socket open through the reverse proxy.
@@ -73,7 +73,7 @@ async def board_watchdog():
     async def _loop():
         last_cast = 0.0
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)   # faster dead-board detection (#29)
             try:
                 if not (hub.game and hub.game.phase in ("lobby", "question", "reveal", "break")):
                     continue
@@ -97,7 +97,7 @@ async def board_watchdog():
                     continue  # board never arrived — that's the initial cast's job
                 if hub.cast_attempts >= 5:
                     continue  # board won't come back — a human has the TV; stand down (#26)
-                if _t.time() - last_cast < 20:
+                if _t.time() - last_cast < 12:
                     continue  # give the last attempt a chance to load
                 hub.cast_attempts += 1
                 LOGGER.warning("board watchdog: no heartbeat for %.0fs — recasting to %s (attempt %d/5)",
@@ -327,7 +327,7 @@ class Hub:
         both the re-cast watchdog and the speaker fallback (#21)."""
         import time as _t
         return (any(b in self.sockets for b in self.boards)
-                and (_t.time() - self.board_last_seen) < 20)  # heartbeat is 5s (#25)
+                and (_t.time() - self.board_last_seen) < 12)  # heartbeat 5s; dead after 12s (#25/#29)
 
     def board_expected(self) -> bool:
         """A board was here recently — don't fall back to a speaker over a WS blip."""
