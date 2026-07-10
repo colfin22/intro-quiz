@@ -34,7 +34,7 @@
     <button class="primary" onclick="send({type:'new_game', rounds:10})">Start a new game</button>
   </div>
 
-  <p class="dim center" id="abort-row" hidden><a href="#" onclick="send({type:'abort'});return false">abandon game</a></p>
+  <p class="dim center" id="abort-row" hidden style="margin-top:2.2rem;font-size:.85em;opacity:.75"><a href="#" onclick="abandonTap();return false">abandon game</a></p>
 
   <div id="v-master" class="card" hidden>
     <p><b>🎤 You're the game master!</b></p>

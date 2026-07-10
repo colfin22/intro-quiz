@@ -15,7 +15,7 @@ function connect() {
       if (msg.game_no !== undefined && msg.game_no !== lastGameNo) {
         lastGameNo = msg.game_no;
         artistsSent = false; myArtists = []; myPick = null; myTf = null;
-        tfKey = ""; timerKey = ""; lastBuzzRound = ""; flagArmed = false;
+        tfKey = ""; timerKey = ""; lastBuzzRound = ""; flagArmed = false; abandonArmed = false;
         joined = false;  // fresh roster — everyone joins the new game
       }
       state = msg;
@@ -77,6 +77,27 @@ function flagTap() {
   }
   flagArmed = false;
   send({type: "flag_clip"});
+}
+
+let abandonArmed = false;
+function abandonTap() {
+  // two-tap confirm — a stray tap must not kill the whole game (#30)
+  const link = document.querySelector("#abort-row a");
+  if (!abandonArmed) {
+    abandonArmed = true;
+    link.textContent = "⚠️ tap again to abandon";
+    link.style.color = "#ff6b6b";
+    setTimeout(() => {
+      abandonArmed = false;
+      link.textContent = "abandon game";
+      link.style.color = "";
+    }, 4000);
+    return;
+  }
+  abandonArmed = false;
+  link.textContent = "abandon game";
+  link.style.color = "";
+  send({type: "abort"});
 }
 
 function join() {
