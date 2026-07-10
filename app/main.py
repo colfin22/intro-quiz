@@ -381,6 +381,23 @@ class Hub:
 
 hub = Hub()
 
+TF_REVEAL_PAUSE_S = 2.0  # drumroll between the last T/F answer and the verdict
+
+
+async def reveal_tf_after_pause(game_obj, tf_index: int):
+    """Reveal the T/F verdict a beat after everyone has answered.
+
+    Bails quietly if the game moved on meanwhile (host force-next, abort,
+    new game) — advance_break stays the single reveal path either way."""
+    await asyncio.sleep(TF_REVEAL_PAUSE_S)
+    g = hub.game
+    if g is not game_obj or g.phase != "break" or g.tf_index != tf_index:
+        return
+    if g.tf_qs[tf_index]["revealed"]:
+        return  # the host already forced it
+    g.advance_break()
+    await hub.broadcast()
+
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
@@ -507,7 +524,9 @@ async def ws_endpoint(ws: WebSocket):
                     elif kind == "tf_answer":
                         hub.game.tf_answer(name or msg.get("name", ""), bool(msg.get("answer")))
                         if hub.game.tf_all_answered():
-                            hub.game.advance_break()  # everyone's in — reveal the answer
+                            # everyone's in — hold a 2s drumroll before the verdict
+                            # (an instant flip read as "the TV knew early" to guests)
+                            asyncio.create_task(reveal_tf_after_pause(hub.game, hub.game.tf_index))
                         await hub.broadcast()
                     elif kind == "next":
                         if hub.game.host and name != hub.game.host:
