@@ -12,6 +12,15 @@ screen), or **just as happily on a cast speaker** — no scoreboard, phones carr
 questions, the speaker carries the music. All local — your music, your network, no
 subscriptions.
 
+> ### 🔒 Your library is read-only to this app
+> The quiz **never writes to your music files or your Navidrome library — ever.**
+> It connects with a dedicated **non-admin** Subsonic login, never sees your
+> filesystem, and cuts its clips from *streamed* audio into its own folder.
+> Tags, files, playlists and play counts in your library are never created,
+> modified or deleted by any code in this repository. The mis-tag detector
+> *reports* suspect titles; fixing them is always yours to do, with your own
+> tools, if you choose to.
+
 <p align="center">
   <img src="docs/screenshots/board-question.png" width="90%"
        alt="The TV board mid-round — an animated wave and clip progress, no spoilers">
