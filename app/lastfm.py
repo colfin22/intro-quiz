@@ -5,6 +5,7 @@ table. Unknown tracks get 0 (not NULL) so they aren't refetched every run.
 """
 import logging
 import os
+import re
 import time
 
 import httpx
@@ -12,8 +13,31 @@ import httpx
 API_URL = "https://ws.audioscrobbler.com/2.0/"
 API_KEY = os.environ.get("LASTFM_API_KEY", "")
 DELAY_S = 0.25  # stay well under Last.fm's rate limit
+RETRY_BELOW = 1000  # a hit this weak on a mangled-looking title is worth a cleaned retry
 
 LOGGER = logging.getLogger(__name__)
+
+# Trailing parentheticals that mark a VARIANT of a song rather than a different
+# song — safe to strip for a popularity lookup, where the SONG's fame is what
+# we're measuring. Deliberately a word-list, not "any parenthetical": titles
+# like "Song 2 (Woo Hoo)" or "(I Can't Get No) Satisfaction" must survive. (#11)
+_NOISE_PAREN = re.compile(
+    r"\s*[(\[][^)\]]*\b(remaster\w*|orig\w*|mono|stereo|single version|album version|"
+    r"radio edit|re-?record\w*|live|demo|session\w*|edit|version|mix|duet|feat\.?|"
+    r"featuring|with|bonus|deluxe|explicit|clean|acoustic|instrumental|pmedia)\b"
+    r"[^)\]]*[)\]]\s*$", re.I)
+_TRACK_NUM = re.compile(r"^\s*\d{1,3}[\s.\-_]+\s*")
+
+
+def clean_title(title: str) -> str:
+    """Strip vinyl-rip track numbers and variant-marker parentheticals."""
+    t = _TRACK_NUM.sub("", title).strip()
+    while True:  # peel stacked suffixes: "Crazy (remastered) (live)"
+        t2 = _NOISE_PAREN.sub("", t).strip()
+        if t2 == t or not t2:
+            break
+        t = t2
+    return t
 
 
 class LastfmError(RuntimeError):
@@ -35,6 +59,23 @@ def fetch_track(http: httpx.Client, artist: str, title: str) -> tuple[int, int]:
     return int(t.get("listeners", 0)), int(t.get("playcount", 0))
 
 
+def lookup_best(http: httpx.Client, artist: str, title: str) -> tuple[int, int]:
+    """fetch_track, retrying once with a normalised title when the exact
+    lookup comes back weak and the title looks mangled — keeps whichever
+    result scores higher. Fixes silent misses on '01 Rape Me' and
+    'What A Fool Believes (orig)' class titles. (#11)"""
+    listeners, playcount = fetch_track(http, artist, title)
+    if listeners < RETRY_BELOW:
+        cleaned = clean_title(title)
+        if cleaned and cleaned != title:
+            l2, p2 = fetch_track(http, artist, cleaned)
+            if l2 > listeners:
+                LOGGER.info("lastfm matched via cleaned title: %r -> %r (%d listeners)",
+                            title, cleaned, l2)
+                return l2, p2
+    return listeners, playcount
+
+
 def score_batch(conn, limit: int = 200, http: httpx.Client | None = None,
                 delay_s: float | None = None) -> dict:
     """Score up to `limit` active tracks that have no global score yet."""
@@ -50,7 +91,7 @@ def score_batch(conn, limit: int = 200, http: httpx.Client | None = None,
     try:
         for row in rows:
             try:
-                listeners, playcount = fetch_track(http, row["artist"], row["title"])
+                listeners, playcount = lookup_best(http, row["artist"], row["title"])
             except (httpx.HTTPError, LastfmError) as e:
                 errors += 1
                 LOGGER.warning("lastfm failed for %s - %s: %s", row["artist"], row["title"], e)
