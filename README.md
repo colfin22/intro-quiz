@@ -276,6 +276,14 @@ It's a flat JSON list of two kinds of item:
   install to baseline your library so only future misses alert. Fix = clean the tags,
   rescan your server, then re-sync and re-score (`POST /api/bootstrap` handles it).
 
+## Roadmap
+
+Planned, roughly in priority order:
+
+- **Rock-solid casting** *(current priority)* — the DashCast receiver still drops or crashes mid-game on Chromecast/Shield; the durable fix is a persistent browser/kiosk on the display instead of casting ([#32](https://github.com/colfin22/intro-quiz/issues/32)).
+- **Pre-built Docker images** — publish images to a registry (GHCR + Docker Hub) with a GitHub Actions workflow that pushes on each release, so you can `docker pull` instead of building from source ([#33](https://github.com/colfin22/intro-quiz/issues/33)).
+- **Better classical-music decoys** — composer-aware decoys and title de-templating so classical libraries stop producing near-identical options ([#9](https://github.com/colfin22/intro-quiz/issues/9)).
+
 ## Licence
 
 Built by Colm Finn — [MIT licensed](LICENSE).
