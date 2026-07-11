@@ -610,6 +610,12 @@ def page_board():
     return FileResponse(os.path.join(BASE, "static", "board.html"))
 
 
+@app.get("/favicon.ico")
+def favicon():
+    return FileResponse(os.path.join(BASE, "static", "favicon.svg"),
+                        media_type="image/svg+xml")
+
+
 @app.get("/api/round/audio")
 def api_round_audio(kind: str = "5"):
     """Current round's clip without exposing the track id (board audio).
