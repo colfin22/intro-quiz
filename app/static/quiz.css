@@ -12,6 +12,8 @@ button { width:100%; padding:1rem; margin:.35rem 0; font-size:1.05rem; border:no
 button:disabled { opacity:.55; }
 button.primary { background:var(--accent); color:#000; font-weight:700; text-align:center; }
 button.picked { outline:3px solid var(--accent); }
+button.warn { background:rgba(255,107,107,.12); color:var(--bad); font-weight:700;
+              text-align:center; border:2px solid var(--bad); }
 button.correct { background:var(--good); color:#000; }
 button.wrong { background:var(--bad); color:#000; }
 input { width:100%; padding:.9rem; font-size:1.1rem; border-radius:10px; border:1px solid #333;
