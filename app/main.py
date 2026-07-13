@@ -1,7 +1,9 @@
 import asyncio
+import json
 import logging
 import os
 import shutil
+import time
 
 import httpx
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -475,9 +477,15 @@ async def ws_endpoint(ws: WebSocket):
                             finally:
                                 c.close()
                         asyncio.get_event_loop().run_in_executor(None, _topup)
-                        # fresh receiver every game — a reused DashCast session
-                        # reliably died mid-game-2 (#28)
-                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, True)
+                        # NO pre-emptive quit here (#35). The beats showed our own
+                        # quit->1s->relaunch was CAUSING the crash it was meant to
+                        # prevent: in all 3 games of 13-07 the board cast this way died
+                        # within a minute (once at up=10s, sitting in the LOBBY doing
+                        # nothing), while the watchdog's recast onto an already-dead
+                        # receiver ran the whole game. A receiver launched a second after
+                        # a quit_app comes up fragile. The session is dead between games
+                        # anyway — there is nothing to clear.
+                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, False)
                         await hub.broadcast()
                     elif kind == "join":
                         if not hub.game:
@@ -574,14 +582,31 @@ async def ws_endpoint(ws: WebSocket):
                                 asyncio.get_event_loop().run_in_executor(
                                     None, ha.play_url,
                                     f"{ha.APP_BASE_URL}/static/fanfare.mp3", "fanfare")
-                            # rotate the game master: next player in join order
-                            order = list(hub.game.players)
-                            if order:
+                            # Rotate the game master: whoever has waited LONGEST.
+                            #
+                            # It used to rotate over the current game's join order — which
+                            # is just who picked up their phone first, and it changes every
+                            # game. Alice -> Bob -> Alice, and Carol was never once picked
+                            # across the whole life of the app. (Worse: if the host wasn't
+                            # in the list, ValueError -> i=-1 -> order[0] -> the role pinned
+                            # itself to the fastest joiner.)
+                            #
+                            # Now: the outgoing master is stamped, and the next one is the
+                            # present player who mastered least recently. Never mastered =
+                            # first in the queue. Survives restarts, missed games and any
+                            # join order.
+                            present = list(hub.game.players)
+                            if present:
+                                conn = db.connect()
                                 try:
-                                    i = order.index(hub.game.host)
-                                except ValueError:
-                                    i = -1
-                                hub.next_host = order[(i + 1) % len(order)]
+                                    hist = json.loads(db.get_setting(conn, "master_history") or "{}")
+                                    hist[hub.game.host] = int(time.time())    # stamp the outgoing master
+                                    hub.next_host = min(
+                                        present,
+                                        key=lambda n: (hist.get(n, 0), present.index(n)))
+                                    db.set_setting(conn, "master_history", json.dumps(hist))
+                                finally:
+                                    conn.close()
                             loop = asyncio.get_event_loop()
                             loop.call_later(60, lambda: loop.run_in_executor(None, board_cast.hide_board, hub.display))
                             await hub.broadcast()

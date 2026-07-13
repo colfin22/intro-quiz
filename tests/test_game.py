@@ -377,3 +377,45 @@ def test_extend_lock_one_at_a_time():
             g.extend_clip()
     finally:
         conn.close(); os.unlink(p)
+
+
+# ---------- the game master must actually rotate (#36) ----------
+
+def test_least_recently_master_picks_the_one_who_has_never_had_it():
+    """The old rotation walked the CURRENT game's join order — i.e. whoever picked up
+    their phone first — so it changed every game. Real result: Alice -> Bob -> Alice, and
+    Carol was never picked once in the life of the app. Least-recently-master fixes it."""
+    import json as _json
+
+    def next_master(present, host, hist):
+        hist = dict(hist)
+        hist[host] = max(hist.values(), default=0) + 1   # stamped 'now' (time moves forward)
+        return min(present, key=lambda n: (hist.get(n, 0), present.index(n))), hist
+
+    # game 1: Alice hosts. Bob and Carol have never mastered -> earliest joiner of them
+    present = ["Alice", "Bob", "Carol"]
+    nxt, hist = next_master(present, "Alice", {})
+    assert nxt == "Bob"
+
+    # game 2: Bob hosts, and this time HE joined first (the old bug's exact trigger)
+    present = ["Bob", "Alice", "Carol"]
+    nxt, hist = next_master(present, "Bob", hist)
+    assert nxt == "Carol", "Carol has never been master — she must be next"
+
+    # game 3: Carol hosts. Alice mastered first of all, so he has waited longest.
+    present = ["Carol", "Alice", "Bob"]
+    nxt, hist = next_master(present, "Carol", hist)
+    assert nxt == "Alice"
+
+
+def test_a_player_who_misses_a_game_is_not_skipped_forever():
+    def next_master(present, host, hist):
+        hist = dict(hist)
+        hist[host] = max(hist.values(), default=0) + 1
+        return min(present, key=lambda n: (hist.get(n, 0), present.index(n))), hist
+
+    hist = {"Alice": 1, "Bob": 2}          # Carol has never mastered
+    nxt, hist = next_master(["Alice", "Bob"], "Bob", hist)   # Carol sits this one out
+    assert nxt == "Alice"
+    nxt, hist = next_master(["Alice", "Bob", "Carol"], "Alice", hist)   # she's back
+    assert nxt == "Carol", "the one who has never had it still goes first"
