@@ -203,7 +203,24 @@ function connect() {
   ws.onmessage = (ev) => {
     const s = JSON.parse(ev.data);
     if (s.type !== "state") return;
+    // --- age out the receiver BETWEEN games, never during one (#35) ---
+    // The beats showed the DashCast session rots with age: it dies at ~260-330s of page
+    // life, mid-round, with audio playing — it is not idle, it is just old. Without the
+    // old quit-on-new_game the page now persists ACROSS games, so it accumulates that age
+    // and dies in the middle of one. So: when a game ends and the next lobby opens, an
+    // OLD page reloads itself. A fresh page cannot reach the age at which it dies, and
+    // the reload happens where nobody is looking instead of mid-question.
+    const wasPhase = lastPhase;
     lastPhase = s.phase; lastRound = s.round || 0;   // for the diagnostic beat (#35)
+    if ((s.phase === "lobby" || s.phase === "idle") && wasPhase !== s.phase) {
+      const age = (Date.now() - pageBorn) / 1000;
+      if (age > 120) {                                // young pages have nothing to gain
+        try { fetch("/api/board/log", {method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({msg: `between games — refreshing the board at ${Math.round(age)}s to keep the receiver young`}), keepalive: true}); } catch (e) {}
+        setTimeout(() => location.reload(), 400);     // let the beacon leave first
+        return;
+      }
+    }
     if (s.phase === "question") playAudio(s.clip_len, `q${s.round}-${s.clip_len}-${s.replay || 0}`);
     if (s.phase === "reveal" && s.track) playAudio("payoff", `p${s.round}`);
     if (s.phase === "finished" && lastKey !== `f-${s.game_no}`) {  // 🎺 once per game
