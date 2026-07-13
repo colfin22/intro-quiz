@@ -28,6 +28,19 @@ _NOISE_PAREN = re.compile(
     r"[^)\]]*[)\]]\s*$", re.I)
 _TRACK_NUM = re.compile(r"^\s*\d{1,3}[\s.\-_]+\s*")
 
+# A featured credit in the ARTIST tag ("X Feat. Y", "X ft. Y", "X (feat. Y)").
+# Last.fm files a song under its PRIMARY artist and keeps the guest in the credits,
+# so the tagged string matches no artist at all — the lookup returns nothing, the
+# track never gets a tier, never gets a clip, and silently never appears in the quiz.
+# Chart pop is tagged this way most of all, so the music the family is likeliest to
+# KNOW was the likeliest to be missing (#34).
+#
+# Deliberately narrow. '&', '+' and 'and' are NOT featured credits — Simon & Garfunkel,
+# Hall & Oates, Florence + The Machine are whole artists, and stripping them would
+# invent a different act and score the wrong song.
+_FEAT_ARTIST = re.compile(
+    r"\s*[(\[]?\b(feat\.?|ft\.?|featuring|with)\b.*$", re.I)
+
 
 def clean_title(title: str) -> str:
     """Strip vinyl-rip track numbers and variant-marker parentheticals."""
@@ -38,6 +51,11 @@ def clean_title(title: str) -> str:
             break
         t = t2
     return t
+
+
+def clean_artist(artist: str) -> str:
+    """Strip a featured-artist credit, leaving the primary artist (#34)."""
+    return _FEAT_ARTIST.sub("", artist or "").strip(" -–—,").strip()
 
 
 class LastfmError(RuntimeError):
@@ -60,20 +78,31 @@ def fetch_track(http: httpx.Client, artist: str, title: str) -> tuple[int, int]:
 
 
 def lookup_best(http: httpx.Client, artist: str, title: str) -> tuple[int, int]:
-    """fetch_track, retrying once with a normalised title when the exact
-    lookup comes back weak and the title looks mangled — keeps whichever
-    result scores higher. Fixes silent misses on '01 Rape Me' and
-    'What A Fool Believes (orig)' class titles. (#11)"""
-    listeners, playcount = fetch_track(http, artist, title)
-    if listeners < RETRY_BELOW:
-        cleaned = clean_title(title)
-        if cleaned and cleaned != title:
-            l2, p2 = fetch_track(http, artist, cleaned)
-            if l2 > listeners:
-                LOGGER.info("lastfm matched via cleaned title: %r -> %r (%d listeners)",
-                            title, cleaned, l2)
-                return l2, p2
-    return listeners, playcount
+    """fetch_track, retrying with a normalised artist/title when the exact lookup
+    comes back weak — keeps whichever variant scores highest.
+
+    Two ways a tag hides a famous song from us, both silent:
+      - a mangled TITLE: '01 Rape Me', 'What A Fool Believes (orig)'   (#11)
+      - a featured credit in the ARTIST: 'X Feat. Y'                   (#34)
+    Neither errors. The track just scores 0, never tiers, never gets a clip, and
+    never appears in the quiz — indistinguishable from music you don't own.
+    """
+    best = fetch_track(http, artist, title)
+    if best[0] >= RETRY_BELOW:
+        return best
+    c_artist, c_title = clean_artist(artist), clean_title(title)
+    # try the cleaned forms, cheapest-first; a weak hit keeps us looking
+    for a, t in ((artist, c_title), (c_artist, title), (c_artist, c_title)):
+        if (a, t) == (artist, title) or not a or not t:
+            continue
+        got = fetch_track(http, a, t)
+        if got[0] > best[0]:
+            LOGGER.info("lastfm matched via cleaned tags: %r/%r -> %r/%r (%d listeners)",
+                        artist, title, a, t, got[0])
+            best = got
+        if best[0] >= RETRY_BELOW:
+            break   # good enough — don't spend more of the rate limit
+    return best
 
 
 def score_batch(conn, limit: int = 200, http: httpx.Client | None = None,

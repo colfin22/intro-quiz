@@ -65,3 +65,57 @@ def test_lookup_best_no_retry_on_strong_match():
 def test_lookup_best_keeps_original_when_retry_worse():
     http = FakeHttp({"Willow's Song (Bury version)": 8, "Willow's Song": 0})
     assert lastfm.lookup_best(http, "Doves", "Willow's Song (Bury version)")[0] == 8
+
+
+# ---------- a featured credit in the ARTIST tag hid the song entirely (#34) ----------
+
+def test_clean_artist_strips_a_featured_credit():
+    assert lastfm.clean_artist("Charlie Puth Feat. Sabrina Carpenter") == "Charlie Puth"
+    assert lastfm.clean_artist("Zedd ft. Jasmine Thompson") == "Zedd"
+    assert lastfm.clean_artist("Calvin Harris featuring Rihanna") == "Calvin Harris"
+    assert lastfm.clean_artist("Eminem (feat. Dido)") == "Eminem"
+    assert lastfm.clean_artist("Addison Rae Feat. Charli Xcx") == "Addison Rae"
+
+
+def test_clean_artist_never_invents_a_different_act():
+    """'&', '+' and 'and' are NOT featured credits. Stripping them would score a
+    completely different artist's song — worse than the miss it was fixing."""
+    for whole in ("Simon & Garfunkel", "Hall & Oates", "Florence + The Machine",
+                  "Earth, Wind & Fire", "Crosby, Stills, Nash & Young",
+                  "Nick Cave and the Bad Seeds", "Sam & Dave"):
+        assert lastfm.clean_artist(whole) == whole
+
+
+def test_clean_artist_leaves_a_plain_artist_alone():
+    assert lastfm.clean_artist("Teddy Swims") == "Teddy Swims"
+    assert lastfm.clean_artist("") == ""
+
+
+def test_lookup_best_finds_the_song_hiding_behind_a_featured_credit():
+    """The whole point: tagged 'X Feat. Y', Last.fm knows no such artist, so the exact
+    lookup returns 0 — and a 0 means no tier, no clip, and a track that never appears
+    in the quiz at all. It must retry under the primary artist."""
+    calls = []
+
+    class Fake:
+        def get(self, url, params):
+            calls.append((params["artist"], params["track"]))
+
+            class R:
+                @staticmethod
+                def raise_for_status():
+                    pass
+
+                @staticmethod
+                def json():
+                    # Last.fm only knows the song under its PRIMARY artist
+                    if params["artist"] == "Charlie Puth":
+                        return {"track": {"listeners": "820000", "playcount": "5000000"}}
+                    return {"error": 6, "message": "Track not found"}
+            return R()
+
+    listeners, _ = lastfm.lookup_best(
+        Fake(), "Charlie Puth Feat. Sabrina Carpenter", "That's Not How This Works")
+    assert listeners == 820000, "the featured-credit artist hid a very famous song"
+    assert ("Charlie Puth Feat. Sabrina Carpenter", "That's Not How This Works") in calls
+    assert ("Charlie Puth", "That's Not How This Works") in calls
