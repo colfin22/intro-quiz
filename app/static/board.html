@@ -182,12 +182,28 @@ bAudio.addEventListener("error", () => { if (audioUnlocked) aStatus("(audio hicc
 setInterval(() => {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: "board_hello"}));
 }, 5000);
+// --- diagnosis beat (#35): the board's death is silent, so leave a trail ---
+let lastPhase = "?", lastRound = 0, beatN = 0;
+const pageBorn = Date.now();
+setInterval(() => {
+  const body = {
+    n: ++beatN,
+    up: Math.round((Date.now() - pageBorn) / 1000),   // page uptime: a RESET means it reloaded/recast
+    phase: lastPhase,
+    round: lastRound,
+    audio: bAudio ? (bAudio.paused ? "paused" : "playing") : "none",
+    ws: ws ? ws.readyState : -1
+  };
+  try { fetch("/api/board/beat", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body), keepalive: true}); } catch (e) {}
+}, 10000);
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.onopen = () => ws.send(JSON.stringify({type: "board_hello"}));
   ws.onmessage = (ev) => {
     const s = JSON.parse(ev.data);
     if (s.type !== "state") return;
+    lastPhase = s.phase; lastRound = s.round || 0;   // for the diagnostic beat (#35)
     if (s.phase === "question") playAudio(s.clip_len, `q${s.round}-${s.clip_len}-${s.replay || 0}`);
     if (s.phase === "reveal" && s.track) playAudio("payoff", `p${s.round}`);
     if (s.phase === "finished" && lastKey !== `f-${s.game_no}`) {  // 🎺 once per game

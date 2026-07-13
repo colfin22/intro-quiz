@@ -658,6 +658,30 @@ def api_whoami(request: Request):
     return {"name": KNOWN_PLAYERS.get(ip), "ip": ip}
 
 
+@app.post("/api/board/beat")
+async def api_board_beat(request: Request):
+    """The board's diagnostic trail (#35).
+
+    The receiver's death is SILENT — when it dies it cannot report that it died, so we
+    have only ever inferred the crash from the outside. Each beat says what the board was
+    DOING; when the beats stop, the LAST one is the evidence:
+
+      - last beat in a no-audio phase (lobby/reveal/break/scoreboard) -> idle timeout
+      - last beat at a consistent page uptime, whatever the phase   -> the session rots with age
+      - neither pattern                                             -> the Shield's receiver itself
+
+    `up` is the page's own uptime: if it RESETS, the board reloaded or was recast.
+    """
+    try:
+        b = await request.json()
+        LOGGER.warning("BEAT n=%s up=%ss phase=%s round=%s audio=%s ws=%s",
+                       b.get("n"), b.get("up"), b.get("phase"), b.get("round"),
+                       b.get("audio"), b.get("ws"))
+    except Exception:  # noqa: BLE001 - a diagnostic must never break the board
+        pass
+    return {"ok": True}
+
+
 @app.post("/api/board/log")
 async def api_board_log(request: Request):
     """The TV board reports playback failures here — it has no other voice."""
