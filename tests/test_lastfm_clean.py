@@ -56,10 +56,36 @@ def test_lookup_best_retries_cleaned_and_keeps_better():
     assert http.calls == ["What A Fool Believes (orig)", "What A Fool Believes"]
 
 
-def test_lookup_best_no_retry_on_strong_match():
-    http = FakeHttp({"My Way (Live)": 50000})
-    assert lastfm.lookup_best(http, "Tom Jones", "My Way (Live)")[0] == 50000
-    assert http.calls == ["My Way (Live)"]  # strong enough — no second call
+def test_lookup_best_no_retry_when_there_is_nothing_to_clean():
+    """RETRY_BELOW may only short-circuit a tag the cleaner would not touch."""
+    http = FakeHttp({"Don't Stop Me Now": 50000})
+    assert lastfm.lookup_best(http, "Queen", "Don't Stop Me Now")[0] == 50000
+    assert http.calls == ["Don't Stop Me Now"]  # clean tag, strong hit — one call only
+
+
+def test_lookup_best_retries_even_when_the_wrong_hit_looks_healthy():
+    """#40 — the bug this replaces. lookup_best used to return any hit above
+    RETRY_BELOW (1000) without ever trying the cleaned form. But a mangled title
+    routinely DOES resolve — to a junk entry or a soundtrack listing — with a few
+    thousand listeners, which clears that bar. The real song was never looked up:
+
+        'Ticket to Ride [from the Film "Help! "]'  ->   4,299   (kept)
+        'Ticket to Ride'                           -> 771,304   (never tried)
+
+    4,299 lands a famous song in the hard/tiebreak tier, so it is never asked.
+    A plausible wrong answer is still a wrong answer: if the cleaner changes
+    anything, we look the cleaned form up too."""
+    raw = 'Ticket to Ride [from the Film "Help! "]'
+    http = FakeHttp({raw: 4299, "Ticket to Ride": 771304})
+    assert lastfm.lookup_best(http, "The Beatles", raw)[0] == 771304
+    assert http.calls == [raw, "Ticket to Ride"]
+
+
+def test_lookup_best_still_keeps_the_better_exact_hit():
+    """Keep-the-highest is preserved: a cleaned form that scores LOWER never wins,
+    even though we now always try it."""
+    http = FakeHttp({"Song (Live)": 9000, "Song": 12})
+    assert lastfm.lookup_best(http, "Band", "Song (Live)")[0] == 9000
 
 
 def test_lookup_best_keeps_original_when_retry_worse():

@@ -93,27 +93,37 @@ def lookup_best(http: httpx.Client, artist: str, title: str) -> tuple[int, int]:
     """fetch_track, retrying with a normalised artist/title when the exact lookup
     comes back weak — keeps whichever variant scores highest.
 
-    Two ways a tag hides a famous song from us, both silent:
+    Ways a tag hides a famous song from us, all silent:
       - a mangled TITLE: '01 Rape Me', 'What A Fool Believes (orig)'   (#11)
       - a featured credit in the ARTIST: 'X Feat. Y'                   (#34)
-    Neither errors. The track just scores 0, never tiers, never gets a clip, and
-    never appears in the quiz — indistinguishable from music you don't own.
+      - a film marker: 'Ticket to Ride [from the Film "Help!"]'        (#38)
+    None of them error. The track scores wrongly, tiers wrongly, and quietly stops
+    appearing in the quiz — indistinguishable from music you don't own.
+
+    A healthy-looking hit is NOT evidence the tag was right (#40). A mangled title
+    often does resolve — to a junk entry or a soundtrack listing — with a few
+    thousand listeners, clearing RETRY_BELOW and leaving the wrong number in place:
+    'Ticket to Ride [from the Film "Help! "]' scores 4,299; the song scores 771,304.
+    So whenever the cleaner CHANGES anything, we always try the cleaned forms and
+    keep the highest. RETRY_BELOW only short-circuits a tag with nothing to clean.
     """
-    best = fetch_track(http, artist, title)
-    if best[0] >= RETRY_BELOW:
-        return best
     c_artist, c_title = clean_artist(artist), clean_title(title)
-    # try the cleaned forms, cheapest-first; a weak hit keeps us looking
+    cleanable = (c_artist, c_title) != (artist, title)
+
+    best = fetch_track(http, artist, title)
+    if best[0] >= RETRY_BELOW and not cleanable:
+        return best
+
+    tried = {(artist, title)}
     for a, t in ((artist, c_title), (c_artist, title), (c_artist, c_title)):
-        if (a, t) == (artist, title) or not a or not t:
-            continue
+        if (a, t) in tried or not a or not t:
+            continue          # deduped: with only the title cleanable, two of these coincide
+        tried.add((a, t))
         got = fetch_track(http, a, t)
         if got[0] > best[0]:
             LOGGER.info("lastfm matched via cleaned tags: %r/%r -> %r/%r (%d listeners)",
                         artist, title, a, t, got[0])
             best = got
-        if best[0] >= RETRY_BELOW:
-            break   # good enough — don't spend more of the rate limit
     return best
 
 
