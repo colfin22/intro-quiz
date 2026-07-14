@@ -95,6 +95,8 @@ async def board_watchdog():
                 if not hub.display or hub.board_live():
                     hub.cast_attempts = 0
                     continue
+                if _t.time() < hub.board_reload_until:
+                    continue  # the board told us it is reloading ON PURPOSE — not a death
                 if hub.board_last_seen == 0.0:
                     continue  # board never arrived — that's the initial cast's job
                 if hub.cast_attempts >= 5:
@@ -298,6 +300,13 @@ class Hub:
         self.next_host: str | None = None  # game-master rotation across games
         self.last_activity = 0.0   # any game-mutating message — stale games expire (#26)
         self.cast_attempts = 0     # watchdog re-casts per outage — capped (#26)
+        # The board refreshes ITSELF between games to keep the DashCast receiver young
+        # (#35). That reload leaves a heartbeat gap longer than the 12s death threshold,
+        # so the watchdog concluded the board had DIED and fired a full recast on top of
+        # it — a far bigger disruption than the reload. That double hit is what dropped
+        # the cast at the start of games 2 and 3. A deliberate reload is not a death:
+        # the board says so first, and the watchdog holds off until this expires.
+        self.board_reload_until = 0.0
         self.games_started = 0  # phones reset per-game state when this changes (#22)
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
@@ -715,6 +724,21 @@ async def api_board_log(request: Request):
         LOGGER.warning("BOARD: %s", str(body.get("msg", ""))[:300])
     except Exception:
         pass
+    return {"ok": True}
+
+
+@app.post("/api/board/reloading")
+async def api_board_reloading():
+    """The board is about to reload ITSELF. Hold the watchdog off.
+
+    A reload silences the heartbeat for a couple of seconds — longer than the 12s death
+    threshold — so the watchdog read a deliberate refresh as a dead receiver and fired a
+    full DashCast recast on top of it. That double hit is what dropped the cast at the
+    start of the second and third games. A reload announced in advance is not a death.
+    """
+    import time as _t
+    hub.board_reload_until = _t.time() + 30
+    LOGGER.warning("BOARD: reloading on purpose — watchdog held off for 30s")
     return {"ok": True}
 
 

@@ -215,9 +215,15 @@ function connect() {
     if ((s.phase === "lobby" || s.phase === "idle") && wasPhase !== s.phase) {
       const age = (Date.now() - pageBorn) / 1000;
       if (age > 120) {                                // young pages have nothing to gain
+        // TELL THE SERVER FIRST. The reload silences the heartbeat for a couple of
+        // seconds — longer than the watchdog's 12s death threshold — so it read this
+        // deliberate refresh as a dead receiver and fired a full DashCast recast on top
+        // of it. That double hit is what dropped the cast at the start of games 2 and 3.
+        // A reload announced in advance is not a death.
+        try { fetch("/api/board/reloading", {method: "POST", keepalive: true}); } catch (e) {}
         try { fetch("/api/board/log", {method: "POST", headers: {"Content-Type": "application/json"},
               body: JSON.stringify({msg: `between games — refreshing the board at ${Math.round(age)}s to keep the receiver young`}), keepalive: true}); } catch (e) {}
-        setTimeout(() => location.reload(), 400);     // let the beacon leave first
+        setTimeout(() => location.reload(), 400);     // let the beacons leave first
         return;
       }
     }

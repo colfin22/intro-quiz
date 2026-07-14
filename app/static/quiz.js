@@ -155,9 +155,13 @@ function render() {
       : `🎤 Game master: <b>${state.host}</b>`;
   } else mb.hidden = true;
   document.getElementById("abort-row").hidden = !(hostOnly && state.phase && state.phase !== "idle" && state.phase !== "finished");
-  // let the master (or anyone when idle) kill a stuck cast on the active TV (#31)
+  // Kill the cast on the active TV (#31) — but only AT THE END of a game, or when idle.
+  // It used to sit under the master's thumb for the whole game, right beside the controls
+  // they actually need mid-round, which is one mis-tap away from killing the TV in the
+  // middle of a song.
   const casting = state.display && state.display !== "none";
-  document.getElementById("stop-board-row").hidden = !(casting && hostOnly);
+  document.getElementById("stop-board-row").hidden =
+      !(casting && hostOnly && state.phase === "finished");
   if (state.phase === "idle") { show("v-idle"); joined = false; return; }
   if (state.phase === "lobby" || (!joined && state.phase !== "finished")) {
     if (!joined) {
