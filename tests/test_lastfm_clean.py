@@ -119,3 +119,41 @@ def test_lookup_best_finds_the_song_hiding_behind_a_featured_credit():
     assert listeners == 820000, "the featured-credit artist hid a very famous song"
     assert ("Charlie Puth Feat. Sabrina Carpenter", "That's Not How This Works") in calls
     assert ("Charlie Puth", "That's Not How This Works") in calls
+
+
+def test_clean_title_strips_soundtrack_markers():
+    """#38 — a film marker in the title does not zero the score, it gets the WRONG one:
+    Last.fm files these under the bare title, so the song scores a few thousand instead
+    of millions, lands in the hard/tiebreak tier, and is never asked. Nothing errors."""
+    cases = {
+        'A Hard Day\'s Night [from the Film "A Hard Day\'s Night"]': "A Hard Day's Night",
+        "Help! [from the Film \"Help! \"]": "Help!",
+        "What Was I Made For? (From The Motion Picture 'Barbie')": "What Was I Made For?",
+        "Axel F (From ‘Beverly Hills Cop’ Soundtrack)": "Axel F",
+        "Miami Vice Theme (From ‘Miami Vice’ Soundtrack)": "Miami Vice Theme",
+        "Going Home (Theme From 'Local Hero')": "Going Home",
+        "Star Walkin' (League Of Legends Worlds Theme)": "Star Walkin'",
+        "Somewhere (From “West Side Story”)": "Somewhere",
+        "The Host of the Seraphim [From the Baraka Soundtrack]": "The Host of the Seraphim",
+    }
+    for raw, want in cases.items():
+        assert lastfm.clean_title(raw) == want, raw
+
+
+def test_clean_title_does_not_strip_a_remix():
+    """A remix is a DISTINCT WORK, not a variant. Stripping it would score an obscure
+    remix as the famous original and promote it into the pool the quiz draws from —
+    1,209 dance/trance tracks in a real 47k library. Same narrowness rule as #34."""
+    keep = [
+        "Colours (Humate Remix)",
+        "Breathe (Dawnseekers Remix)",
+        "Viola (Armin van Buuren Rising Star Remix)",
+    ]
+    for t in keep:
+        assert lastfm.clean_title(t) == t, t
+
+
+def test_clean_title_keeps_a_theme_that_is_the_song():
+    """'theme' only counts inside a trailing parenthetical — a bare title survives."""
+    assert lastfm.clean_title("Miami Vice Theme") == "Miami Vice Theme"
+    assert lastfm.clean_title("Theme From Shaft") == "Theme From Shaft"

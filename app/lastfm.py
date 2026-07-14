@@ -21,10 +21,22 @@ LOGGER = logging.getLogger(__name__)
 # song — safe to strip for a popularity lookup, where the SONG's fame is what
 # we're measuring. Deliberately a word-list, not "any parenthetical": titles
 # like "Song 2 (Woo Hoo)" or "(I Can't Get No) Satisfaction" must survive. (#11)
+#
+# The soundtrack markers (#38) are the same class, and fail more quietly than #34:
+# a film tag does not zero the score, it merely gets the WRONG one. The song is
+# looked up under a title Last.fm does not file it by, scores a few thousand
+# instead of millions, and lands in the hard/tiebreak tier — present, clipped,
+# and never asked. Nothing looks broken.
+#
+# 'remix' is deliberately NOT here. A remix is a distinct work, not a variant:
+# stripping it would score an obscure remix as the famous original and promote it
+# into the pool the quiz draws from. ('mix' covers the (Extended Mix) variant case.)
 _NOISE_PAREN = re.compile(
     r"\s*[(\[][^)\]]*\b(remaster\w*|orig\w*|mono|stereo|single version|album version|"
     r"radio edit|re-?record\w*|live|demo|session\w*|edit|version|mix|duet|feat\.?|"
-    r"featuring|with|bonus|deluxe|explicit|clean|acoustic|instrumental|pmedia)\b"
+    r"featuring|with|bonus|deluxe|explicit|clean|acoustic|instrumental|pmedia|"
+    r"soundtrack|o\.?s\.?t\.?|motion picture|theme|"
+    r"from the (film|movie|motion picture)|from ['‘“\"])"
     r"[^)\]]*[)\]]\s*$", re.I)
 _TRACK_NUM = re.compile(r"^\s*\d{1,3}[\s.\-_]+\s*")
 
