@@ -53,6 +53,16 @@ _TRACK_NUM = re.compile(r"^\s*\d{1,3}[\s.\-_]+\s*")
 _FEAT_ARTIST = re.compile(
     r"\s*[(\[]?\b(feat\.?|ft\.?|featuring|with)\b.*$", re.I)
 
+# Comma-form artist tags Last.fm cannot match, so the track scores as obscure (#43):
+#   "Beatles, The"    -> "The Beatles"    (definite article moved to the end)
+#   "Oakenfold, Paul" -> "Paul Oakenfold" (surname-first: ONE comma, single word after)
+# Measured: ~55 surname-first + ~6 article distinct artists rescued in this library
+# (Steve Angello 4->19,950, The La's 8->1.3M, ...). Same narrowness as #34: anything with
+# '&'/'and' is left alone (Crosby, Stills, Nash & Young / Earth, Wind & Fire), and a
+# multi-name credit (Post Malone, Louis Bell, ...) can't match the single-comma rule.
+_ARTIST_ARTICLE = re.compile(r"^(.+),\s+(the|a|an)$", re.I)
+_SURNAME_FIRST = re.compile(r"^([^,&]+),\s+([A-Za-zÀ-ÿ.'’\-]+)$")
+
 
 def clean_title(title: str) -> str:
     """Strip vinyl-rip track numbers and variant-marker parentheticals."""
@@ -66,8 +76,23 @@ def clean_title(title: str) -> str:
 
 
 def clean_artist(artist: str) -> str:
-    """Strip a featured-artist credit, leaving the primary artist (#34)."""
-    return _FEAT_ARTIST.sub("", artist or "").strip(" -–—,").strip()
+    """Strip a featured-artist credit (#34), then un-reverse a comma-form tag (#43).
+
+    'X Feat. Y' -> 'X'; then 'Beatles, The' -> 'The Beatles' and 'Oakenfold, Paul' ->
+    'Paul Oakenfold'. Deliberately narrow — anything with '&'/'and' is left untouched so a
+    real band name is never mangled, and lookup_best keeps the HIGHEST score, so a wrong
+    reversal scores low and is discarded rather than lowering a track.
+    """
+    a = _FEAT_ARTIST.sub("", artist or "").strip(" -–—,").strip()
+    if re.search(r"&|\band\b", a, re.I):
+        return a                                   # Crosby, Stills, Nash & Young — hands off
+    m = _ARTIST_ARTICLE.match(a)
+    if m:
+        return (m.group(2) + " " + m.group(1)).strip()
+    m = _SURNAME_FIRST.match(a)
+    if m:
+        return (m.group(2) + " " + m.group(1)).strip()
+    return a
 
 
 class LastfmError(RuntimeError):

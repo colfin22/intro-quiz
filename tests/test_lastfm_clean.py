@@ -183,3 +183,32 @@ def test_clean_title_keeps_a_theme_that_is_the_song():
     """'theme' only counts inside a trailing parenthetical — a bare title survives."""
     assert lastfm.clean_title("Miami Vice Theme") == "Miami Vice Theme"
     assert lastfm.clean_title("Theme From Shaft") == "Theme From Shaft"
+
+
+# --- #43: reversed / comma artist tags -----------------------------------------
+
+def test_clean_artist_un_reverses_surname_first_and_article():
+    """'Oakenfold, Paul' and 'Beatles, The' are filed under a name Last.fm can't match,
+    so the track scores as obscure and drops out of the pool. Un-reverse them (#43)."""
+    assert lastfm.clean_artist("Oakenfold, Paul") == "Paul Oakenfold"
+    assert lastfm.clean_artist("Angello, Steve") == "Steve Angello"
+    assert lastfm.clean_artist("Beatles, The") == "The Beatles"
+    assert lastfm.clean_artist("La’s, The") == "The La’s"
+    # feat is stripped FIRST, then the primary is un-reversed
+    assert lastfm.clean_artist("Saunderson, Kevin feat. Inner City") == "Kevin Saunderson"
+
+
+def test_clean_artist_never_mangles_a_real_band_name():
+    """The narrowness rule: anything with '&'/'and', or a multi-name credit, is left
+    exactly as it is — reversing it would invent a different act (#43, same rule as #34)."""
+    keep = [
+        "Crosby, Stills, Nash & Young",
+        "Earth, Wind & Fire",
+        "Simon & Garfunkel",
+        "Post Malone, Louis Bell, Ty Dolla $ign",   # multi-name credit, not a reversal
+        "Blood, Sweat and Tears",
+        "Florence + The Machine",
+        "Radiohead",                                 # no comma at all
+    ]
+    for a in keep:
+        assert lastfm.clean_artist(a) == a, a
