@@ -52,6 +52,13 @@ setInterval(() => {
 const options = new cast.framework.CastReceiverOptions();
 options.disableIdleTimeout = true;   // the board is not "media"; never idle out
 context.start(options);
+
+// The shell is served from the same origin as the board, so it needs no telling:
+// load /board directly. The message listener above stays as an override — a
+// generic multi-host receiver (the published self-hoster version) needs it, and
+// the sender's "load" message racing the page load is harmless now (same URL).
+boardOrigin = location.origin;
+frame.src = "/board";
 </script>
 </body>
 </html>

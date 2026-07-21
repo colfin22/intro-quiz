@@ -100,7 +100,7 @@ def show_board(name: str | None, fresh: bool = False) -> bool:
             cast = _connect(name)
             if CAST_APP_ID:
                 ok = _show_via_own_receiver(cast)
-                LOGGER.info("board cast to %s (%s) via own receiver: %s",
+                LOGGER.warning("board cast to %s (%s) via own receiver: %s",
                             name, DISPLAYS[name], "ok" if ok else "FAILED")
                 return ok
             if fresh:
