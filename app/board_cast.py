@@ -69,14 +69,18 @@ def _show_via_own_receiver(cast) -> bool:
     done = _th.Event()
     result = {"ok": False}
 
-    def _sent(ok: bool, _resp) -> None:
+    def _sent(ok: bool, resp) -> None:
         result["ok"] = ok
+        if not ok:
+            LOGGER.warning("own receiver: load message failed: %s", resp)
         done.set()
 
-    def _launched(ok: bool, _resp) -> None:
+    def _launched(ok: bool, resp) -> None:
         if not ok:
+            LOGGER.warning("own receiver: launch failed: %s", resp)
             done.set()
             return
+        LOGGER.warning("own receiver: launched, sending load message")
         shell.send_message({"type": "load", "url": BOARD_URL},
                            inc_session_id=True, callback_function=_sent)
 
