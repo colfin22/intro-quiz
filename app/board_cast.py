@@ -18,6 +18,11 @@ for part in _raw.split(","):
 if not DISPLAYS and os.environ.get("DISPLAY_HOST"):
     DISPLAYS["Display"] = os.environ["DISPLAY_HOST"]
 BOARD_URL = os.environ.get("BOARD_URL", "")
+# CAST_APP_ID: our own registered Cast receiver (#32 trial). When set, the board is
+# cast via our receiver shell (static/receiver.html) instead of DashCast; unset means
+# DashCast exactly as before — the flag exists so the trial is one env var away from
+# rollback either direction.
+CAST_APP_ID = os.environ.get("CAST_APP_ID", "")
 
 LOGGER = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -42,6 +47,45 @@ def _connect(name: str):
     return _casts[name]
 
 
+def _show_via_own_receiver(cast) -> bool:
+    """Launch our registered receiver app and tell it which board URL to frame.
+
+    No pre-emptive quit and no freshness dance: the shell never navigates, so it
+    should not inherit DashCast's session-age rot (#35). Re-sending "load" to a
+    running shell just re-points the iframe.
+    """
+    import threading as _th
+    from pychromecast.controllers import BaseController
+
+    class _Shell(BaseController):
+        def __init__(self):
+            super().__init__("urn:x-cast:com.introquiz.board", CAST_APP_ID)
+
+        def receive_message(self, _message, _data) -> bool:
+            return True
+
+    shell = _Shell()
+    cast.register_handler(shell)
+    done = _th.Event()
+    result = {"ok": False}
+
+    def _sent(ok: bool, _resp) -> None:
+        result["ok"] = ok
+        done.set()
+
+    def _launched(ok: bool, _resp) -> None:
+        if not ok:
+            done.set()
+            return
+        shell.send_message({"type": "load", "url": BOARD_URL},
+                           inc_session_id=True, callback_function=_sent)
+
+    shell.launch(callback_function=_launched)
+    done.wait(timeout=15)
+    cast.unregister_handler(shell)
+    return result["ok"]
+
+
 def show_board(name: str | None, fresh: bool = False) -> bool:
     """Cast the board. fresh=True quits the receiver app first so every game
     starts with a brand-new DashCast instance — the receiver degrades with
@@ -54,6 +98,11 @@ def show_board(name: str | None, fresh: bool = False) -> bool:
             import time as _t
             from pychromecast.controllers.dashcast import DashCastController
             cast = _connect(name)
+            if CAST_APP_ID:
+                ok = _show_via_own_receiver(cast)
+                LOGGER.info("board cast to %s (%s) via own receiver: %s",
+                            name, DISPLAYS[name], "ok" if ok else "FAILED")
+                return ok
             if fresh:
                 try:
                     cast.quit_app()
