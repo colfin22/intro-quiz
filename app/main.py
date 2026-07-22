@@ -596,8 +596,17 @@ async def ws_endpoint(ws: WebSocket):
                                     db.set_setting(conn, "master_history", json.dumps(hist))
                                 finally:
                                     conn.close()
+                            # Drop the board to ambient 60s after the game — but ONLY if no
+                            # new game has started by then. Back-to-back play (Play Again)
+                            # begins the next game within that window; firing this quit
+                            # unconditionally sent cast.quit_app() to the LIVE board mid-game-2
+                            # (~60s in = round 2) and killed it. Proven by adb logcat: a
+                            # USER_REQUEST stop from our own IP at exactly finish+60s (#47).
                             loop = asyncio.get_event_loop()
-                            loop.call_later(60, lambda: loop.run_in_executor(None, board_cast.hide_board, hub.display))
+                            def _to_ambient_if_idle(disp=hub.display):
+                                if hub.game is None or hub.game.phase == "finished":
+                                    board_cast.hide_board(disp)
+                            loop.call_later(60, lambda: loop.run_in_executor(None, _to_ambient_if_idle))
                             await hub.broadcast()
                         else:
                             await hub.start_round()
