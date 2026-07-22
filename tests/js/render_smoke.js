@@ -22,6 +22,8 @@ global.document = {
   querySelector(sel) { return elems[sel] || (elems[sel] = mkEl(sel)); },
   querySelectorAll() { return []; },
   createElement(t) { return mkEl(t); },
+  addEventListener() {},
+  hidden: false,
 };
 global.window = { location: { protocol: "http:", host: "x" } };
 global.localStorage = { getItem: () => "Alice", setItem(){} };
