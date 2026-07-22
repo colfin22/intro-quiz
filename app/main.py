@@ -688,9 +688,9 @@ async def api_board_beat(request: Request):
     """
     try:
         b = await request.json()
-        LOGGER.warning("BEAT n=%s up=%ss phase=%s round=%s audio=%s ws=%s",
+        LOGGER.warning("BEAT n=%s up=%ss phase=%s round=%s audio=%s ws=%s mem=%sMB",
                        b.get("n"), b.get("up"), b.get("phase"), b.get("round"),
-                       b.get("audio"), b.get("ws"))
+                       b.get("audio"), b.get("ws"), b.get("mem"))
     except Exception:  # noqa: BLE001 - a diagnostic must never break the board
         pass
     return {"ok": True}

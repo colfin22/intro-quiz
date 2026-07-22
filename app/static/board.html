@@ -84,8 +84,19 @@ let ws, lastKey = "", audioUnlocked = false, alltimeKey = "";
 const bAudio = document.getElementById("b-audio");
 // 100ms of silence — used to probe/consume the autoplay permission up front
 const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
+// Release the previous clip's media BEFORE loading the next. Every round loads a
+// fresh ~2MB clip into this one <audio>; only ever reassigning .src makes the
+// WebView keep each round's decoded buffer, so after ~10-12 clips the Shield
+// OOM-kills the whole receiver (~5 min in). That is the "rot" long blamed on
+// DashCast — board.html is identical top-level or iframed, so it killed both.
+function loadAudio(url) {
+  try { bAudio.pause(); } catch (e) {}
+  bAudio.removeAttribute("src");
+  try { bAudio.load(); } catch (e) {}   // frees the prior media resource
+  bAudio.src = url;
+}
 function probeAudio() {
-  bAudio.src = SILENCE;
+  loadAudio(SILENCE);
   bAudio.muted = false;
   const p = bAudio.play();
   if (p) p.then(() => { audioUnlocked = true; }).catch(() => showTap());
@@ -128,7 +139,7 @@ function playAudio(kind, key, isRetry) {
       if (lastKey === key) playAudio(kind, key, true);
     }, retryCount < 4 ? 1200 : 2000);
   };
-  bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}&r=${retryCount}`;
+  loadAudio(`/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}&r=${retryCount}`);
   // the muted-start dance is only needed while audio is still locked (touch displays);
   // once unlocked (or on Android TV) play unmuted directly — the 250ms unmute hop
   // was a silent failure point on extended clips
@@ -192,7 +203,8 @@ setInterval(() => {
     phase: lastPhase,
     round: lastRound,
     audio: bAudio ? (bAudio.paused ? "paused" : "playing") : "none",
-    ws: ws ? ws.readyState : -1
+    ws: ws ? ws.readyState : -1,
+    mem: (window.performance && performance.memory) ? Math.round(performance.memory.usedJSHeapSize / 1048576) : -1
   };
   try { fetch("/api/board/beat", {method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body), keepalive: true}); } catch (e) {}
@@ -233,7 +245,7 @@ function connect() {
     if (s.phase === "reveal" && s.track) playAudio("payoff", `p${s.round}`);
     if (s.phase === "finished" && lastKey !== `f-${s.game_no}`) {  // 🎺 once per game
       lastKey = `f-${s.game_no}`;
-      bAudio.src = "/static/fanfare.mp3";
+      loadAudio("/static/fanfare.mp3");
       bAudio.muted = !audioUnlocked;
       bAudio.play().catch(() => {});
     }
