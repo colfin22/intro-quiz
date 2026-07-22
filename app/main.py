@@ -530,7 +530,12 @@ async def ws_endpoint(ws: WebSocket):
                             await hub._reveal()
                         await hub.broadcast()
                     elif kind == "abort":
-                        if hub.game and hub.game.host and name != hub.game.host:
+                        # Only a PRESENT host owns the abandon. If the rotated master
+                        # isn't in the game (crowned absent), anyone can abandon it —
+                        # mirrors the take-over start rule, so an orphaned game can't
+                        # get stuck unabandonable from every phone (#46).
+                        host_present = bool(hub.game and hub.game.host in hub.game.players)
+                        if hub.game and hub.game.host and name != hub.game.host and host_present:
                             raise game.GameError(f"only {hub.game.host} can abandon the game")
                         hub.cancel_deadline()
                         hub.game = None

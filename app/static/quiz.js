@@ -146,6 +146,8 @@ function render() {
   renderDisplays();
   if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
+  // is the crowned master actually in the game? if not, anyone may take over / abandon (#46)
+  const hostJoined = !state.host || (state.players || []).some(p => p.name === state.host);
   // who's holding the mic — pinned above every screen for the whole game
   const mb = document.getElementById("master-banner");
   if (state.host && joined && state.phase && !["idle", "finished"].includes(state.phase)) {
@@ -154,7 +156,7 @@ function render() {
       ? '🎤 <b style="color:var(--accent)">You\'re the game master</b>'
       : `🎤 Game master: <b>${state.host}</b>`;
   } else mb.hidden = true;
-  document.getElementById("abort-row").hidden = !(hostOnly && state.phase && state.phase !== "idle" && state.phase !== "finished");
+  document.getElementById("abort-row").hidden = !((hostOnly || !hostJoined) && state.phase && state.phase !== "idle" && state.phase !== "finished");
   // Kill the cast on the active TV (#31) — but only AT THE END of a game, or when idle.
   // It used to sit under the master's thumb for the whole game, right beside the controls
   // they actually need mid-round, which is one mis-tap away from killing the TV in the
@@ -186,7 +188,6 @@ function render() {
       document.getElementById("artist-picked").hidden = !artistsSent;
       if (!artistsSent && wall.length === 0) loadWall();
       const sb = document.querySelector("#v-lobby > button.primary");
-      const hostJoined = !state.host || state.players.some(p => p.name === state.host);
       sb.hidden = !(hostOnly || !hostJoined);  // absent rotated master: anyone can take over
       sb.disabled = !allReady;
       sb.textContent = !allReady ? "waiting for everyone to be ready…"
