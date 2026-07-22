@@ -208,8 +208,7 @@ setInterval(() => {
     phase: lastPhase,
     round: lastRound,
     audio: audioState,
-    ws: ws ? ws.readyState : -1,
-    mem: (window.performance && performance.memory) ? Math.round(performance.memory.usedJSHeapSize / 1048576) : -1
+    ws: ws ? ws.readyState : -1
   };
   try { fetch("/api/board/beat", {method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body), keepalive: true}); } catch (e) {}
@@ -331,13 +330,7 @@ function connect() {
       ul.appendChild(li);
     });
   };
-  ws.onerror = () => boardLog("ws error event");
-  // #35-style diagnostic: a ws closing inside a living page is silent otherwise.
-  // The CLOSE CODE names the cause — 1006 network/proxy drop, 1000/1001 deliberate.
-  ws.onclose = (ev) => {
-    boardLog(`ws closed code=${ev.code} reason=${ev.reason || "-"} clean=${ev.wasClean} up=${Math.round((Date.now() - pageBorn) / 1000)}s phase=${lastPhase}`);
-    setTimeout(connect, 1500);
-  };
+  ws.onclose = () => setTimeout(connect, 1500);
 }
 connect();
 </script>
