@@ -285,7 +285,7 @@ Planned, roughly in priority order:
 
 Recently shipped:
 
-- **Rock-solid casting** — an optional own registered Cast receiver (set `CAST_APP_ID` to your Cast Developer Console app id) replaces DashCast and fixes the mid-game board crashes. DashCast stays the default when `CAST_APP_ID` is unset ([#32](https://github.com/colfin22/intro-quiz/issues/32), [#47](https://github.com/colfin22/intro-quiz/issues/47)).
+- **Rock-solid casting** — fixed the mid-game board crashes on Chromecast/Shield. Clip audio is rebuilt on a single Web Audio context (a fresh `<audio>` per clip was exhausting the receiver's decoder), and a stray between-games quit no longer interrupts back-to-back games. No setup change — the same DashCast casting, now stable ([#32](https://github.com/colfin22/intro-quiz/issues/32), [#47](https://github.com/colfin22/intro-quiz/issues/47)).
 
 ## Licence
 

@@ -230,9 +230,7 @@ function connect() {
     lastPhase = s.phase; lastRound = s.round || 0;   // for the diagnostic beat (#35)
     if ((s.phase === "lobby" || s.phase === "idle") && wasPhase !== s.phase) {
       const age = (Date.now() - pageBorn) / 1000;
-      // our own Cast receiver doesn't rot (soak proved past 13 min) — only DashCast
-      // (top-level board) needs the between-games refresh; never reload inside the shell iframe
-      if (age > 120 && window.self === window.top) {   // young pages have nothing to gain
+      if (age > 120) {                                // young pages have nothing to gain
         // TELL THE SERVER FIRST. The reload silences the heartbeat for a couple of
         // seconds — longer than the watchdog's 12s death threshold — so it read this
         // deliberate refresh as a dead receiver and fired a full DashCast recast on top
