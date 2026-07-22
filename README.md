@@ -237,11 +237,11 @@ seeded automatically at the next game start. Full format, rules and a copy-paste
 
 Planned, roughly in priority order:
 
-- **Pre-built Docker images** *(current priority)* — publish images to a registry (GHCR + Docker Hub) with a GitHub Actions workflow that pushes on each release, so you can `docker pull` instead of building from source ([#33](https://github.com/colfin22/intro-quiz/issues/33)).
-- **Better classical-music decoys** — composer-aware decoys and title de-templating so classical libraries stop producing near-identical options ([#9](https://github.com/colfin22/intro-quiz/issues/9)).
+- **Better classical-music decoys** *(current priority)* — composer-aware decoys and title de-templating so classical libraries stop producing near-identical options ([#9](https://github.com/colfin22/intro-quiz/issues/9)).
 
 Recently shipped:
 
+- **Pre-built Docker images** — multi-arch (amd64/arm64) images published to `ghcr.io/colfin22/intro-quiz` and Docker Hub on every release, so you can `docker compose pull` instead of building from source ([#33](https://github.com/colfin22/intro-quiz/issues/33)).
 - **Rock-solid casting** — fixed the mid-game board crashes on Chromecast/Shield. Clip audio is rebuilt on a single Web Audio context (a fresh `<audio>` per clip was exhausting the receiver's decoder), and a stray between-games quit no longer interrupts back-to-back games. No setup change — the same DashCast casting, now stable ([#32](https://github.com/colfin22/intro-quiz/issues/32), [#47](https://github.com/colfin22/intro-quiz/issues/47)).
 
 ## Licence
