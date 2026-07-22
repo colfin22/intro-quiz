@@ -99,14 +99,12 @@ subscriptions.
   Rounds are built lazily at first start so artist picks land first. Answer timing is
   server-side; the correct answer never ships to clients before the reveal.
 - **The TV board** — a second web page cast to the display via DashCast
-  (pychromecast). The board **plays the round audio itself** through a hidden
-  `<audio>` element — casting clips as media would evict the scoreboard, because a
-  cast device runs one app at a time. Audio is served from an anonymous
-  per-round endpoint so phones can't extract the track id mid-round. Android TV
-  (e.g. Nvidia Shield) autoplays; touch displays (Nest Hub) need one tap to unlock
-  sound — the board shows an overlay asking for it. If the cast session dies
-  mid-game the app re-casts the board automatically, and the board reports playback
-  failures back to the server log.
+  (pychromecast). The board **plays the round audio itself** through the Web Audio API
+  (one audio context for the whole game) — casting clips as media would evict the
+  scoreboard, because a cast device runs one app at a time. Audio is served from an
+  anonymous per-round endpoint so phones can't extract the track id mid-round. Android
+  TV (e.g. Nvidia Shield) autoplays; touch displays (Nest Hub) need one tap to unlock
+  sound — the board shows an overlay asking for it.
 - **Half-time trivia** — a curated seed pack ships in the repo (~180 read-aloud music
   facts + ~215 true/false questions, **deliberately Irish/UK-centric** — Eurovision,
   Thin Lizzy and Westlife feature) and lives in SQLite; the true/false pool tops
@@ -173,16 +171,12 @@ nightly scheduling: `POST /api/sync`, `/api/score/lastfm`, `/api/score/tiers`,
 `/api/clips/cut`. Phones open `http://<host>:8000`; the board lives at `/board`.
 
 **Bootstrapping the clips:** with `CLIP_SWEEP_ON_START=true`, every container start
-kicks off a background session that cuts clips until every tiered track has them —
-for a big library that's hours (the download from Navidrome is the bottleneck, not
-ffmpeg), and progress is logged batch by batch in `docker logs`. It only cuts
-*tiered* tracks, so run the sync → Last.fm scoring → tiers steps first, then
-`docker compose restart`. It's safe to leave enabled permanently: a start with
-nothing to cut exits immediately, and newly-scored tracks get swept up on the next
-restart. If Navidrome is unreachable it backs off and gives up after an hour
-rather than hammering. Don't want it monopolising your music server all day?
-`CLIP_SWEEP_MAX_HOURS=8` stops the session cleanly after 8 hours (finishing the
-batch in hand) — the next restart picks up exactly where it left off.
+cuts clips in the background (batch by batch in `docker logs`) until every *tiered*
+track has them — hours for a big library, bottlenecked on the Navidrome download, not
+ffmpeg. Run sync → scoring → tiers first, then `docker compose restart`. Safe to leave
+on permanently: a start with nothing to cut exits immediately, newly-scored tracks get
+swept up next restart, and it backs off if Navidrome is unreachable. `CLIP_SWEEP_MAX_HOURS=8`
+caps a session (finishing the batch in hand); the next restart resumes where it left off.
 
 The Navidrome user needs the standard Subsonic permissions plus **download and
 streaming enabled** — the clip cutter pulls originals via `download` and falls
@@ -205,51 +199,11 @@ the optional Home Assistant bits can live anywhere on the network.
 
 ## Make your own trivia pack
 
-The shipped half-time pack is Irish/UK-centric. To localise it, put a
-`trivia_custom.json` in the app's data directory — with the default
-`docker-compose.yml` that's `./data/trivia_custom.json`, right beside `quiz.db`.
-It's a flat JSON list of two kinds of item:
-
-    [
-      {"kind": "fact", "text": "Johnny Cash proposed to June Carter on stage in London, Ontario."},
-      {"kind": "tf",   "text": "Gordon Lightfoot wrote 'Early Morning Rain'.", "answer": 1},
-      {"kind": "tf",   "text": "Céline Dion is from Vancouver.", "answer": 0}
-    ]
-
-- `fact` items are read aloud by a player at half time — write them as spoken
-  sentences, and only include things you'd defend at your own kitchen table.
-- `tf` items need `"answer": 1` (true) or `0` (false). Keep a healthy share of
-  falses (the shipped pack runs ~60/40) or the table learns to always guess true.
-- The pack seeds automatically at the next game start (or `POST /api/trivia/topup`).
-  Malformed items are skipped with a log warning, never fatally. Duplicate texts
-  are ignored, so you can keep growing the file and re-seeding.
-- Set `TRIVIA_BUILTIN_PACK=false` in `.env` **before your first game** to skip
-  the shipped pack entirely — items already seeded stay in the bank (pruning
-  after the fact is a `DELETE FROM trivia WHERE source='seed'` in `data/quiz.db`).
-- An LLM drafts a regional pack in minutes. Copy this prompt, swap the region,
-  and paste the output into `data/trivia_custom.json` — but **fact-check what it
-  writes before your family reads it out with confidence.** LLMs state wrong
-  "facts" fluently.
-
-      Write me a music trivia pack for a family quiz night, as a single JSON
-      list and nothing else. Two kinds of item:
-        {"kind": "fact", "text": "..."}                 — a fun music fact one
-          player reads aloud to the table
-        {"kind": "tf", "text": "...", "answer": 1 or 0} — a true/false question
-          (1 = true, 0 = false)
-
-      Produce 60 facts and 80 true/false questions about popular music from
-      <YOUR REGION/COUNTRY>, plus internationally famous acts as heard from
-      there. Rules:
-      - Only well-established, easily verifiable claims — no obscure trivia,
-        no disputed stories. If a story is folklore, start it with "Legend has
-        it" or "As the story goes".
-      - Facts must read naturally when spoken aloud, one or two sentences.
-      - False T/F statements must be plainly false, not technicalities.
-      - Make roughly 40% of the T/F items false, and don't cluster them.
-      - Family-friendly; span the 1960s to today; vary the artists — no more
-        than three items about any one act.
-      - Output raw JSON only: no markdown fences, no commentary.
+The shipped half-time pack is Irish/UK-centric. To localise it, drop a
+`trivia_custom.json` beside `quiz.db` (default `./data/`) — a flat JSON list of
+`{"kind":"fact","text":...}` and `{"kind":"tf","text":...,"answer":1|0}` items,
+seeded automatically at the next game start. Full format, rules and a copy-paste
+**LLM prompt** for drafting a regional pack: **[docs/trivia-pack.md](docs/trivia-pack.md)**.
 
 ## Notes
 
@@ -265,20 +219,15 @@ It's a flat JSON list of two kinds of item:
 - Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
   phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
 - The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
-- **Mis-tag detection:** scrappy rips sometimes carry junk in the *subtitle* tag
-  ("Teenage Kicks (PMEDIA)"), which breaks Last.fm matching — the track scores zero
-  and never gets picked. `GET /api/quality` lists tracks that score ~no listeners while
-  their artist is clearly popular (the tell-tale of a mangled title); a periodic
-  `POST /api/quality/check` pushes fresh suspects via Home Assistant.
-  To enable the push you need three env vars: `HA_URL` and `HA_TOKEN` (the same pair
-  used for speaker casting — a long-lived access token from your HA profile page) plus
-  `HA_NOTIFY_SERVICE`, the notify action for your phone. Find it in HA under
-  **Developer tools → Actions** — with the companion app installed it's
-  `notify.mobile_app_<your device name>`. Without these set the check still runs;
-  you just read `GET /api/quality` yourself instead of getting pushed.
-  Run `POST /api/quality/check?push=false` once after
-  install to baseline your library so only future misses alert. Fix = clean the tags,
-  rescan your server, then re-sync and re-score (`POST /api/bootstrap` handles it).
+- **Mis-tag detection:** junk in a track's *subtitle* tag ("Teenage Kicks (PMEDIA)")
+  breaks Last.fm matching, so the track scores zero and never gets picked.
+  `GET /api/quality` lists tracks scoring ~no listeners while their artist is clearly
+  popular — the tell-tale of a mangled title. `POST /api/quality/check` re-runs it and,
+  if `HA_URL`/`HA_TOKEN`/`HA_NOTIFY_SERVICE` are set, pushes new suspects to your phone
+  via Home Assistant (`HA_NOTIFY_SERVICE` is your notify action, e.g.
+  `notify.mobile_app_<device>`); otherwise just read `/api/quality`. Baseline once after
+  install with `?push=false` so only future misses alert. Fix = clean the tags, rescan,
+  re-sync (`POST /api/bootstrap`).
 
 ## Roadmap
 
