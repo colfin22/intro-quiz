@@ -3,6 +3,7 @@
 [![CI](https://github.com/colfin22/intro-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/colfin22/intro-quiz/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/colfin22/intro-quiz)](https://github.com/colfin22/intro-quiz/releases)
 [![License: MIT](https://img.shields.io/github/license/colfin22/intro-quiz)](LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/colfin22/intro-quiz?logo=docker&logoColor=white)](https://hub.docker.com/r/colfin22/intro-quiz)
 
 Self-hosted "guess the intro" music quiz for family game night, built on your own
 [Navidrome](https://www.navidrome.org/) library. A song's **first 5 seconds** play
