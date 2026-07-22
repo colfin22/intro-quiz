@@ -134,7 +134,10 @@ play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
 
 Prefer not to build? Pre-built multi-arch (amd64/arm64) images are published on
 each release — `docker compose pull && docker compose up -d` grabs them from
-`ghcr.io/colfin22/intro-quiz` (also on Docker Hub).
+`ghcr.io/colfin22/intro-quiz`.
+
+The same images are also on Docker Hub as
+[`colfin22/intro-quiz`](https://hub.docker.com/r/colfin22/intro-quiz).
 
 Copy [`.env.example`](.env.example) to `.env` beside `docker-compose.yml` and
 fill it in — it marks which variables are required:
