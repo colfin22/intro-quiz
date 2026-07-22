@@ -317,7 +317,13 @@ function connect() {
       ul.appendChild(li);
     });
   };
-  ws.onclose = () => setTimeout(connect, 1500);
+  ws.onerror = () => boardLog("ws error event");
+  // #35-style diagnostic: a ws closing inside a living page is silent otherwise.
+  // The CLOSE CODE names the cause — 1006 network/proxy drop, 1000/1001 deliberate.
+  ws.onclose = (ev) => {
+    boardLog(`ws closed code=${ev.code} reason=${ev.reason || "-"} clean=${ev.wasClean} up=${Math.round((Date.now() - pageBorn) / 1000)}s phase=${lastPhase}`);
+    setTimeout(connect, 1500);
+  };
 }
 connect();
 </script>
