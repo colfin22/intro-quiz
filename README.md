@@ -280,9 +280,12 @@ It's a flat JSON list of two kinds of item:
 
 Planned, roughly in priority order:
 
-- **Rock-solid casting** *(current priority)* — the DashCast receiver still drops or crashes mid-game on Chromecast/Shield; the durable fix is a persistent browser/kiosk on the display instead of casting ([#32](https://github.com/colfin22/intro-quiz/issues/32)).
-- **Pre-built Docker images** — publish images to a registry (GHCR + Docker Hub) with a GitHub Actions workflow that pushes on each release, so you can `docker pull` instead of building from source ([#33](https://github.com/colfin22/intro-quiz/issues/33)).
+- **Pre-built Docker images** *(current priority)* — publish images to a registry (GHCR + Docker Hub) with a GitHub Actions workflow that pushes on each release, so you can `docker pull` instead of building from source ([#33](https://github.com/colfin22/intro-quiz/issues/33)).
 - **Better classical-music decoys** — composer-aware decoys and title de-templating so classical libraries stop producing near-identical options ([#9](https://github.com/colfin22/intro-quiz/issues/9)).
+
+Recently shipped:
+
+- **Rock-solid casting** — an optional own registered Cast receiver (set `CAST_APP_ID` to your Cast Developer Console app id) replaces DashCast and fixes the mid-game board crashes. DashCast stays the default when `CAST_APP_ID` is unset ([#32](https://github.com/colfin22/intro-quiz/issues/32), [#47](https://github.com/colfin22/intro-quiz/issues/47)).
 
 ## Licence
 
