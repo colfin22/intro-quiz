@@ -3,10 +3,63 @@ let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
 let myTf = null, tfKey = "", timerKey = "", lastGameNo, finishedBuzz, extendTimer = null;
 
+// --- connection resilience (#50) -------------------------------------------
+// A backgrounded phone tab can leave the socket half-dead: no close event ever
+// fires, the page keeps its last render, and taps send into a black hole. So:
+// reconnect on close/error with backoff, force-reconnect when a ping goes
+// unanswered or the tab comes back to the foreground, re-join on reconnect
+// (join is idempotent server-side) and show a banner while disconnected.
+let reconnectTimer = null, reconnectDelay = 1500, lastHeard = 0;
+
+function connBanner(on) {
+  const e = document.getElementById("err");
+  if (on) e.textContent = "📡 reconnecting…";
+  else if (e.textContent === "📡 reconnecting…") e.textContent = "";
+}
+
+function scheduleReconnect() {
+  connBanner(true);
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+    connect();
+  }, reconnectDelay);
+}
+
+function reconnectNow() {
+  if (ws && ws.readyState === WebSocket.OPEN) return;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  connBanner(true);
+  connect();
+}
+
+setInterval(() => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (lastHeard && Date.now() - lastHeard > 25000) { ws.close(); return; }  // pings unanswered — half-dead
+  ws.send(JSON.stringify({type: "ping"}));
+}, 10000);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) reconnectNow();
+  else ws.send(JSON.stringify({type: "ping"}));  // probe a possibly half-dead socket right away
+});
+
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+  ws.onopen = () => {
+    reconnectDelay = 1500;
+    lastHeard = Date.now();
+    connBanner(false);
+    // restore this socket's identity — host checks ride on it server-side
+    if (joined && myName) ws.send(JSON.stringify({type: "join", name: myName}));
+  };
+  ws.onerror = () => { try { ws.close(); } catch (e) {} };
   ws.onmessage = (ev) => {
+    lastHeard = Date.now();
     const msg = JSON.parse(ev.data);
+    if (msg.type === "pong") return;
     if (msg.type === "error") { showErr(msg.message); return; }
     if (msg.type === "state") {
       const prevRound = state.round;
@@ -24,13 +77,16 @@ function connect() {
       render();
     }
   };
-  ws.onclose = () => setTimeout(connect, 1500);
+  ws.onclose = () => scheduleReconnect();
 }
 
-function send(obj) { ws.send(JSON.stringify(obj)); }
+function send(obj) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { reconnectNow(); return; }  // drop it — the state re-sync re-renders
+  ws.send(JSON.stringify(obj));
+}
 function showErr(m) { const e = document.getElementById("err"); e.textContent = "⚠️ " + m;
                       if (navigator.vibrate) navigator.vibrate(100);
-                      setTimeout(() => { e.textContent = ""; }, 7000); }
+                      setTimeout(() => { if (e.textContent === "⚠️ " + m) e.textContent = ""; }, 7000); }
 
 let wall = [], myArtists = [], artistsSent = false;
 function loadWall() {

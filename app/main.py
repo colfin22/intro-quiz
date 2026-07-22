@@ -405,6 +405,11 @@ async def ws_endpoint(ws: WebSocket):
             async with hub.lock:
                 try:
                     kind = msg.get("type")
+                    if kind == "ping":
+                        # liveness probe only (#50) — must not touch last_activity,
+                        # or an idle phone left on the page keeps a stale game alive
+                        await ws.send_json({"type": "pong"})
+                        continue
                     if kind not in ("board_hello", "set_display"):
                         # phones are actively playing: stale-game clock and the
                         # watchdog's re-cast budget both reset (#26)
