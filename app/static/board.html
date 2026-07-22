@@ -18,7 +18,8 @@
   #b-art-card { display:flex; flex-direction:column; align-items:center; justify-content:center; }
   img.art { max-height:42vh; max-width:90%; width:auto; margin:1vh auto; }
   #b-title { font-size:clamp(1.1rem, 4.5vh, 2rem) !important; margin:.5vh 0; text-align:center; }
-  #b-detail { font-size:clamp(.9rem, 3vh, 1.3rem); text-align:center; }
+  #b-detail { font-size:clamp(.9rem, 3vh, 1.3rem); text-align:center; text-transform:uppercase; }
+  #b-results { font-size:clamp(.85rem, 2.6vh, 1.15rem); text-align:center; margin:.6vh 0 0; }
   .scores li { font-size:clamp(1rem, 3.2vh, 1.5rem); }
   .wavebox { height:40vh; display:flex; align-items:center; overflow:hidden; }
   .wavebox svg { width:100%; height:60%; }
@@ -57,6 +58,7 @@
         <img class="art" id="b-art" alt="">
         <p class="big" id="b-title" style="font-size:1.6rem"></p>
         <p class="dim" id="b-detail"></p>
+        <p class="dim" id="b-results"></p>
       </div>
       <div class="card center" id="b-break-card" hidden
            style="display:flex;flex-direction:column;justify-content:center">
@@ -267,6 +269,7 @@ function connect() {
       document.getElementById("b-title").textContent = s.track.title;
       document.getElementById("b-detail").textContent =
         `${s.track.artist}${s.track.year ? " (" + s.track.year + ")" : ""}`;
+      document.getElementById("b-results").textContent = "";  // filled below if answers are in
     }
     // half-time show: facts prompt, then the T/F question front and centre
     const bkCard = document.getElementById("b-break-card");
@@ -291,15 +294,14 @@ function connect() {
         detail.textContent = "Check your phones — everyone has a music fact to read out 📣";
       }
     }
-    // per-round results under the art on reveal
+    // per-round results on their own line under the artist
     if (s.phase === "reveal" && s.round_answers) {
-      const res = document.getElementById("b-detail");
       const bits = s.players.map(p => {
         const a = s.round_answers[p.name];
         if (!a) return `${p.name} —`;
         return a.points > 0 ? `${p.name} ✅ +${a.points}` : `${p.name} ❌`;
       });
-      res.textContent = res.textContent + "   ·   " + bits.join("   ");
+      document.getElementById("b-results").textContent = bits.join("   ");
     }
     // all-time leaderboard beside the scores in the lobby and on the final screen;
     // fetched once per phase entry (finish() saves before broadcasting, so the
