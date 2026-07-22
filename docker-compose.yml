@@ -1,5 +1,9 @@
 services:
   quiz:
+    # Pre-built images are published on each release. To pull instead of build:
+    #   docker compose pull && docker compose up -d
+    # `build: .` stays so you can still build locally (docker compose up -d --build).
+    image: ghcr.io/colfin22/intro-quiz:latest
     build: .
     container_name: intro-quiz
     restart: unless-stopped
