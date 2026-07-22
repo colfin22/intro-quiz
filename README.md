@@ -256,8 +256,12 @@ It's a flat JSON list of two kinds of item:
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
   table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
   (rows of `{"id", "play_count", "starred"}` summed across your users).
-- The board URL must be HTTPS with a real certificate — put the app behind a reverse
-  proxy (with websocket support) for that.
+- The board URL must be HTTPS with a **valid** certificate — cast devices (displays
+  *and* speakers) fetch it over TLS and refuse plain HTTP or self-signed certs, so put
+  the app behind a reverse proxy (with websocket support) on a real domain. The cast
+  device must also be able to **reach and resolve** that URL: a Google/Nest speaker, for
+  example, uses its own DNS and fetches the clip itself, so a LAN-only address it can't
+  resolve won't play.
 - Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
   phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
 - The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
