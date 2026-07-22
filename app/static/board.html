@@ -74,23 +74,25 @@
     </div>
   </div>
 </main>
-<audio id="b-audio"></audio>
 <div id="b-tap" style="position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;font-size:3rem;flex-direction:column">
   <div>🔊</div><div style="font-size:1.6rem">Tap anywhere for sound</div>
 </div>
 <p class="dim center" id="b-audio-status"></p>
 <script>
 let ws, lastKey = "", audioUnlocked = false, alltimeKey = "";
-const bAudio = document.getElementById("b-audio");
-// 100ms of silence — used to probe/consume the autoplay permission up front
-const SILENCE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
-function probeAudio() {
-  bAudio.src = SILENCE;
-  bAudio.muted = false;
-  const p = bAudio.play();
-  if (p) p.then(() => { audioUnlocked = true; }).catch(() => showTap());
+// --- Web Audio engine (#47) -------------------------------------------------
+// Playing each clip via <audio>.src spun up a new WebMediaPlayer in Cast core and
+// grew a NATIVE audio-decoder buffer pool ~8 buffers/clip that never shrank; at
+// ~200 buffers (~25 clips = game 2) the receiver's audio engine died and took the
+// whole receiver with it — invisible to the JS heap, proven by adb logcat. Fix:
+// ONE AudioContext for the whole session; each clip is fetch()'d, decodeAudioData'd
+// and played through a short-lived source node. One pipeline, not one per clip.
+let actx = null, curSource = null, curBuffer = null;
+let audioState = "none", clipStartAt = 0, clipDur = 0, retryTimer = null, retryCount = 0;
+function ensureCtx() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  return actx;
 }
-window.addEventListener("load", () => setTimeout(probeAudio, 500));
 function aStatus(t) { document.getElementById("b-audio-status").textContent = t; }
 function boardLog(msg) {
   try { fetch("/api/board/log", { method: "POST", headers: {"Content-Type": "application/json"},
@@ -111,72 +113,86 @@ function boardReload(reason) {
   setTimeout(() => location.reload(), 150);  // let the log POST flush first
   return true;
 }
-let retryTimer = null, retryCount = 0;
-function playAudio(kind, key, isRetry) {
-  if (key === lastKey && !isRetry) return;
-  if (key !== lastKey) { retryCount = 0; clearTimeout(retryTimer); }
-  lastKey = key;
-  // keep retrying for the whole round — a storage blip can 404 a clip that
-  // exists; giving up after one attempt made the round permanently silent (#24)
-  const retry = (why) => {
-    if (retryCount === 0 || retryCount % 4 === 0) boardLog(`${why} for ${key} (attempt ${retryCount + 1})`);
-    retryCount++;
-    // a couple of fast retries cover a transient blip; if audio still won't
-    // play, reload the board (much faster than grinding 15×2s of retries) (#29)
-    if (retryCount === 2 && boardReload(`audio failed ${retryCount}x: ${why}`)) return;
-    if (retryCount < 15) retryTimer = setTimeout(() => {
-      if (lastKey === key) playAudio(kind, key, true);
-    }, retryCount < 4 ? 1200 : 2000);
-  };
-  bAudio.src = `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}&r=${retryCount}`;
-  // the muted-start dance is only needed while audio is still locked (touch displays);
-  // once unlocked (or on Android TV) play unmuted directly — the 250ms unmute hop
-  // was a silent failure point on extended clips
-  bAudio.muted = !audioUnlocked;
-  bAudio.volume = 1;
-  const p = bAudio.play();
-  if (p) p.then(() => {
-    setTimeout(() => {
-      bAudio.muted = false;
-      if (bAudio.paused) {
-        if (!audioUnlocked) showTap();
-        else retry("audio stuck paused");
-      } else { aStatus(""); retryCount = 0; }
-    }, 250);
-  }).catch((e) => {
-    if (e && e.name === "NotAllowedError" && !audioUnlocked) showTap();
-    else retry(`play() rejected: ${e && e.name}`);
-  });
+function stopSource() {
+  if (curSource) {
+    try { curSource.onended = null; curSource.stop(); } catch (e) {}
+    try { curSource.disconnect(); } catch (e) {}
+    curSource = null;
+  }
+  if (audioState === "playing") audioState = "paused";
 }
-bAudio.addEventListener("timeupdate", () => {
-  const bar = document.getElementById("b-clip-progress");
-  if (!bar || !bAudio.duration) return;
-  bar.style.width = Math.min(100, (bAudio.currentTime / bAudio.duration) * 100) + "%";
-});
-bAudio.addEventListener("play", () => {
+function startBuffer(buf, key) {
+  const ctx = ensureCtx();
+  stopSource();
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.onended = () => { if (curSource === src) audioState = "paused"; };
+  try { src.start(); } catch (e) {}
+  curSource = src; curBuffer = buf;
+  clipStartAt = ctx.currentTime; clipDur = buf.duration; audioState = "playing";
   const bar = document.getElementById("b-clip-progress");
   if (bar) bar.style.width = "0%";
-});
-
+  aStatus("");
+}
+// fetch + decode + play one clip through the shared context; keyed so a superseded
+// round can't stomp a newer one. Keeps the #24 retry-the-whole-round behaviour.
+async function playClip(url, key) {
+  const ctx = ensureCtx();
+  if (ctx.state === "suspended") { try { await ctx.resume(); } catch (e) {} }
+  if (ctx.state === "suspended") { audioUnlocked = false; showTap(); return; }
+  audioUnlocked = true;
+  try {
+    const resp = await fetch(url, { cache: "no-store" });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const buf = await ctx.decodeAudioData(await resp.arrayBuffer());
+    if (key !== lastKey) return;               // a newer clip already took over
+    retryCount = 0;
+    startBuffer(buf, key);
+  } catch (e) {
+    if (key !== lastKey) return;
+    if (retryCount === 0 || retryCount % 4 === 0) boardLog(`clip load failed (${e && e.message}) for ${key} (attempt ${retryCount + 1})`);
+    retryCount++;
+    if (retryCount === 3 && boardReload(`audio failed ${retryCount}x`)) return;
+    if (retryCount < 15) retryTimer = setTimeout(() => { if (key === lastKey) playClip(url, key); }, retryCount < 4 ? 1200 : 2000);
+  }
+}
+function playAudio(kind, key) {
+  if (key === lastKey) return;
+  clearTimeout(retryTimer); retryCount = 0;
+  lastKey = key;
+  const url = kind === "fanfare"
+    ? "/static/fanfare.mp3"
+    : `/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`;
+  playClip(url, key);
+}
+function probeAudio() {
+  const ctx = ensureCtx();
+  if (ctx.state === "suspended")
+    ctx.resume().then(() => { audioUnlocked = ctx.state === "running"; if (!audioUnlocked) showTap(); }).catch(() => showTap());
+  else audioUnlocked = true;
+}
+window.addEventListener("load", () => setTimeout(probeAudio, 300));
+// progress bar — Web Audio has no timeupdate, so drive it off the context clock
+function tickProgress() {
+  const bar = document.getElementById("b-clip-progress");
+  if (bar && audioState === "playing" && clipDur && actx)
+    bar.style.width = Math.min(100, Math.max(0, ((actx.currentTime - clipStartAt) / clipDur) * 100)) + "%";
+  requestAnimationFrame(tickProgress);
+}
+requestAnimationFrame(tickProgress);
 function showTap() {
   document.getElementById("b-tap").style.display = "flex";
   aStatus("audio blocked — tap the screen once");
 }
 document.addEventListener("pointerdown", () => {
-  audioUnlocked = true;
   document.getElementById("b-tap").style.display = "none";
   aStatus("");
-  bAudio.muted = false;
-  if (bAudio.src && bAudio.src !== SILENCE && lastKey) {
-    bAudio.currentTime = 0;  // replay the clip in full, not resume a dead one
-    bAudio.play().catch(() => {});
-  } else {
-    probeAudio();  // consume the gesture so round 1 plays unaided
-  }
+  const ctx = ensureCtx();
+  if (ctx.state === "suspended") ctx.resume().catch(() => {});
+  audioUnlocked = true;
+  if (curBuffer && lastKey) startBuffer(curBuffer, lastKey);  // replay a clip that was blocked
 }, {capture: true});
-bAudio.addEventListener("playing", () => aStatus(""));
-// a genuine media load failure (not the benign AbortError) is worth one quiet line
-bAudio.addEventListener("error", () => { if (audioUnlocked) aStatus("(audio hiccup — next round will recover)"); });
 // heartbeat: the server only trusts a board it has heard from recently —
 // a crashed cast receiver can leave a zombie socket open through a proxy
 setInterval(() => {
@@ -191,7 +207,7 @@ setInterval(() => {
     up: Math.round((Date.now() - pageBorn) / 1000),   // page uptime: a RESET means it reloaded/recast
     phase: lastPhase,
     round: lastRound,
-    audio: bAudio ? (bAudio.paused ? "paused" : "playing") : "none",
+    audio: audioState,
     ws: ws ? ws.readyState : -1
   };
   try { fetch("/api/board/beat", {method: "POST", headers: {"Content-Type": "application/json"},
@@ -214,7 +230,9 @@ function connect() {
     lastPhase = s.phase; lastRound = s.round || 0;   // for the diagnostic beat (#35)
     if ((s.phase === "lobby" || s.phase === "idle") && wasPhase !== s.phase) {
       const age = (Date.now() - pageBorn) / 1000;
-      if (age > 120) {                                // young pages have nothing to gain
+      // our own Cast receiver doesn't rot (soak proved past 13 min) — only DashCast
+      // (top-level board) needs the between-games refresh; never reload inside the shell iframe
+      if (age > 120 && window.self === window.top) {   // young pages have nothing to gain
         // TELL THE SERVER FIRST. The reload silences the heartbeat for a couple of
         // seconds — longer than the watchdog's 12s death threshold — so it read this
         // deliberate refresh as a dead receiver and fired a full DashCast recast on top
@@ -230,10 +248,7 @@ function connect() {
     if (s.phase === "question") playAudio(s.clip_len, `q${s.round}-${s.clip_len}-${s.replay || 0}`);
     if (s.phase === "reveal" && s.track) playAudio("payoff", `p${s.round}`);
     if (s.phase === "finished" && lastKey !== `f-${s.game_no}`) {  // 🎺 once per game
-      lastKey = `f-${s.game_no}`;
-      bAudio.src = "/static/fanfare.mp3";
-      bAudio.muted = !audioUnlocked;
-      bAudio.play().catch(() => {});
+      playAudio("fanfare", `f-${s.game_no}`);
     }
     document.getElementById("b-idle").hidden = s.phase !== "idle";
     document.getElementById("b-live").hidden = s.phase === "idle";

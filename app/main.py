@@ -62,20 +62,19 @@ def health():
 
 @app.on_event("startup")
 async def board_watchdog():
-    """While a game is on and a display is chosen, keep the board alive.
+    """Reap stale games so an abandoned lobby/game doesn't haunt the TV (#26).
 
-    Runs forever, checks every 5s: no heartbeat from any board for 12s
-    -> re-cast, retrying every 12s until the board reports back (#21, #25 —
-    the receiver dies often enough that 45-65s recoveries ate half a round).
-    The old one-shot on websocket disconnect never fired when a dead cast
-    receiver left a zombie socket open through the reverse proxy.
+    This used to ALSO re-cast a board it judged "dead" (#21/#25) — but that was a
+    DashCast-era mechanism, and every crash it "recovered" turned out to be a
+    healthy board it killed on a websocket blip or a between-games reload (#47).
+    Our own Cast receiver persists and doesn't rot, so the recast is gone. What
+    remains here is only the stale-game reaper.
     """
     import time as _t
 
     async def _loop():
-        last_cast = 0.0
         while True:
-            await asyncio.sleep(5)   # faster dead-board detection (#29)
+            await asyncio.sleep(5)
             try:
                 if not (hub.game and hub.game.phase in ("lobby", "question", "reveal", "break")):
                     continue
@@ -91,26 +90,7 @@ async def board_watchdog():
                             hub.game = None
                             asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
                             await hub.broadcast()
-                    continue
-                if not hub.display or hub.board_live():
-                    hub.cast_attempts = 0
-                    continue
-                if _t.time() < hub.board_reload_until:
-                    continue  # the board told us it is reloading ON PURPOSE — not a death
-                if hub.board_last_seen == 0.0:
-                    continue  # board never arrived — that's the initial cast's job
-                if hub.cast_attempts >= 5:
-                    continue  # board won't come back — a human has the TV; stand down (#26)
-                if _t.time() - last_cast < 12:
-                    continue  # give the last attempt a chance to load
-                hub.cast_attempts += 1
-                LOGGER.warning("board watchdog: no heartbeat for %.0fs — recasting to %s (attempt %d/5)",
-                               _t.time() - hub.board_last_seen, hub.display, hub.cast_attempts)
-                last_cast = _t.time()
-                # fresh here too — the watchdog only fires when the receiver is
-                # dead, and loading a URL into a dead session recovers nothing (#28)
-                asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, True)
-            except Exception:  # noqa: BLE001 — the watchdog must never die
+            except Exception:  # noqa: BLE001 — the reaper must never die
                 LOGGER.exception("board watchdog tick failed")
     asyncio.create_task(_loop())
 
@@ -486,15 +466,15 @@ async def ws_endpoint(ws: WebSocket):
                             finally:
                                 c.close()
                         asyncio.get_event_loop().run_in_executor(None, _topup)
-                        # NO pre-emptive quit here (#35). The beats showed our own
-                        # quit->1s->relaunch was CAUSING the crash it was meant to
-                        # prevent: in all 3 games of 13-07 the board cast this way died
-                        # within a minute (once at up=10s, sitting in the LOBBY doing
-                        # nothing), while the watchdog's recast onto an already-dead
-                        # receiver ran the whole game. A receiver launched a second after
-                        # a quit_app comes up fragile. The session is dead between games
-                        # anyway — there is nothing to clear.
-                        asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, False)
+                        # Cast the board ONLY if one isn't already up (#47). Our own
+                        # receiver persists across games, so re-casting on every new_game
+                        # just tore down a healthy board and reloaded it mid-transition —
+                        # that was the "stuck after 10 rounds" between-games crash. The
+                        # unconditional recast was a DashCast-era hack (its session died
+                        # between games); ours doesn't, so a live board just gets the new
+                        # lobby over its existing websocket. First game / no board -> cast.
+                        if hub.display and not hub.board_expected():
+                            asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, False)
                         await hub.broadcast()
                     elif kind == "join":
                         if not hub.game:
@@ -616,8 +596,17 @@ async def ws_endpoint(ws: WebSocket):
                                     db.set_setting(conn, "master_history", json.dumps(hist))
                                 finally:
                                     conn.close()
+                            # Drop the board to ambient 60s after the game — but ONLY if no
+                            # new game has started by then. Back-to-back play (Play Again)
+                            # begins the next game within that window; firing this quit
+                            # unconditionally sent cast.quit_app() to the LIVE board mid-game-2
+                            # (~60s in = round 2) and killed it. Proven by adb logcat: a
+                            # USER_REQUEST stop from our own IP at exactly finish+60s (#47).
                             loop = asyncio.get_event_loop()
-                            loop.call_later(60, lambda: loop.run_in_executor(None, board_cast.hide_board, hub.display))
+                            def _to_ambient_if_idle(disp=hub.display):
+                                if hub.game is None or hub.game.phase == "finished":
+                                    board_cast.hide_board(disp)
+                            loop.call_later(60, lambda: loop.run_in_executor(None, _to_ambient_if_idle))
                             await hub.broadcast()
                         else:
                             await hub.start_round()
