@@ -244,7 +244,7 @@ function render() {
     document.getElementById("r-art").src = `/api/art/${state.track.id}`;
     document.getElementById("r-title").textContent = state.track.title;
     document.getElementById("r-detail").textContent =
-      `${state.track.artist} — ${state.track.album || ""} ${state.track.year ? "(" + state.track.year + ")" : ""}`;
+      `${state.track.artist}${state.track.year ? " (" + state.track.year + ")" : ""}`;
     const res = document.getElementById("r-results");
     res.innerHTML = "";
     for (const p of state.players) {
