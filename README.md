@@ -131,6 +131,14 @@ a cast display / Android TV, **or** Home Assistant + Music Assistant for a
 speaker. With neither, the game is silent and unplayable — the clips have to
 play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
 
+> **⚠️ Casting requires HTTPS — this is the one thing everyone trips on.** Chromecast /
+> Android TV displays *and* Google/Nest speakers fetch the board and clip audio over
+> TLS and **silently refuse** plain HTTP or a self-signed cert. So getting casting to
+> work at all means putting the app behind a reverse proxy with a **valid certificate
+> on a real domain** — even though everything runs on your own LAN. You don't have to
+> expose anything to the internet to do it. **[docs/https-lan.md](docs/https-lan.md)**
+> walks through it end to end, including a method that opens no ports.
+
     docker compose up -d --build
 
 Prefer not to build? Pre-built multi-arch (amd64/arm64) images are published on
