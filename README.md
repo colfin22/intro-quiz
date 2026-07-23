@@ -130,46 +130,20 @@ subscriptions.
 a cast display / Android TV, **or** Home Assistant + Music Assistant for a
 speaker. With neither, the game is silent and unplayable — the clips have to
 play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
-**If you're casting, read the ⚠️ box below first — the `BOARD_URL` has two hard
-prerequisites that catch everyone.**
 
     docker compose up -d --build
 
-Prefer not to build? Pre-built multi-arch (amd64/arm64) images are published on
-each release — `docker compose pull && docker compose up -d` grabs them from
-`ghcr.io/colfin22/intro-quiz`.
+Prefer not to build? Pre-built multi-arch (amd64/arm64) images are published on each
+release — `docker compose pull && docker compose up -d` grabs them from
+`ghcr.io/colfin22/intro-quiz` (also on [Docker Hub](https://hub.docker.com/r/colfin22/intro-quiz)).
 
-The same images are also on Docker Hub as
-[`colfin22/intro-quiz`](https://hub.docker.com/r/colfin22/intro-quiz).
+Copy [`.env.example`](.env.example) to `.env` and fill in the required values — the file
+is self-documenting and grouped into required / audio-output / optional. You'll set a
+Navidrome server + a **non-admin** user, your Last.fm key, and at least one audio output.
+(The app only touches Navidrome through that read-only Subsonic login — it never modifies
+your music files.)
 
-Copy [`.env.example`](.env.example) to `.env` beside `docker-compose.yml` and
-fill it in — it marks which variables are required:
-
-> **Your library stays yours:** the app only ever talks to Navidrome through a
-> non-admin Subsonic login. It never reads or writes your music files directly —
-> clips are cut from streamed audio into the app's own clips folder, and nothing
-> in this project modifies tags or files in your library (the mis-tag detector
-> only *reports*; fixing tags is yours to do with your own tools).
-
-    NAVIDROME_URL=http://navidrome.local:4533
-    NAVIDROME_USER=quiz                     # a dedicated non-admin Navidrome user
-    NAVIDROME_PASSWORD=<its password>
-    LASTFM_API_KEY=<free key from last.fm/api>
-    DISPLAYS=Living Room TV=192.168.1.50    # Name=ip pairs, comma-separated (cast targets)
-    BOARD_URL=https://quiz.example.com/board # MUST be https:// — cast devices silently refuse HTTP
-    # optional Home Assistant fallback (speaker audio when no display is used):
-    HA_URL=http://homeassistant.local:8123
-    HA_TOKEN=<long-lived token>
-    MEDIA_PLAYER=media_player.living_room_speaker
-    APP_BASE_URL=http://<this host>:8000
-    CAST_ENABLED=true
-    # optional: family devices with fixed IPs get their name prefilled at join
-    KNOWN_PLAYERS=Alice=192.168.1.20,Bob=192.168.1.21
-    # first install: cut clips for the WHOLE library in one long session at startup
-    CLIP_SWEEP_ON_START=true
-    CLIP_SWEEP_MAX_HOURS=8    # optional cap per session (0/unset = run until done)
-
-> **⚠️ That `BOARD_URL` has two hard prerequisites — get these wrong and nothing casts.**
+> **⚠️ Casting's `BOARD_URL` has two hard prerequisites — get these wrong and nothing casts.**
 > 1. **A valid HTTPS cert on a real domain.** Cast displays and Nest speakers **silently
 >    refuse** plain HTTP or self-signed certs — so the board must be served over TLS with
 >    a trusted cert, even though everything runs on your own LAN.
