@@ -180,27 +180,17 @@ fill it in — it marks which variables are required:
 > You don't have to expose the app to the internet for either. Full walkthrough, including
 > a no-open-ports method: **[docs/https-lan.md](docs/https-lan.md)**.
 
-Then kick off the one-time setup with a single command. On the machine running the
-container:
+Then run the one-time setup (from the machine running the container; use the host's IP
+instead of `localhost` if you're on another computer):
 
     curl -X POST http://localhost:8000/api/bootstrap
 
-(Running that command from a *different* computer? Swap `localhost` for the host
-machine's IP address, e.g. `http://192.168.1.10:8000/api/bootstrap`.)
+This syncs your library, scores tracks, builds tiers and cuts clips in the background —
+**hours** on a big library, so leave it running. Rerun the same command if it stops (it
+resumes). It's ready when `http://localhost:8000/health` shows `"ready_to_play": true` —
+then phones open `http://localhost:8000` to join and the board is at `/board`.
 
-That one call does everything in the background — syncs your library, scores tracks
-with Last.fm, sorts them into difficulty tiers, and cuts the clips. On a big library
-it can take **hours** (it downloads and trims a snippet of every track), so just leave
-it running. To check how it's going, open **`http://localhost:8000/health`** in a
-browser: when it shows `"ready_to_play": true`, you're good to play. If it ever stops
-partway (a restart, a Last.fm blip), run the exact same command again — it resumes
-where it left off.
-
-When it's ready: **phones open `http://localhost:8000`** (or the host IP) to join, and
-the board lives at `/board`.
-
-> **Advanced:** the individual steps are also exposed as endpoints, so you can run them
-> on a nightly schedule instead of one big bootstrap: `POST /api/sync`,
+> **Advanced:** run the steps individually for nightly scheduling — `POST /api/sync`,
 > `/api/score/lastfm`, `/api/score/tiers`, `/api/clips/cut`.
 
 **Bootstrapping the clips:** with `CLIP_SWEEP_ON_START=true`, every container start
