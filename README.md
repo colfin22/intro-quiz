@@ -130,17 +130,8 @@ subscriptions.
 a cast display / Android TV, **or** Home Assistant + Music Assistant for a
 speaker. With neither, the game is silent and unplayable — the clips have to
 play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
-
-> **⚠️ Casting has two hard prerequisites — get these wrong and nothing casts.**
-> 1. **A valid HTTPS cert on a real domain.** Cast displays and Nest speakers **silently
->    refuse** plain HTTP or self-signed certs — so the board must be served over TLS with
->    a trusted cert, even though everything runs on your own LAN.
-> 2. **The domain must resolve on *public* DNS.** Google Cast devices **hard-code Google's
->    DNS (8.8.8.8)** and ignore your router/Pi-hole, so a purely-internal name won't work —
->    the name has to resolve externally (pointed at your LAN IP is fine).
->
-> You don't have to expose the app to the internet for either. Full walkthrough, including
-> a no-open-ports method: **[docs/https-lan.md](docs/https-lan.md)**.
+**If you're casting, read the ⚠️ box below first — the `BOARD_URL` has two hard
+prerequisites that catch everyone.**
 
     docker compose up -d --build
 
@@ -177,6 +168,17 @@ fill it in — it marks which variables are required:
     # first install: cut clips for the WHOLE library in one long session at startup
     CLIP_SWEEP_ON_START=true
     CLIP_SWEEP_MAX_HOURS=8    # optional cap per session (0/unset = run until done)
+
+> **⚠️ That `BOARD_URL` has two hard prerequisites — get these wrong and nothing casts.**
+> 1. **A valid HTTPS cert on a real domain.** Cast displays and Nest speakers **silently
+>    refuse** plain HTTP or self-signed certs — so the board must be served over TLS with
+>    a trusted cert, even though everything runs on your own LAN.
+> 2. **The domain must resolve on *public* DNS.** Google Cast devices **hard-code Google's
+>    DNS (8.8.8.8)** and ignore your router/Pi-hole, so a purely-internal name won't work —
+>    it has to resolve externally (pointed at your LAN IP is fine).
+>
+> You don't have to expose the app to the internet for either. Full walkthrough, including
+> a no-open-ports method: **[docs/https-lan.md](docs/https-lan.md)**.
 
 Then one call does the whole first-time setup:
 
