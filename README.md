@@ -131,13 +131,10 @@ a cast display / Android TV, **or** Home Assistant + Music Assistant for a
 speaker. With neither, the game is silent and unplayable — the clips have to
 play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
 
-> **⚠️ Casting requires HTTPS — this is the one thing everyone trips on.** Chromecast /
-> Android TV displays *and* Google/Nest speakers fetch the board and clip audio over
-> TLS and **silently refuse** plain HTTP or a self-signed cert. So getting casting to
-> work at all means putting the app behind a reverse proxy with a **valid certificate
-> on a real domain** — even though everything runs on your own LAN. You don't have to
-> expose anything to the internet to do it. **[docs/https-lan.md](docs/https-lan.md)**
-> walks through it end to end, including a method that opens no ports.
+> **⚠️ Casting requires HTTPS — the one thing everyone trips on.** Cast displays and
+> Nest speakers **silently refuse** plain HTTP or self-signed certs, so casting needs a
+> **valid cert on a real domain**, even on your own LAN. No internet exposure needed —
+> **[docs/https-lan.md](docs/https-lan.md)** walks through it, including a no-open-ports method.
 
     docker compose up -d --build
 
@@ -226,14 +223,8 @@ seeded automatically at the next game start. Full format, rules and a copy-paste
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
   table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
   (rows of `{"id", "play_count", "starred"}` summed across your users).
-- The board URL must be HTTPS with a **valid** certificate — cast devices (displays
-  *and* speakers) fetch it over TLS and refuse plain HTTP or self-signed certs, so put
-  the app behind a reverse proxy (with websocket support) on a real domain. The cast
-  device must also be able to **reach and resolve** that URL: a Google/Nest speaker, for
-  example, uses its own DNS and fetches the clip itself, so a LAN-only address it can't
-  resolve won't play. **[docs/https-lan.md](docs/https-lan.md)** is a step-by-step guide
-  to getting a trusted cert on a home network (including without opening any ports) and
-  making the name resolve for both displays and speakers.
+- The board URL must be HTTPS with a **valid** cert and must resolve for the cast device
+  itself (Google devices use their own DNS) — full setup in **[docs/https-lan.md](docs/https-lan.md)**.
 - Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
   phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
 - The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
