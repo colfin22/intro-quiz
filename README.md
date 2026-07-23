@@ -185,40 +185,16 @@ instead of `localhost` if you're on another computer):
 
     curl -X POST http://localhost:8000/api/bootstrap
 
-This syncs your library, scores tracks, builds tiers and cuts clips in the background —
-**hours** on a big library, so leave it running. Rerun the same command if it stops (it
-resumes). It's ready when `http://localhost:8000/health` shows `"ready_to_play": true` —
-then phones open `http://localhost:8000` to join and the board is at `/board`.
+This does everything in one call — sync, Last.fm scoring, difficulty tiers, then clip
+cutting — in the background. Clip cutting is the long part (**hours** on a big library,
+bottlenecked on the Navidrome download), so leave it running; rerun the command if it
+stops and it picks up where it left off. It's ready when `http://localhost:8000/health`
+shows `"ready_to_play": true` — then phones open `http://localhost:8000` to join and the
+board is at `/board`.
 
-> **Advanced:** run the steps individually for nightly scheduling — `POST /api/sync`,
-> `/api/score/lastfm`, `/api/score/tiers`, `/api/clips/cut`.
-
-**Bootstrapping the clips:** with `CLIP_SWEEP_ON_START=true`, every container start
-cuts clips in the background (batch by batch in `docker logs`) until every *tiered*
-track has them — hours for a big library, bottlenecked on the Navidrome download, not
-ffmpeg. Run sync → scoring → tiers first, then `docker compose restart`. Safe to leave
-on permanently: a start with nothing to cut exits immediately, newly-scored tracks get
-swept up next restart, and it backs off if Navidrome is unreachable. `CLIP_SWEEP_MAX_HOURS=8`
-caps a session (finishing the batch in hand); the next restart resumes where it left off.
-
-The Navidrome user needs the standard Subsonic permissions plus **download and
-streaming enabled** — the clip cutter pulls originals via `download` and falls
-back to `stream` (server transcode) for undecodable files. A default non-admin
-user works on stock Navidrome; if clip cutting 403s, check those two toggles
-on the user.
-
-Clips land in `CLIPS_DIR` (container path `/clips`; the host side defaults to
-`./clips` next to the compose file — set `CLIPS_HOST_DIR` in `.env` to put them
-somewhere roomier, e.g. `/mnt/tank/clips` or `C:\quiz-clips`). As a real-world
-sizing example: a
-**565 GB / ~40,000-track library** cuts down to roughly **80 GB of clips**
-(~2 MB per track — four loudness-normalised MP3s each).
-
-**Windows?** Yes — anywhere Docker runs, including Docker Desktop (WSL2).
-Set `CLIPS_HOST_DIR=C:\quiz-clips` in `.env` (or keep the default `./clips`),
-and allow port 8000 through Windows Firewall so the phones can reach it. Casting still works from Docker Desktop because displays
-are addressed by IP (`DISPLAYS=...`) — no mDNS discovery needed. Navidrome and
-the optional Home Assistant bits can live anywhere on the network.
+That's the whole happy path. For the rest — ongoing clip-cutting, running the setup
+stages individually, Navidrome user permissions, clip storage and sizing, and Windows —
+see **[docs/setup.md](docs/setup.md)**.
 
 ## Make your own trivia pack
 
