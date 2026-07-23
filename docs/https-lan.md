@@ -66,7 +66,10 @@ list and paste its credentials. Renewals are automatic and never need a port ope
 
 HTTP-01 is the simplest to configure, but it needs **port 80 forwarded from the
 internet** to your box — an exposure a LAN-only game doesn't otherwise need, so
-prefer DNS-01 above. It's only worth it if you're already exposing the machine.
+prefer DNS-01 above. That said, the port only has to be open **while the cert is
+issued**: forward it, get the cert, then close it again. Let's Encrypt certs last 90
+days, so you'll need to reopen it briefly at each renewal (or just switch to DNS-01
+and never touch a port). Worth it mainly if you're already exposing the machine.
 
 Point your domain's public DNS `A` record at your router, forward ports **80 and
 443** to the machine running the proxy, and Caddy fetches and renews the cert on its
