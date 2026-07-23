@@ -223,7 +223,9 @@ seeded automatically at the next game start. Full format, rules and a copy-paste
   the app behind a reverse proxy (with websocket support) on a real domain. The cast
   device must also be able to **reach and resolve** that URL: a Google/Nest speaker, for
   example, uses its own DNS and fetches the clip itself, so a LAN-only address it can't
-  resolve won't play.
+  resolve won't play. **[docs/https-lan.md](docs/https-lan.md)** is a step-by-step guide
+  to getting a trusted cert on a home network (including without opening any ports) and
+  making the name resolve for both displays and speakers.
 - Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
   phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
 - The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
