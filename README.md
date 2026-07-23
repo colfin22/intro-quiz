@@ -131,10 +131,16 @@ a cast display / Android TV, **or** Home Assistant + Music Assistant for a
 speaker. With neither, the game is silent and unplayable — the clips have to
 play *somewhere*. (Running outside Docker? Python 3.12+ and ffmpeg required.)
 
-> **⚠️ Casting requires HTTPS — the one thing everyone trips on.** Cast displays and
-> Nest speakers **silently refuse** plain HTTP or self-signed certs, so casting needs a
-> **valid cert on a real domain**, even on your own LAN. No internet exposure needed —
-> **[docs/https-lan.md](docs/https-lan.md)** walks through it, including a no-open-ports method.
+> **⚠️ Casting has two hard prerequisites — get these wrong and nothing casts.**
+> 1. **A valid HTTPS cert on a real domain.** Cast displays and Nest speakers **silently
+>    refuse** plain HTTP or self-signed certs — so the board must be served over TLS with
+>    a trusted cert, even though everything runs on your own LAN.
+> 2. **The domain must resolve on *public* DNS.** Google Cast devices **hard-code Google's
+>    DNS (8.8.8.8)** and ignore your router/Pi-hole, so a purely-internal name won't work —
+>    the name has to resolve externally (pointed at your LAN IP is fine).
+>
+> You don't have to expose the app to the internet for either. Full walkthrough, including
+> a no-open-ports method: **[docs/https-lan.md](docs/https-lan.md)**.
 
     docker compose up -d --build
 
@@ -223,8 +229,6 @@ seeded automatically at the next game start. Full format, rules and a copy-paste
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
   table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
   (rows of `{"id", "play_count", "starred"}` summed across your users).
-- The board URL must be HTTPS with a **valid** cert and must resolve for the cast device
-  itself (Google devices use their own DNS) — full setup in **[docs/https-lan.md](docs/https-lan.md)**.
 - Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
   phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
 - The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
