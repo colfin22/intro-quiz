@@ -140,8 +140,6 @@ release — `docker compose pull && docker compose up -d` grabs them from
 Copy [`.env.example`](.env.example) to `.env` and fill in the required values — the file
 is self-documenting and grouped into required / audio-output / optional. You'll set a
 Navidrome server + a **non-admin** user, your Last.fm key, and at least one audio output.
-(The app only touches Navidrome through that read-only Subsonic login — it never modifies
-your music files.)
 
 > **⚠️ Casting's `BOARD_URL` has two hard prerequisites — get these wrong and nothing casts.**
 > 1. **A valid HTTPS cert on a real domain.** Cast displays and Nest speakers **silently

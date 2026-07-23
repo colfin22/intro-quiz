@@ -52,8 +52,8 @@ next to the compose file). Set `CLIPS_HOST_DIR` in `.env` to put them somewhere 
 e.g. `/mnt/tank/clips` or `C:\quiz-clips`.
 
 As a real-world sizing example, a **565 GB / ~40,000-track library** cuts down to roughly
-**80 GB of clips** — about **2 MB per track** (four loudness-normalised MP3s each, one per
-answer button so the right clip is already local when a question is picked).
+**80 GB of clips** — about **2 MB per track** (four loudness-normalised MP3s each: the
+5s / 10s / 20s intro clips plus a payoff snippet).
 
 ## Windows
 
