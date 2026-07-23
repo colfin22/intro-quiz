@@ -198,8 +198,7 @@ seeded automatically at the next game start. Full format, rules and a copy-paste
 
 Planned, roughly in priority order:
 
-- **Better classical-music decoys** *(current priority)* — composer-aware decoys and title de-templating so classical libraries stop producing near-identical options ([#9](https://github.com/colfin22/intro-quiz/issues/9)).
-- **Hear more after the reveal** *(next)* — once everyone's guessed, optionally play a longer snippet or the whole song, with playback controls to keep it going ([#44](https://github.com/colfin22/intro-quiz/issues/44)).
+- **Hear more after the reveal** *(current priority)* — once everyone's guessed, optionally play a longer snippet or the whole song, with playback controls to keep it going ([#44](https://github.com/colfin22/intro-quiz/issues/44)).
 
 Recently shipped:
 
