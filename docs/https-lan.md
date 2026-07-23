@@ -21,38 +21,18 @@ You need three things:
    [Nginx Proxy Manager](https://nginxproxymanager.com/) (web UI) and Traefik all work.
 3. **A cert**, via Let's Encrypt — two ways, below. Pick by whether you're happy
    to forward a port:
-   - **HTTP-01** — simplest if you can forward port 80. One-time validation over port 80.
-   - **DNS-01** — opens **no ports at all**; validates through your DNS provider.
-     Best for a purely-internal box, and the only option if your ISP blocks port 80.
+   - **DNS-01** *(recommended)* — opens **no ports at all**; validates through your
+     DNS provider. Best for a purely-internal box, and the only option if your ISP
+     blocks port 80.
+   - **HTTP-01** *(not recommended)* — simplest to configure, but needs port 80
+     forwarded from the internet to your box, which you don't otherwise need for a
+     LAN-only game. Only worth it if you're already exposing the machine.
 
 ---
 
 ## Step 1 — get the certificate
 
-### HTTP-01 — if you're happy to forward port 80
-
-If your ISP lets you forward **port 80**, this is all automatic. Point your
-domain's public DNS `A` record at your router, forward ports **80 and 443** to the
-machine running the proxy, and the proxy fetches and renews the cert on its own.
-Let's Encrypt validates by making a one-off request to your server on port 80.
-
-A complete Caddy config is two lines:
-
-```caddy
-quiz.example.com {
-    reverse_proxy localhost:8000
-}
-```
-
-Caddy grabs the cert, renews it, and proxies WebSockets automatically. (Nginx
-Proxy Manager: add a Proxy Host → forward to the app's `host:8000`, tick **Block
-Common Exploits** and **Websockets Support**, then the SSL tab → *Request a new
-certificate* with *Force SSL*.)
-
-Once issued, you don't have to keep port 80 open for day-to-day play — only
-443, and only if you want off-LAN access. See Step 2 for keeping it LAN-only.
-
-### DNS-01 — no ports opened
+### DNS-01 — no ports opened *(recommended)*
 
 With a **DNS-01** challenge the proxy proves you own the domain by creating a
 temporary `TXT` record via your DNS provider's API — so **nothing needs to be
@@ -81,6 +61,27 @@ For another provider you'd use its plugin name and its own credentials (e.g.
 provider's Caddy DNS module for the exact directive. Nginx Proxy Manager wraps all
 of this in its UI: SSL tab → *Use a DNS Challenge* → pick your provider from the
 list and paste its credentials. Renewals are automatic and never need a port open.
+
+### HTTP-01 — forwards port 80 *(not recommended)*
+
+HTTP-01 is the simplest to configure, but it needs **port 80 forwarded from the
+internet** to your box — an exposure a LAN-only game doesn't otherwise need, so
+prefer DNS-01 above. It's only worth it if you're already exposing the machine.
+
+Point your domain's public DNS `A` record at your router, forward ports **80 and
+443** to the machine running the proxy, and Caddy fetches and renews the cert on its
+own (Let's Encrypt validates with a one-off request to your server on port 80). The
+config is just two lines — no `tls` block needed:
+
+```caddy
+quiz.example.com {
+    reverse_proxy localhost:8000
+}
+```
+
+(Nginx Proxy Manager: add a Proxy Host → forward to the app's `host:8000`, tick
+**Websockets Support**, then the SSL tab → *Request a new certificate* with *Force
+SSL*.) Once issued you only need port 443 open, and only if you want off-LAN access.
 
 ---
 
