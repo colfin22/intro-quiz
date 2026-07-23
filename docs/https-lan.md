@@ -91,7 +91,16 @@ SSL*.) Once issued you only need port 443 open, and only if you want off-LAN acc
 ## Step 2 — make the name resolve on your LAN
 
 A public cert isn't enough: the phones **and** the cast devices have to resolve
-`quiz.example.com` to the machine on your network. Two approaches.
+`quiz.example.com` to the machine on your network.
+
+> **Google Cast makes this harder on purpose.** Chromecasts and Nest speakers/displays
+> **hard-code Google's own DNS (8.8.8.8)** and ignore the resolver your DHCP hands out —
+> so a **Pi-hole or router local-DNS override simply won't reach them**. Whatever name
+> you use for casting has to resolve on **public/external DNS**; you can't keep it purely
+> internal. (Some routers can force-redirect outbound port-53 traffic to your local DNS,
+> but that's fragile and Cast increasingly uses DNS-over-HTTPS, so don't rely on it.)
+
+Two approaches, given that constraint:
 
 **Simplest — point the public DNS record at the LAN IP.** Set the public `A`
 record for `quiz.example.com` straight to the app's private address, e.g.
@@ -104,10 +113,12 @@ the option that reliably works with speakers.
 **Cleaner — split-horizon DNS.** If you run local DNS (Pi-hole, your router's
 local-DNS feature, etc.), override `quiz.example.com` → LAN IP internally while the
 public record points elsewhere (or nowhere). This keeps your internal IP out of
-public DNS. **Caveat:** Google/Nest speakers query external DNS directly, so a
-split-horizon-only name won't resolve for **speaker** casting — for speakers you
-still need the name resolvable publicly (i.e. the first approach). Split-horizon is
-fine if you only ever cast to displays.
+public DNS. **But because of the hard-coded-DNS problem above, split-horizon only
+works for casting if the Cast device is happy to use it** — and Chromecasts/Nest
+devices are not: they'll fetch over 8.8.8.8 and get whatever your *public* record
+says. So split-horizon suits the **phones**, but for the **cast devices** you still
+need the name to resolve publicly (the first approach). Use split-horizon only if
+you never cast to a Google device.
 
 ---
 
