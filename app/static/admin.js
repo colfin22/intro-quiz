@@ -6,6 +6,7 @@
 const ACTIONS = ["sync", "lastfm", "tiers", "clips", "quality", "bootstrap"];
 let adminState = null;   // last /api/admin/status payload
 let statsState = null;   // last /api/stats payload
+let healthState = null;  // last /health payload (ready_to_play, playable, version)
 let pollTimer = 0;
 
 function token() { return localStorage.getItem("adminToken") || ""; }
@@ -121,11 +122,20 @@ function renderGame(g) {
 }
 
 function renderStats() {
+  if (healthState) {
+    const ready = healthState.ready_to_play;
+    const chip = document.getElementById("ready-chip");
+    chip.textContent = ready ? "● ready to play" : "● not ready to play";
+    chip.style.color = ready ? "var(--good)" : "var(--bad)";
+    document.getElementById("app-version").textContent = `v${healthState.version || "?"}`;
+  }
   if (!statsState) return;
   const tiers = {};
   for (const t of statsState.tiered || []) tiers[t.tier] = t.c;
+  const playable = healthState ? `<span>playable <b>${(healthState.tracks_playable || 0).toLocaleString()}</b></span>` : "";
   document.getElementById("stats-row").innerHTML =
     `<span>tracks <b>${(statsState.tracks_active || 0).toLocaleString()}</b></span>` +
+    playable +
     `<span>easy <b>${(tiers.easy || 0).toLocaleString()}</b></span>` +
     `<span>medium <b>${(tiers.medium || 0).toLocaleString()}</b></span>` +
     `<span>hard <b>${(tiers.hard || 0).toLocaleString()}</b></span>` +
@@ -165,6 +175,7 @@ async function refresh() {
     if (!r.ok) { err(`status failed (${r.status})`); return; }
     adminState = await r.json();
     try { statsState = await (await fetch("/api/stats")).json(); } catch (e) { /* stats are decoration */ }
+    try { healthState = await (await fetch("/health")).json(); } catch (e) { /* likewise */ }
     render();
   } catch (e) { err(e.message); }
   // poll faster while something is running

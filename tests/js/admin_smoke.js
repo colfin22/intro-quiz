@@ -53,6 +53,7 @@ const snapshots = [
 const scenario = `
 statsState = { tracks_active: 47540, with_family_score: 884,
                tiered: [{tier:"easy",c:232},{tier:"medium",c:12470},{tier:"hard",c:15307}] };
+healthState = { ready_to_play: true, tracks_playable: 12583, version: "1.21.0" };
 for (const snap of ${JSON.stringify(snapshots)}) {
   adminState = snap;
   try { render(); } catch (e) { console.log("RENDER THREW:", e.message); failures++; }
@@ -82,6 +83,16 @@ if (document.getElementById("run-lastfm").disabled) {
 adminState = ${JSON.stringify(snapshots[0])}; render();
 if (!document.getElementById("game-controls").hidden) {
   console.log("game controls visible with no game"); failures++; }
+// health chip + version + playable count
+if (!/ready to play/.test(document.getElementById("ready-chip").textContent)) {
+  console.log("ready chip missing:", document.getElementById("ready-chip").textContent); failures++; }
+if (!/1\\.21\\.0/.test(document.getElementById("app-version").textContent)) {
+  console.log("version missing"); failures++; }
+if (!/playable/.test(document.getElementById("stats-row").innerHTML)) {
+  console.log("playable count missing from stats row"); failures++; }
+healthState = { ready_to_play: false, tracks_playable: 0, version: "1.21.0" }; render();
+if (!/not ready/.test(document.getElementById("ready-chip").textContent)) {
+  console.log("not-ready state missing"); failures++; }
 `;
 eval(src.replace(/^refresh\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }
