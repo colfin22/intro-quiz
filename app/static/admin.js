@@ -183,8 +183,25 @@ async function copyPrompt() {
     const r = await call(`/api/admin/trivia/prompt?region=${region}&facts=${facts}&tf=${tf}`);
     if (!r.ok) { err(`prompt failed (${r.status})`); return; }
     const p = (await r.json()).prompt;
-    try { await navigator.clipboard.writeText(p); err("prompt copied — paste it to your LLM"); }
-    catch (e) { prompt("Copy this:", p); }  // clipboard needs https; fall back
+    let copied = false;
+    try { await navigator.clipboard.writeText(p); copied = true; }
+    catch (e) { /* clipboard API needs a secure (https) page */ }
+    if (!copied) {
+      // plain-http fallback: a hidden textarea + execCommand keeps the newlines
+      // (window.prompt is single-line and silently mangled the text)
+      const ta = document.createElement("textarea");
+      ta.value = p;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { copied = document.execCommand("copy"); } catch (e) { /* fall through */ }
+      ta.remove();
+    }
+    if (copied) err("prompt copied — paste it to your LLM");
+    else {  // last resort: show it in the import box to copy by hand
+      document.getElementById("import-text").value = p;
+      err("couldn't reach the clipboard — prompt placed in the box below, copy it from there");
+    }
   } catch (e) { err(e.message); }
 }
 
