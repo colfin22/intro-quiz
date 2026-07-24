@@ -444,4 +444,39 @@ if (!myName) {
   }).catch(() => {});
 }
 
+// invite others without the TV: a scan-to-join QR + shareable link in the lobby.
+// Uses the same server resolver as the board's QR (honours JOIN_URL / BOARD_URL).
+// Guarded on `location` so the node render-smoke (which has no global location)
+// skips it cleanly rather than throwing at module load.
+let joinUrl = "";
+(function initInvite() {
+  if (typeof location === "undefined" || !location.origin) return;
+  joinUrl = location.origin;
+  const qs = "?url=" + encodeURIComponent(location.origin);
+  const img = document.getElementById("join-qr");
+  if (img) {
+    img.onload = () => { img.hidden = false; };
+    img.onerror = () => { img.hidden = true; };
+    img.src = "/api/join-qr.svg" + qs;
+  }
+  const urlEl = document.getElementById("join-url");
+  fetch("/api/join-url" + qs).then(r => r.json())
+    .then(d => { joinUrl = d.url || location.origin;
+                 if (urlEl) urlEl.textContent = joinUrl.replace(/^https?:\/\//, ""); })
+    .catch(() => { if (urlEl) urlEl.textContent = location.origin.replace(/^https?:\/\//, ""); });
+})();
+
+function shareJoin() {
+  const url = joinUrl || location.origin;
+  const link = document.getElementById("join-share");
+  if (navigator.share) { navigator.share({ title: "Intro Quiz", text: "Join the quiz", url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      if (link) { link.textContent = "✅ Link copied"; setTimeout(() => { link.textContent = "🔗 Share the link"; }, 2000); }
+    }).catch(() => {});
+  } else if (link) {
+    link.textContent = url;  // no share/clipboard API — just show it to read out
+  }
+}
+
 connect();

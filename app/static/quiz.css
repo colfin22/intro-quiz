@@ -34,3 +34,8 @@ img.art { width:100%; max-width:340px; border-radius:14px; display:block; margin
 .wall { display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0; max-height:40vh; overflow-y:auto; }
 .wall button { width:auto; flex:0 0 auto; padding:.5rem .8rem; font-size:.95rem; margin:0; }
 .wall button.sel { background:var(--accent); color:#000; font-weight:700; }
+/* invite-others QR in the lobby — white field so the dark-module code scans */
+.invite { margin-top:1rem; padding-top:.8rem; border-top:1px solid #2a3140; }
+.qr { display:block; width:170px; max-width:60%; height:auto; background:#fff;
+      border-radius:12px; padding:10px; margin:.5rem auto; }
+.join-url { font-family:ui-monospace,monospace; word-break:break-all; margin-top:.2rem; }

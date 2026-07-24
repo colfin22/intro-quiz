@@ -19,3 +19,8 @@ CLIP_SWEEP_MAX_HOURS = float(os.environ.get("CLIP_SWEEP_MAX_HOURS", "0") or 0)
 # password sent as X-Admin-Token. UNSET = open (LAN-trust, as ever) so existing
 # cron/curl setups keep working; set it and they need the header too.
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+# the address phones open to join — encoded into the board's "scan to join" QR.
+# UNSET = inferred (from the board's own origin, then BOARD_URL, then the request
+# host); only set it if that guess is wrong, e.g. behind a reverse proxy on a
+# different host than the board is cast from.
+JOIN_URL = os.environ.get("JOIN_URL", "").rstrip("/")

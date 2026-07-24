@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import logging
 import os
@@ -6,6 +7,7 @@ import shutil
 import time
 
 import httpx
+import segno
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -921,6 +923,43 @@ def api_round_audio(kind: str = "5"):
         return Response(status_code=404)
     return FileResponse(path, media_type="audio/mpeg",
                         headers={"Cache-Control": "no-store"})
+
+
+def _resolve_join_url(request: Request, url: str | None) -> str:
+    """The address a phone should open to join, for the board's scan-to-join QR.
+
+    Order of trust: an explicit JOIN_URL override; then the board's own origin
+    (?url=, which is exactly how the board was actually reached); then BOARD_URL
+    minus its /board suffix; finally the incoming request's own base.
+    """
+    if config.JOIN_URL:
+        return config.JOIN_URL
+    if url and url.startswith(("http://", "https://")):
+        return url.rstrip("/")
+    if board_cast.BOARD_URL:
+        base = board_cast.BOARD_URL
+        if base.endswith("/board"):
+            base = base[: -len("/board")]
+        return base.rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
+@app.get("/api/join-url")
+def api_join_url(request: Request, url: str | None = None):
+    """The resolved join address as text, so the board's caption matches its QR."""
+    return {"url": _resolve_join_url(request, url)}
+
+
+@app.get("/api/join-qr.svg")
+def api_join_qr(request: Request, url: str | None = None):
+    """An SVG QR of the join address for the cast board's 'scan to join' screen."""
+    qr = segno.make(_resolve_join_url(request, url), error="m")
+    buff = io.BytesIO()
+    # dark modules on an explicit white field (+ quiet-zone border) so it scans
+    # against the board's dark theme; CSS sizes it, so intrinsic scale is nominal.
+    qr.save(buff, kind="svg", scale=6, border=2, dark="#000000", light="#ffffff")
+    return Response(content=buff.getvalue(), media_type="image/svg+xml",
+                    headers={"Cache-Control": "no-store"})
 
 
 KNOWN_PLAYERS = {}  # ip -> name, from env "Name=ip,Name=ip"
