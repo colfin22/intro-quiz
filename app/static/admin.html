@@ -52,18 +52,6 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
   <div class="stats" id="stats-row"><span class="dim">loading…</span></div>
 </div>
 
-<h2>Trivia &amp; leaderboard</h2>
-<div class="card">
-  <div class="stats" id="trivia-row"><span class="dim">loading…</span></div>
-  <div class="row" style="margin-top:.8rem">
-    <div class="dim" id="leaderboard-info"></div>
-    <button class="warn" id="trivia-reset-btn" onclick="resetTrivia()">Reset trivia usage</button>
-  </div>
-  <div class="row" style="margin-top:.5rem">
-    <div class="dim">All-time scores, every game ever played</div>
-    <button class="warn" id="leaderboard-wipe-btn" onclick="wipeLeaderboard()">Wipe leaderboard</button>
-  </div>
-</div>
 
 <div class="card" id="card-sync">
   <div class="row">
@@ -117,6 +105,19 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
   </div>
   <div class="status" id="status-bootstrap">no runs since restart</div>
   <details id="logwrap-bootstrap" hidden><summary>run output</summary><pre class="log" id="log-bootstrap"></pre></details>
+</div>
+
+<h2>Trivia &amp; leaderboard</h2>
+<div class="card">
+  <div class="stats" id="trivia-row"><span class="dim">loading…</span></div>
+  <div class="row" style="margin-top:.8rem">
+    <div class="dim" id="leaderboard-info"></div>
+    <button class="warn" id="trivia-reset-btn" onclick="resetTrivia()">Reset trivia usage</button>
+  </div>
+  <div class="row" style="margin-top:.5rem">
+    <div class="dim">All-time scores, every game ever played</div>
+    <button class="warn" id="leaderboard-wipe-btn" onclick="wipeLeaderboard()">Wipe leaderboard</button>
+  </div>
 </div>
 </main>
 <script src="/static/admin.js"></script>
