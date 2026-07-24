@@ -210,9 +210,11 @@ game start. Full format and rules: **[docs/trivia-pack.md](docs/trivia-pack.md)*
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
   table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
   (rows of `{"id", "play_count", "starred"}` summed across your users).
-- Tests: `python -m pytest tests/` (includes a node-based smoke that renders every
-  phone-UI phase — a thrown render fails CI instead of shipping a half-drawn screen).
-- The all-time leaderboard can be wiped with `POST /api/leaderboard/reset?confirm=yes`.
+- Tests: `python -m pytest tests/` (includes node-based smokes that render every
+  phone-UI phase and the admin page — a thrown render fails CI instead of shipping
+  a half-drawn screen).
+- The all-time leaderboard can be wiped from the **Scores tab on `/admin`** (two
+  clicks), or with `POST /api/leaderboard/reset?confirm=yes`.
 - **Mis-tag detection:** junk in a track's *subtitle* tag ("Teenage Kicks (PMEDIA)")
   breaks Last.fm matching, so the track scores zero and never gets picked.
   `GET /api/quality` lists tracks scoring ~no listeners while their artist is clearly
@@ -232,6 +234,10 @@ Planned (roughly in priority order):
 
 Recently shipped:
 
+- **Server control page** — `/admin` runs the maintenance jobs from the browser with
+  live progress and error output, shows the running game (spoiler-safe) with
+  abandon/change-master controls, and imports localised LLM-drafted trivia with a
+  preview ([#52](https://github.com/colfin22/intro-quiz/issues/52), [#53](https://github.com/colfin22/intro-quiz/issues/53)).
 - **Pre-built Docker images** — multi-arch (amd64/arm64) images published to `ghcr.io/colfin22/intro-quiz` and Docker Hub on every release, so you can `docker compose pull` instead of building from source ([#33](https://github.com/colfin22/intro-quiz/issues/33)).
 - **Rock-solid casting** — fixed the mid-game board crashes on Chromecast/Shield. Clip audio is rebuilt on a single Web Audio context (a fresh `<audio>` per clip was exhausting the receiver's decoder), and a stray between-games quit no longer interrupts back-to-back games. No setup change — the same DashCast casting, now stable ([#32](https://github.com/colfin22/intro-quiz/issues/32), [#47](https://github.com/colfin22/intro-quiz/issues/47)).
 
