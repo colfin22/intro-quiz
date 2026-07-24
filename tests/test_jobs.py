@@ -139,3 +139,23 @@ def test_admin_smoke_js():
     r = subprocess.run(["node", os.path.join(root, "tests", "js", "admin_smoke.js")],
                        capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, f"admin smoke failed:\n{r.stdout}\n{r.stderr}"
+
+
+def test_trivia_stats_and_reset_semantics(tmp_path):
+    from app import db as adb, main
+    conn = adb.connect(str(tmp_path / "t.db"))
+    conn.executemany(
+        "INSERT INTO trivia(kind, text, answer, source, used_at) VALUES(?,?,?,'seed',?)",
+        [("fact", "f1", None, "2026-07-01"), ("fact", "f2", None, None),
+         ("tf", "q1", 1, "2026-07-02"), ("tf", "q2", 0, None), ("tf", "q3", 1, None)])
+    conn.commit()
+    s = main._trivia_stats(conn)
+    assert s["fact"] == {"total": 2, "played": 1, "left": 1}
+    assert s["tf"] == {"total": 3, "played": 1, "left": 2}
+    # the /admin reset: everything fresh, nothing deleted
+    n = conn.execute("UPDATE trivia SET used_at=NULL WHERE used_at IS NOT NULL").rowcount
+    conn.commit()
+    assert n == 2
+    s = main._trivia_stats(conn)
+    assert s["fact"]["left"] == 2 and s["tf"]["left"] == 3
+    assert s["fact"]["total"] == 2 and s["tf"]["total"] == 3

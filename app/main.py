@@ -741,9 +741,57 @@ def _admin_game_summary() -> dict:
     return out
 
 
+def _trivia_stats(conn) -> dict:
+    """Per-kind pool counts: total, played (picked at least once), left (fresh)."""
+    out = {}
+    for r in conn.execute(
+            "SELECT kind, COUNT(*) total, SUM(used_at IS NOT NULL) played "
+            "FROM trivia GROUP BY kind"):
+        out[r["kind"]] = {"total": r["total"], "played": r["played"] or 0,
+                          "left": r["total"] - (r["played"] or 0)}
+    return out
+
+
 @app.get("/api/admin/status", dependencies=ADMIN)
 def api_admin_status():
-    return {**jobs.status(), "game": _admin_game_summary()}
+    conn = db.connect()
+    try:
+        trivia_stats = _trivia_stats(conn)
+        games = conn.execute("SELECT COUNT(*) c FROM games").fetchone()["c"]
+    finally:
+        conn.close()
+    return {**jobs.status(), "game": _admin_game_summary(),
+            "trivia": trivia_stats, "leaderboard_games": games}
+
+
+@app.post("/api/admin/leaderboard/wipe", dependencies=ADMIN)
+def api_admin_leaderboard_wipe():
+    """Wipe the all-time leaderboard — the /admin button's confirm dialog is
+    the second click; same effect as /api/leaderboard/reset?confirm=yes."""
+    conn = db.connect()
+    try:
+        games = conn.execute("SELECT COUNT(*) c FROM games").fetchone()["c"]
+        conn.execute("DELETE FROM results")
+        conn.execute("DELETE FROM games")
+        conn.commit()
+        LOGGER.warning("leaderboard wiped from /admin (%d games)", games)
+        return {"reset": True, "games_removed": games}
+    finally:
+        conn.close()
+
+
+@app.post("/api/admin/trivia/reset", dependencies=ADMIN)
+def api_admin_trivia_reset():
+    """Mark every trivia item fresh again — facts and T/F both re-enter the
+    pick pool as never-used. Nothing is deleted."""
+    conn = db.connect()
+    try:
+        n = conn.execute("UPDATE trivia SET used_at=NULL WHERE used_at IS NOT NULL").rowcount
+        conn.commit()
+        LOGGER.warning("trivia usage reset from /admin (%d items marked fresh)", n)
+        return {"reset": True, "marked_fresh": n}
+    finally:
+        conn.close()
 
 
 @app.post("/api/admin/run/{name}", dependencies=ADMIN)

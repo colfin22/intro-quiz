@@ -34,7 +34,10 @@ const job = (over) => Object.assign({ running: false, stage: "done", started_at:
                                       log: ["10:00:00 INFO did things"] }, over);
 const snapshots = [
   // fresh boot: no jobs, no game
-  { current: null, jobs: {}, game: { phase: "idle" } },
+  { current: null, jobs: {}, game: { phase: "idle" },
+    trivia: { fact: { total: 180, played: 42, left: 138 },
+              tf: { total: 215, played: 60, left: 155 } },
+    leaderboard_games: 12 },
   // one running with progress + a game mid-question
   { current: "clips",
     jobs: { clips: job({ running: true, stage: "cutting — 61 remaining", finished_at: null }),
@@ -93,6 +96,16 @@ if (!/playable/.test(document.getElementById("stats-row").innerHTML)) {
 healthState = { ready_to_play: false, tracks_playable: 0, version: "1.21.0" }; render();
 if (!/not ready/.test(document.getElementById("ready-chip").textContent)) {
   console.log("not-ready state missing"); failures++; }
+// trivia stats + wipe controls (snapshot 0 carries trivia + leaderboard_games)
+adminState = ${JSON.stringify(snapshots[0])}; render();
+const trow = document.getElementById("trivia-row").innerHTML;
+if (!/facts/.test(trow) || !/138/.test(trow) || !/true\\/false/.test(trow) || !/155/.test(trow)) {
+  console.log("trivia stats wrong:", trow); failures++; }
+if (!/12 games/.test(document.getElementById("leaderboard-wipe-btn").textContent)) {
+  console.log("leaderboard game count missing"); failures++; }
+// missing trivia payload must not throw and renders zeros
+adminState = { current: null, jobs: {}, game: { phase: "idle" } };
+try { render(); } catch (e) { console.log("render threw without trivia:", e.message); failures++; }
 `;
 eval(src.replace(/^refresh\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }

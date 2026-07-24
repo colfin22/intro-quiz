@@ -81,6 +81,21 @@ function render() {
   }
   renderGame(adminState.game || { phase: "idle" });
   renderStats();
+  renderTrivia();
+}
+
+function renderTrivia() {
+  const tr = adminState.trivia || {};
+  const part = (label, d) => d
+    ? `<span>${label} <b>${d.total.toLocaleString()}</b> · played <b>${d.played.toLocaleString()}</b> · left <b>${d.left.toLocaleString()}</b></span>`
+    : `<span>${label} <b>0</b></span>`;
+  document.getElementById("trivia-row").innerHTML =
+    part("facts", tr.fact) + part("true/false", tr.tf);
+  const games = adminState.leaderboard_games;
+  document.getElementById("leaderboard-info").textContent =
+    `Marks every fact and T/F fresh again (nothing is deleted)`;
+  document.getElementById("leaderboard-wipe-btn").textContent =
+    `Wipe leaderboard${typeof games === "number" ? ` (${games} games)` : ""}`;
 }
 
 function renderGame(g) {
@@ -147,6 +162,26 @@ async function runAction(name) {
     const r = await call(`/api/admin/run/${name}`, { method: "POST" });
     if (r.status === 409) { err((await r.json()).detail || "busy"); return; }
     if (!r.ok) { err(`start failed (${r.status})`); return; }
+    await refresh();
+  } catch (e) { err(e.message); }
+}
+
+async function resetTrivia() {
+  if (!confirm("Mark ALL trivia (facts + true/false) as never played?")) return;
+  try {
+    const r = await call("/api/admin/trivia/reset", { method: "POST" });
+    if (!r.ok) { err(`reset failed (${r.status})`); return; }
+    err(`trivia reset — ${(await r.json()).marked_fresh} items fresh again`);
+    await refresh();
+  } catch (e) { err(e.message); }
+}
+
+async function wipeLeaderboard() {
+  if (!confirm("Wipe the ALL-TIME leaderboard? Every game and score ever recorded is deleted. This cannot be undone.")) return;
+  try {
+    const r = await call("/api/admin/leaderboard/wipe", { method: "POST" });
+    if (!r.ok) { err(`wipe failed (${r.status})`); return; }
+    err(`leaderboard wiped — ${(await r.json()).games_removed} games removed`);
     await refresh();
   } catch (e) { err(e.message); }
 }
