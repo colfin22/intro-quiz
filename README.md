@@ -47,7 +47,9 @@ subscriptions.
 
 ## How a game works
 
-1. Everyone opens the app on their phone (a plain LAN web page) and joins with a name.
+1. Everyone joins on their phone — **scan the QR on the TV** (or open the app's
+   LAN address, a plain web page) and pick a name. Anyone already in can also
+   share the join link from their lobby screen.
    Whoever started the game is the **game master** — only their phone gets the
    start / next-song / half-time controls. A 🎤 banner on every phone shows who's
    in charge, and **the master's chair rotates each game**: the final screen
@@ -237,6 +239,11 @@ Planned (roughly in priority order):
 
 Recently shipped:
 
+- **Scan-to-join QR** — the TV board and phone lobby show a QR of the join address
+  (plus a share-link action), so players scan instead of typing a URL; optional
+  `JOIN_URL` override for reverse-proxy setups. Contributed by
+  [@Axeion](https://github.com/Axeion) — the project's first external PR
+  ([#54](https://github.com/colfin22/intro-quiz/pull/54)).
 - **Server control page** — `/admin` runs the maintenance jobs from the browser with
   live progress and error output, shows the running game (spoiler-safe) with
   abandon/change-master controls, and imports localised LLM-drafted trivia with a
