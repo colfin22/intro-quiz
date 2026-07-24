@@ -44,6 +44,15 @@ run's log output. Set `ADMIN_PASSWORD` in `.env` to password-gate it — once
 set, scheduled curls must send `-H "X-Admin-Token: $ADMIN_PASSWORD"` as well;
 left unset, everything stays LAN-open as before.
 
+## Scan-to-join QR
+
+The cast board's waiting/lobby screens (and the phone lobby) show a QR of the
+join address. The encoded address is inferred — the board's own origin, falling
+back to `BOARD_URL` — which is right for most setups. If your players should use
+a *different* address than the board (e.g. the board is served via a
+reverse-proxy hostname that guests can't reach), set `JOIN_URL` in `.env` to the
+address phones should open.
+
 ## Navidrome user permissions
 
 The Navidrome user needs the standard Subsonic permissions plus **download and streaming
