@@ -189,11 +189,17 @@ see **[docs/setup.md](docs/setup.md)**.
 
 ## Make your own trivia pack
 
-The shipped half-time pack is Irish/UK-centric. To localise it, drop a
-`trivia_custom.json` beside `quiz.db` (default `./data/`) — a flat JSON list of
-`{"kind":"fact","text":...}` and `{"kind":"tf","text":...,"answer":1|0}` items,
-seeded automatically at the next game start. Full format, rules and a copy-paste
-**LLM prompt** for drafting a regional pack: **[docs/trivia-pack.md](docs/trivia-pack.md)**.
+The shipped half-time pack is Irish/UK-centric. The easiest way to localise it is
+the **Trivia tab on `/admin`**: type your region, press **Copy prompt**, paste the
+prompt into ChatGPT (or any LLM), then paste its reply back into the import box —
+a preview shows what will be added (and flags anything malformed) before you
+commit. Imported items are played first, and duplicates are skipped, so you can
+keep topping up. Fact-check what an LLM writes before your family reads it out.
+
+Prefer a file? Drop a `trivia_custom.json` beside `quiz.db` (default `./data/`) —
+a flat JSON list of `{"kind":"fact","text":...}` and
+`{"kind":"tf","text":...,"answer":1|0}` items, seeded automatically at the next
+game start. Full format and rules: **[docs/trivia-pack.md](docs/trivia-pack.md)**.
 
 ## Notes
 
