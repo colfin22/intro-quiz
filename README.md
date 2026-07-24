@@ -27,6 +27,10 @@ subscriptions.
 > tools, if you choose to.
 
 <p align="center">
+  <img src="docs/screenshots/board-idle-qr.png" width="90%"
+       alt="The TV board waiting for a game — scan the guest-WiFi QR, then the join QR, and you're in">
+</p>
+<p align="center">
   <img src="docs/screenshots/board-question.png" width="90%"
        alt="The TV board mid-round — an animated wave and clip progress, no spoilers">
 </p>
