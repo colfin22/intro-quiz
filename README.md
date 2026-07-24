@@ -169,14 +169,16 @@ Navidrome server + a **non-admin** user, your Last.fm key, and at least one audi
 > You don't have to expose the app to the internet for either. Full walkthrough, including
 > a no-open-ports method: **[docs/https-lan.md](docs/https-lan.md)**.
 
-Then run the one-time setup (from the machine running the container; use the host's IP
-instead of `localhost` if you're on another computer):
+Then run the one-time setup: open the **server control page** at
+`http://localhost:8000/admin` (use the host's IP instead of `localhost` if you're on
+another computer) and press **Full pipeline** — you can watch the progress and any
+errors right on the page. Or do the same from a terminal:
 
     curl -X POST http://localhost:8000/api/bootstrap
 
-This does everything in one call — sync, Last.fm scoring, difficulty tiers, then clip
-cutting — in the background. Clip cutting is the long part (**hours** on a big library,
-bottlenecked on the Navidrome download), so leave it running; rerun the command if it
+Either way it does everything in one go — sync, Last.fm scoring, difficulty tiers, then
+clip cutting — in the background. Clip cutting is the long part (**hours** on a big
+library, bottlenecked on the Navidrome download), so leave it running; run it again if it
 stops and it picks up where it left off. It's ready when `http://localhost:8000/health`
 shows `"ready_to_play": true` — then phones open `http://localhost:8000` to join and the
 board is at `/board`.
