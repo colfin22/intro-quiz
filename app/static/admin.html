@@ -137,6 +137,12 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
     <input id="prompt-region" placeholder="Region, e.g. Canada" style="flex:1">
     <button id="copy-prompt-btn" onclick="copyPrompt()">Copy prompt</button>
   </div>
+  <div class="row" style="margin-top:.5rem">
+    <label class="dim" style="flex:1">facts
+      <input id="prompt-facts" type="number" value="60" min="1" max="500" style="width:5.5rem;margin-left:.4rem"></label>
+    <label class="dim" style="flex:1">true/false
+      <input id="prompt-tf" type="number" value="80" min="1" max="500" style="width:5.5rem;margin-left:.4rem"></label>
+  </div>
   <div class="dim" style="margin-top:.8rem">2 — paste its reply here (fences/chat text around the JSON are fine):</div>
   <textarea id="import-text" rows="6" style="width:100%;margin-top:.5rem;background:#0e1118;color:var(--fg);border:1px solid #333;border-radius:10px;padding:.7rem;font-size:.9rem"></textarea>
   <div class="row" style="margin-top:.5rem">

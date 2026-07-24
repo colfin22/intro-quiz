@@ -115,7 +115,7 @@ for (const t of ["game", "library", "trivia", "scores"]) {
   }
 }
 // import flow elements exist and preview handles a server reject without throwing
-for (const id of ["prompt-region", "copy-prompt-btn", "import-text", "import-result",
+for (const id of ["prompt-region", "prompt-facts", "prompt-tf", "copy-prompt-btn", "import-text", "import-result",
                   "import-preview-btn", "import-commit-btn"]) {
   document.getElementById(id);  // MISSING ELEMENT fires if absent
 }

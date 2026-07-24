@@ -178,7 +178,9 @@ async function runAction(name) {
 async function copyPrompt() {
   try {
     const region = encodeURIComponent(document.getElementById("prompt-region").value || "");
-    const r = await call(`/api/admin/trivia/prompt?region=${region}`);
+    const facts = parseInt(document.getElementById("prompt-facts").value, 10) || 60;
+    const tf = parseInt(document.getElementById("prompt-tf").value, 10) || 80;
+    const r = await call(`/api/admin/trivia/prompt?region=${region}&facts=${facts}&tf=${tf}`);
     if (!r.ok) { err(`prompt failed (${r.status})`); return; }
     const p = (await r.json()).prompt;
     try { await navigator.clipboard.writeText(p); err("prompt copied — paste it to your LLM"); }
