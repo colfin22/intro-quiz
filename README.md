@@ -136,8 +136,12 @@ subscriptions.
   `-H "X-Admin-Token: $ADMIN_PASSWORD"` too.
 
 <p align="center">
-  <img src="docs/screenshots/admin.png" width="60%"
-       alt="The server control page — game overview with abandon/change-master, and each maintenance action with live progress and run output">
+  <img src="docs/screenshots/admin-game.png" width="32%"
+       alt="The server control page's Game tab — live scores and round progress (never the current song), with abandon and change-master controls">
+  <img src="docs/screenshots/admin-library.png" width="32%"
+       alt="The Library tab — each maintenance action with live progress, run output and last-run status">
+  <img src="docs/screenshots/admin-trivia.png" width="32%"
+       alt="The Trivia tab — pool stats, usage reset, and the localised-trivia LLM prompt + paste-back import">
 </p>
 
 ## Run
