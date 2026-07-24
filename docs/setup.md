@@ -38,6 +38,12 @@ handy for running them on a nightly schedule rather than one big bootstrap:
 - `POST /api/score/tiers` — sort scored tracks into difficulty tiers
 - `POST /api/clips/cut` — cut clips for tiered tracks
 
+Or skip the curls entirely: the **`/admin` server control page** runs each of
+these (and the full pipeline) from the browser, with live progress and each
+run's log output. Set `ADMIN_PASSWORD` in `.env` to password-gate it — once
+set, scheduled curls must send `-H "X-Admin-Token: $ADMIN_PASSWORD"` as well;
+left unset, everything stays LAN-open as before.
+
 ## Navidrome user permissions
 
 The Navidrome user needs the standard Subsonic permissions plus **download and streaming

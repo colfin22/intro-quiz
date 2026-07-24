@@ -6,15 +6,24 @@ import shutil
 import time
 
 import httpx
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, board_cast, clips, config, db, game, ha, lastfm, quality, scoring, subsonic, sync, trivia
+from . import __version__, board_cast, clips, config, db, game, ha, jobs, lastfm, quality, scoring, subsonic, sync, trivia
 
 LOGGER = logging.getLogger(__name__)
 app = FastAPI(title="Intro Quiz", version=__version__)
+
+
+def require_admin(x_admin_token: str = Header(default="")):
+    """Maintenance endpoints honour ADMIN_PASSWORD when set; open when unset."""
+    if not jobs.check_token(x_admin_token):
+        raise HTTPException(status_code=401, detail="admin token required")
+
+
+ADMIN = [Depends(require_admin)]
 
 
 @app.middleware("http")
@@ -55,8 +64,9 @@ def health():
     except Exception as e:  # noqa: BLE001 — health must never 500
         out["ready_to_play"] = False
         out["message"] = f"db not readable: {e}"
-    if BOOTSTRAP:
-        out["bootstrap"] = dict(BOOTSTRAP)
+    compat = jobs.bootstrap_compat()
+    if compat:
+        out["bootstrap"] = compat
     return out
 
 
@@ -108,11 +118,11 @@ async def maybe_clip_sweep():
     if config.CLIP_SWEEP_ON_START:
         cap = f" (capped at {config.CLIP_SWEEP_MAX_HOURS}h)" if config.CLIP_SWEEP_MAX_HOURS else ""
         LOGGER.info("CLIP_SWEEP_ON_START set — bulk clip session starting in the background%s", cap)
-        asyncio.get_event_loop().run_in_executor(
-            None, lambda: clips.sweep(max_hours=config.CLIP_SWEEP_MAX_HOURS))
+        # through the registry so /admin sees it (and it can't collide with a manual run)
+        jobs.start("clips")
 
 
-@app.post("/api/sync")
+@app.post("/api/sync", dependencies=ADMIN)
 def api_sync():
     conn = db.connect()
     try:
@@ -143,7 +153,7 @@ class AnnotationRow(BaseModel):
     starred: int = 0
 
 
-@app.post("/api/ingest/annotations")
+@app.post("/api/ingest/annotations", dependencies=ADMIN)
 def api_ingest_annotations(rows: list[AnnotationRow]):
     conn = db.connect()
     try:
@@ -152,7 +162,7 @@ def api_ingest_annotations(rows: list[AnnotationRow]):
         conn.close()
 
 
-@app.post("/api/score/lastfm")
+@app.post("/api/score/lastfm", dependencies=ADMIN)
 def api_score_lastfm(limit: int = 200):
     conn = db.connect()
     try:
@@ -161,7 +171,7 @@ def api_score_lastfm(limit: int = 200):
         conn.close()
 
 
-@app.post("/api/score/tiers")
+@app.post("/api/score/tiers", dependencies=ADMIN)
 def api_score_tiers():
     conn = db.connect()
     try:
@@ -170,7 +180,7 @@ def api_score_tiers():
         conn.close()
 
 
-@app.post("/api/clips/cut")
+@app.post("/api/clips/cut", dependencies=ADMIN)
 def api_clips_cut(limit: int = 50):
     conn = db.connect()
     try:
@@ -179,7 +189,7 @@ def api_clips_cut(limit: int = 50):
         conn.close()
 
 
-@app.post("/api/clips/recut")
+@app.post("/api/clips/recut", dependencies=ADMIN)
 def api_clips_recut(track_id: str = "", q: str = ""):
     """Queue tracks for re-cutting (e.g. after the silence-aware cutter landed).
 
@@ -207,61 +217,113 @@ def api_clips_recut(track_id: str = "", q: str = ""):
 
 
 # ---------------------------------------------------------------------------
-# One-call first-time setup: sync -> Last.fm scoring -> tiers -> clips.
+# Maintenance jobs (#52): every action the admin page can run, registered with
+# the one-at-a-time job registry. The runners reuse the same module functions
+# the plain endpoints call.
 # ---------------------------------------------------------------------------
-BOOTSTRAP: dict = {}
 
-
-def _bootstrap_job():
-    def stage(name):
-        BOOTSTRAP["stage"] = name
-        LOGGER.info("bootstrap: %s", name)
+def _job_sync(set_stage) -> dict:
+    conn = db.connect()
     try:
-        conn = db.connect()
-        try:
-            stage("sync")
-            r = sync.sync_library(conn, subsonic.Client())
-            BOOTSTRAP["tracks_synced"] = r.get("tracks_active")
-            stage("lastfm")
-            for _ in range(2000):  # safety bound, ~400k tracks
-                r = lastfm.score_batch(conn, limit=200)
-                BOOTSTRAP["lastfm_remaining"] = r["remaining"]
-                if r["remaining"] == 0:
-                    break
-                if r["scored"] == 0:
-                    # no progress (key revoked / network down) — stop; POST again resumes
-                    BOOTSTRAP["warning"] = ("lastfm scoring made no progress — check "
-                                            "LASTFM_API_KEY / network, then POST /api/bootstrap "
-                                            "again to resume where it left off")
-                    break
-            stage("tiers")
-            BOOTSTRAP["tiers"] = scoring.assign_tiers(conn)
-        finally:
-            conn.close()
-        stage("clips")
-        r = clips.sweep()
-        BOOTSTRAP.update({"stage": "done", "clips_cut": r.get("cut"),
-                          "clips_stopped": r.get("stopped")})
-    except Exception as e:  # noqa: BLE001 — status must always resolve
-        LOGGER.exception("bootstrap failed")
-        BOOTSTRAP.update({"stage": "failed", "error": str(e)})
+        client = subsonic.Client()
+        client.ping()
+        return sync.sync_library(conn, client)
     finally:
-        BOOTSTRAP["running"] = False
+        conn.close()
 
 
-@app.post("/api/bootstrap")
+def _job_lastfm(set_stage) -> dict:
+    """Loop score_batch until the backlog is dry (a single batch is 200 tracks)."""
+    conn = db.connect()
+    try:
+        total = {"scored": 0, "errors": 0, "remaining": 0}
+        for _ in range(2000):  # safety bound, ~400k tracks
+            r = lastfm.score_batch(conn, limit=200)
+            total["scored"] += r["scored"]
+            total["errors"] += r["errors"]
+            total["remaining"] = r["remaining"]
+            set_stage(f"scoring — {r['remaining']} remaining")
+            if r["remaining"] == 0:
+                break
+            if r["scored"] == 0:
+                # no progress (key revoked / network down) is a warning, not an
+                # error — re-running resumes where it left off
+                total["warning"] = ("no progress — check LASTFM_API_KEY / network, "
+                                    "then run again to resume")
+                break
+        return total
+    finally:
+        conn.close()
+
+
+def _job_tiers(set_stage) -> dict:
+    conn = db.connect()
+    try:
+        return scoring.assign_tiers(conn)
+    finally:
+        conn.close()
+
+
+def _job_clips(set_stage) -> dict:
+    return clips.sweep(max_hours=config.CLIP_SWEEP_MAX_HOURS)
+
+
+def _job_quality(set_stage) -> dict:
+    conn = db.connect()
+    try:
+        return quality.check(conn, push=True)
+    finally:
+        conn.close()
+
+
+def _job_bootstrap(set_stage) -> dict:
+    """The whole first-time pipeline, resumable: each step only processes
+    what's missing, so re-running after a failure continues where it stopped."""
+    out: dict = {}
+    conn = db.connect()
+    try:
+        set_stage("sync")
+        r = sync.sync_library(conn, subsonic.Client())
+        out["tracks_synced"] = r.get("tracks_active")
+        set_stage("lastfm")
+        for _ in range(2000):
+            r = lastfm.score_batch(conn, limit=200)
+            out["lastfm_remaining"] = r["remaining"]
+            set_stage(f"lastfm — {r['remaining']} remaining")
+            if r["remaining"] == 0:
+                break
+            if r["scored"] == 0:
+                out["warning"] = ("lastfm scoring made no progress — check "
+                                  "LASTFM_API_KEY / network, then run bootstrap "
+                                  "again to resume where it left off")
+                break
+        set_stage("tiers")
+        out["tiers"] = scoring.assign_tiers(conn)
+    finally:
+        conn.close()
+    set_stage("clips")
+    r = clips.sweep()
+    out.update({"clips_cut": r.get("cut"), "clips_stopped": r.get("stopped")})
+    return out
+
+
+jobs.register("sync", "Library sync", _job_sync)
+jobs.register("lastfm", "Popularity scoring", _job_lastfm)
+jobs.register("tiers", "Tier rebuild", _job_tiers)
+jobs.register("clips", "Clip cutting", _job_clips)
+jobs.register("quality", "Quality check", _job_quality)
+jobs.register("bootstrap", "Full pipeline", _job_bootstrap)
+
+
+@app.post("/api/bootstrap", dependencies=ADMIN)
 async def api_bootstrap():
     """Chain the whole first-time setup as one background job.
 
-    Idempotent and resumable: every step only processes what's missing, so
-    re-POSTing after a failure continues where it stopped. Progress shows in
-    /health under "bootstrap" (and in the logs).
+    Progress shows in /health under "bootstrap" (and on /admin, and in the logs).
     """
-    if BOOTSTRAP.get("running"):
-        return {"started": False, "already_running": True, "status": dict(BOOTSTRAP)}
-    BOOTSTRAP.clear()
-    BOOTSTRAP.update({"running": True, "stage": "starting"})
-    asyncio.get_event_loop().run_in_executor(None, _bootstrap_job)
+    started, st = jobs.start("bootstrap")
+    if not started:
+        return {"started": False, "already_running": True, "status": st}
     return {"started": True, "watch": "/health"}
 
 
@@ -643,6 +705,95 @@ def page_board():
     return FileResponse(os.path.join(BASE, "static", "board.html"))
 
 
+@app.get("/admin")
+def page_admin():
+    # the page itself is open; every API call it makes is admin-gated, so the
+    # browser prompts for the password on first use (when ADMIN_PASSWORD is set)
+    return FileResponse(os.path.join(BASE, "static", "admin.html"))
+
+
+def _admin_game_summary() -> dict:
+    """Game state for /admin — deliberately SPOILER-SAFE.
+
+    The admin might also be a player, so mid-round this must not leak the
+    answer: no current track, no options (they'd narrow it to 4). Only rounds
+    already revealed to everyone are named."""
+    g = hub.game
+    if not g:
+        return {"phase": "idle"}
+    out = {
+        "phase": g.phase,
+        "host": g.host,
+        "round": g.current + 1,
+        "total_rounds": len(g.rounds),
+        "players": [{"name": p["name"], "score": p["score"]}
+                    for p in g.snapshot()["players"]],
+        "display": hub.display or "none",
+    }
+    if g.phase == "question" and g.current >= 0:
+        out["answered"] = len(g.rounds[g.current]["answers"])
+        out["window_left"] = round(g.window_left(), 1)
+    # last track everyone has already seen revealed
+    last = g.current if g.phase in ("reveal", "finished") else g.current - 1
+    if 0 <= last < len(g.rounds):
+        t = g.rounds[last]["track"]
+        out["last_revealed"] = {"round": last + 1, "title": t["title"], "artist": t["artist"]}
+    return out
+
+
+@app.get("/api/admin/status", dependencies=ADMIN)
+def api_admin_status():
+    return {**jobs.status(), "game": _admin_game_summary()}
+
+
+@app.post("/api/admin/run/{name}", dependencies=ADMIN)
+def api_admin_run(name: str):
+    try:
+        started, st = jobs.start(name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"unknown action: {name}")
+    if not started:
+        raise HTTPException(status_code=409, detail=f"busy with {st.get('busy_with')}")
+    return {"started": True, "job": name}
+
+
+@app.post("/api/admin/game/abandon", dependencies=ADMIN)
+async def api_admin_game_abandon():
+    """Abandon the running game from /admin. The admin overrides the ws
+    host-only rule — same reset path as the ws "abort" handler."""
+    async with hub.lock:
+        if not hub.game:
+            raise HTTPException(status_code=404, detail="no game running")
+        LOGGER.warning("game abandoned from /admin (%s, round %d)", hub.game.phase, hub.game.current + 1)
+        hub.cancel_deadline()
+        hub.game = None
+        asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
+        await hub.broadcast()
+    return {"abandoned": True}
+
+
+@app.post("/api/admin/game/master", dependencies=ADMIN)
+async def api_admin_game_master(name: str):
+    """Hand the game-master role to a present player, effective immediately."""
+    async with hub.lock:
+        if not hub.game:
+            raise HTTPException(status_code=404, detail="no game running")
+        if name not in hub.game.players:
+            raise HTTPException(status_code=400, detail=f"{name} is not in the game")
+        old = hub.game.host
+        hub.game.host = name
+        conn = db.connect()
+        try:  # stamp history so the fair-rotation queue stays truthful
+            hist = json.loads(db.get_setting(conn, "master_history") or "{}")
+            hist[name] = int(time.time())
+            db.set_setting(conn, "master_history", json.dumps(hist))
+        finally:
+            conn.close()
+        LOGGER.info("game master changed from /admin: %s -> %s", old, name)
+        await hub.broadcast()
+    return {"master": name, "was": old}
+
+
 @app.get("/favicon.ico")
 def favicon():
     return FileResponse(os.path.join(BASE, "static", "favicon.svg"),
@@ -756,7 +907,7 @@ def api_artists_wall(limit: int = 60):
         conn.close()
 
 
-@app.post("/api/ban/album")
+@app.post("/api/ban/album", dependencies=ADMIN)
 def api_ban_album(pattern: str):
     """Ban every track whose album matches the SQL LIKE pattern (case-insensitive)."""
     conn = db.connect()
@@ -769,7 +920,7 @@ def api_ban_album(pattern: str):
         conn.close()
 
 
-@app.post("/api/leaderboard/reset")
+@app.post("/api/leaderboard/reset", dependencies=ADMIN)
 def api_leaderboard_reset(confirm: str = ""):
     """Wipe the all-time leaderboard (games + results). Deliberately API-only —
     no button in the family UI. Requires ?confirm=yes."""
@@ -798,7 +949,7 @@ def api_quality():
         conn.close()
 
 
-@app.post("/api/quality/check")
+@app.post("/api/quality/check", dependencies=ADMIN)
 def api_quality_check(push: bool = True):
     """Run the match-quality check; HA-push any fresh suspects and mark them.
 
@@ -810,7 +961,7 @@ def api_quality_check(push: bool = True):
         conn.close()
 
 
-@app.post("/api/trivia/topup")
+@app.post("/api/trivia/topup", dependencies=ADMIN)
 def api_trivia_topup():
     """Seed the bundled trivia pack and top up T/F from Open Trivia DB if low."""
     conn = db.connect()

@@ -126,6 +126,19 @@ subscriptions.
   `/api/score/tiers`, `/api/clips/cut` — the library re-syncs, new tracks get
   scored, tiered and clipped. Optionally add `POST /api/quality/check` as a fifth
   step to get told when new tracks look mis-tagged (see Notes). Clips cost ~2 MB per track.
+- **Server control page** — `/admin` runs any of those maintenance actions from
+  the browser instead: one job at a time, live progress while it runs, the run's
+  log output, and each action's last outcome. It also shows the running game
+  (players, scores, round — never the current song, so a playing admin can't
+  cheat) with **abandon game** and **change game master** controls. Set
+  `ADMIN_PASSWORD` in `.env` to gate it (the page asks once); unset, it's as
+  open as the rest of the app on your LAN. NB once set, scheduled curls need
+  `-H "X-Admin-Token: $ADMIN_PASSWORD"` too.
+
+<p align="center">
+  <img src="docs/screenshots/admin.png" width="60%"
+       alt="The server control page — game overview with abandon/change-master, and each maintenance action with live progress and run output">
+</p>
 
 ## Run
 

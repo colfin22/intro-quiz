@@ -1,0 +1,141 @@
+import logging
+import os
+import subprocess
+import time
+
+import pytest
+
+from app import config, jobs
+
+
+@pytest.fixture(autouse=True)
+def clean_registry():
+    jobs.ACTIONS.clear()
+    jobs.JOBS.clear()
+    jobs._CURRENT[0] = None
+    yield
+    jobs.ACTIONS.clear()
+    jobs.JOBS.clear()
+    jobs._CURRENT[0] = None
+
+
+def wait_done(name, timeout=5.0):
+    t0 = time.time()
+    while jobs.JOBS[name]["running"]:
+        assert time.time() - t0 < timeout, f"{name} never finished"
+        time.sleep(0.01)
+
+
+def test_run_records_summary_and_times():
+    jobs.register("ok", "OK", lambda set_stage: {"n": 3})
+    started, st = jobs.start("ok")
+    assert started
+    wait_done("ok")
+    j = jobs.JOBS["ok"]
+    assert j["summary"] == {"n": 3}
+    assert j["error"] is None
+    assert j["stage"] == "done"
+    assert j["finished_at"] >= j["started_at"]
+
+
+def test_error_recorded_and_guard_released():
+    def boom(set_stage):
+        raise RuntimeError("kaput")
+    jobs.register("bad", "Bad", boom)
+    jobs.register("ok", "OK", lambda set_stage: {})
+    started, _ = jobs.start("bad")
+    assert started
+    wait_done("bad")
+    assert jobs.JOBS["bad"]["error"] == "kaput"
+    assert jobs.JOBS["bad"]["stage"] == "failed"
+    # the failure must release the global guard
+    started, _ = jobs.start("ok")
+    assert started
+    wait_done("ok")
+
+
+def test_global_one_at_a_time():
+    import threading
+    gate = threading.Event()
+    jobs.register("slow", "Slow", lambda set_stage: (gate.wait(3), {})[1])
+    jobs.register("other", "Other", lambda set_stage: {})
+    started, _ = jobs.start("slow")
+    assert started
+    started, st = jobs.start("other")
+    assert not started
+    assert st["busy_with"] == "slow"
+    gate.set()
+    wait_done("slow")
+    started, _ = jobs.start("other")
+    assert started
+    wait_done("other")
+
+
+def test_unknown_action_raises():
+    with pytest.raises(KeyError):
+        jobs.start("nope")
+
+
+def test_log_capture_attach_and_detach():
+    def chatty(set_stage):
+        set_stage("working")
+        logging.getLogger("app.something").info("hello from the job")
+        return {}
+    jobs.register("chatty", "Chatty", chatty)
+    jobs.start("chatty")
+    wait_done("chatty")
+    log = "\n".join(jobs.JOBS["chatty"]["log"])
+    assert "hello from the job" in log
+    assert "working" in log
+    # handler detached: nothing new lands after the run
+    n = len(jobs.JOBS["chatty"]["log"])
+    logging.getLogger("app.something").info("after the run")
+    assert len(jobs.JOBS["chatty"]["log"]) == n
+
+
+def test_log_capped():
+    def noisy(set_stage):
+        for i in range(300):
+            logging.getLogger("app.n").info("line %d", i)
+        return {}
+    jobs.register("noisy", "Noisy", noisy)
+    jobs.start("noisy")
+    wait_done("noisy")
+    assert len(jobs.JOBS["noisy"]["log"]) == jobs.LOG_LINES_MAX + 1
+    assert jobs.JOBS["noisy"]["log"][-1] == "… (output capped)"
+
+
+def test_check_token(monkeypatch):
+    monkeypatch.setattr(config, "ADMIN_PASSWORD", "")
+    assert jobs.check_token("")
+    assert jobs.check_token("anything")
+    monkeypatch.setattr(config, "ADMIN_PASSWORD", "s3cret")
+    assert jobs.check_token("s3cret")
+    assert not jobs.check_token("")
+    assert not jobs.check_token("wrong")
+
+
+def test_bootstrap_compat_shape():
+    jobs.register("bootstrap", "Full pipeline",
+                  lambda set_stage: {"tracks_synced": 5, "clips_cut": 2})
+    assert jobs.bootstrap_compat() == {}  # no run yet -> /health omits the key
+    jobs.start("bootstrap")
+    wait_done("bootstrap")
+    compat = jobs.bootstrap_compat()
+    assert compat["running"] is False
+    assert compat["stage"] == "done"
+    assert compat["tracks_synced"] == 5
+    assert compat["clips_cut"] == 2
+    assert "error" not in compat
+
+
+def test_admin_smoke_js():
+    """Drive admin.js in the stub DOM against idle/running/failed snapshots."""
+    if not __import__("shutil").which("node"):
+        if os.environ.get("CI"):
+            pytest.fail("node required in CI — the admin render smoke must not silently skip")
+        pytest.skip("node not installed")
+    root = os.path.dirname(os.path.dirname(__file__))
+    r = subprocess.run(["node", os.path.join(root, "tests", "js", "admin_smoke.js")],
+                       capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, f"admin smoke failed:\n{r.stdout}\n{r.stderr}"

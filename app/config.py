@@ -15,3 +15,7 @@ CLIP_SWEEP_ON_START = os.environ.get("CLIP_SWEEP_ON_START", "false").lower() in 
 # optional cap on that session's length in hours (0 = run until the pool is dry);
 # a capped run stops cleanly after the current batch and resumes on next start
 CLIP_SWEEP_MAX_HOURS = float(os.environ.get("CLIP_SWEEP_MAX_HOURS", "0") or 0)
+# gate the /admin page's API (and the maintenance endpoints) behind a shared
+# password sent as X-Admin-Token. UNSET = open (LAN-trust, as ever) so existing
+# cron/curl setups keep working; set it and they need the header too.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")

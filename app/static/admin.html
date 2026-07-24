@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intro Quiz — Server</title>
+<link rel="stylesheet" href="/static/quiz.css">
+<link rel="icon" href="/static/favicon.svg">
+<style>
+main { max-width: 560px; }
+.row { display:flex; align-items:center; justify-content:space-between; gap:.8rem; }
+.row button { width:auto; margin:0; padding:.7rem 1.1rem; text-align:center; }
+.stats { display:flex; flex-wrap:wrap; gap:.4rem .9rem; margin-top:.4rem; }
+.stats span { font-size:.9rem; color:var(--dim); }
+.stats b { color:var(--fg); font-variant-numeric:tabular-nums; }
+.status { font-size:.92rem; margin-top:.45rem; }
+.status::before { content:"●"; margin-right:.4rem; color:var(--dim); }
+.status.ok::before   { color:var(--good); }
+.status.run::before  { color:var(--accent); }
+.status.fail::before { color:var(--bad); }
+pre.log { background:#0e1118; border-radius:10px; padding:.7rem; font-size:.8rem;
+          color:var(--dim); overflow-x:auto; margin:.5rem 0 0; max-height:12rem; overflow-y:auto; }
+details summary { cursor:pointer; color:var(--dim); font-size:.85rem; margin-top:.4rem; }
+select { padding:.55rem .7rem; font-size:1rem; border-radius:10px; border:1px solid #333;
+         background:#0e1118; color:var(--fg); }
+.card.busy { outline:1px solid rgba(90,200,250,.4); }
+h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var(--dim);
+     margin:1.3rem 0 .2rem; }
+.dim a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<div id="err"></div>
+<h1>Server control</h1>
+
+<h2>Game</h2>
+<div class="card" id="game-card">
+  <div id="game-info" class="dim">no game running</div>
+  <div class="stats" id="game-players"></div>
+  <div class="dim" id="game-detail" hidden></div>
+  <div class="dim" id="game-last" hidden></div>
+  <div class="row" id="game-controls" style="margin-top:.8rem" hidden>
+    <select id="master-select"><option value="">Change game master…</option></select>
+    <button class="warn" id="abandon-btn" onclick="abandonGame()">Abandon game</button>
+  </div>
+</div>
+
+<h2>Library</h2>
+<div class="card">
+  <div class="stats" id="stats-row"><span class="dim">loading…</span></div>
+</div>
+
+<div class="card" id="card-sync">
+  <div class="row">
+    <div><b>Library sync</b><div class="dim">pull albums &amp; tracks from Navidrome</div></div>
+    <button class="primary" id="run-sync" onclick="runAction('sync')">Run</button>
+  </div>
+  <div class="status" id="status-sync">no runs since restart</div>
+  <details id="logwrap-sync" hidden><summary>run output</summary><pre class="log" id="log-sync"></pre></details>
+</div>
+
+<div class="card" id="card-lastfm">
+  <div class="row">
+    <div><b>Popularity scoring</b><div class="dim">Last.fm listener counts for un-scored tracks</div></div>
+    <button class="primary" id="run-lastfm" onclick="runAction('lastfm')">Run</button>
+  </div>
+  <div class="status" id="status-lastfm">no runs since restart</div>
+  <details id="logwrap-lastfm" hidden><summary>run output</summary><pre class="log" id="log-lastfm"></pre></details>
+</div>
+
+<div class="card" id="card-tiers">
+  <div class="row">
+    <div><b>Tier rebuild</b><div class="dim">re-bucket tracks into easy / medium / hard</div></div>
+    <button class="primary" id="run-tiers" onclick="runAction('tiers')">Run</button>
+  </div>
+  <div class="status" id="status-tiers">no runs since restart</div>
+  <details id="logwrap-tiers" hidden><summary>run output</summary><pre class="log" id="log-tiers"></pre></details>
+</div>
+
+<div class="card" id="card-clips">
+  <div class="row">
+    <div><b>Clip cutting</b><div class="dim">cut intro clips for new tracks</div></div>
+    <button class="primary" id="run-clips" onclick="runAction('clips')">Run</button>
+  </div>
+  <div class="status" id="status-clips">no runs since restart</div>
+  <details id="logwrap-clips" hidden><summary>run output</summary><pre class="log" id="log-clips"></pre></details>
+</div>
+
+<div class="card" id="card-quality">
+  <div class="row">
+    <div><b>Quality check</b><div class="dim">flag suspect track matches</div></div>
+    <button class="primary" id="run-quality" onclick="runAction('quality')">Run</button>
+  </div>
+  <div class="status" id="status-quality">no runs since restart</div>
+  <details id="logwrap-quality" hidden><summary>run output</summary><pre class="log" id="log-quality"></pre></details>
+</div>
+
+<div class="card" id="card-bootstrap">
+  <div class="row">
+    <div><b>Full pipeline</b><div class="dim">sync → scoring → tiers → clips, in order</div></div>
+    <button class="primary" id="run-bootstrap" onclick="runAction('bootstrap')">Run</button>
+  </div>
+  <div class="status" id="status-bootstrap">no runs since restart</div>
+  <details id="logwrap-bootstrap" hidden><summary>run output</summary><pre class="log" id="log-bootstrap"></pre></details>
+</div>
+</main>
+<script src="/static/admin.js"></script>
+</body>
+</html>

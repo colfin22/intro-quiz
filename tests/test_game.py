@@ -345,15 +345,11 @@ def test_bootstrap_job_sequence(monkeypatch):
                         lambda c: calls.append("tiers") or {"easy": 1})
     monkeypatch.setattr(main.clips, "sweep",
                         lambda: calls.append("clips") or {"cut": 7, "stopped": "done"})
-    main.BOOTSTRAP.clear()
-    main.BOOTSTRAP.update({"running": True, "stage": "starting"})
-    main._bootstrap_job()
+    out = main._job_bootstrap(lambda stage: None)
     assert calls == ["sync", "lastfm", "lastfm", "tiers", "clips"]
-    assert main.BOOTSTRAP["stage"] == "done"
-    assert main.BOOTSTRAP["running"] is False
-    assert main.BOOTSTRAP["clips_cut"] == 7
-    assert main.BOOTSTRAP["tracks_synced"] == 42
-    main.BOOTSTRAP.clear()
+    assert out["clips_cut"] == 7
+    assert out["tracks_synced"] == 42
+    assert "warning" not in out
 
 
 def test_extend_lock_one_at_a_time():
@@ -419,3 +415,40 @@ def test_a_player_who_misses_a_game_is_not_skipped_forever():
     assert nxt == "Alice"
     nxt, hist = next_master(["Alice", "Bob", "Carol"], "Alice", hist)   # she's back
     assert nxt == "Carol", "the one who has never had it still goes first"
+
+
+def test_admin_game_summary_is_spoiler_safe():
+    """/api/admin/status must never leak the current song mid-round (#52)."""
+    from app import main
+
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=2, tiers=["easy", "medium"], clock=clock)
+        g.join("Alice"); g.join("Bob")
+        g.host = "Alice"
+        g.build_rounds(conn)
+        g.start_round()
+        g.answer("Alice", 0)
+        old_game = main.hub.game
+        main.hub.game = g
+        try:
+            s = main._admin_game_summary()
+            assert s["phase"] == "question"
+            assert s["round"] == 1 and s["total_rounds"] == 2
+            assert s["answered"] == 1
+            assert {pl["name"] for pl in s["players"]} == {"Alice", "Bob"}
+            # the spoiler guarantees: no track, no options, mid-question
+            blob = str(s)
+            t = g.rounds[g.current]["track"]
+            assert "track" not in s and "options" not in s and "correct" not in s
+            assert t["title"] not in blob
+            assert "last_revealed" not in s  # nothing revealed yet
+            # after the reveal, THAT song may (and should) show
+            g.reveal()
+            s = main._admin_game_summary()
+            assert s["last_revealed"]["title"] == t["title"]
+        finally:
+            main.hub.game = old_game
+    finally:
+        conn.close(); os.unlink(p)
