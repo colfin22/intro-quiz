@@ -35,6 +35,9 @@
   #b-idle .qr { max-height:34vh; margin:1.5vh auto; padding:1.4vh; }
   #b-qr-card .qr { max-height:26vh; max-width:90%; margin:1vh auto; padding:1vh; }
   .join-url { font-family:monospace; letter-spacing:.02em; }
+  .qrrow { display:flex; justify-content:center; align-items:flex-start; gap:4vh; }
+  .qrrow > div { flex:0 1 auto; }
+  .qrrow .qr { margin-left:auto; margin-right:auto; }
 </style>
 </head>
 <body>
@@ -42,8 +45,20 @@
   <h1 class="center">🎵 Intro Quiz</h1>
   <div id="b-idle" class="card center" hidden>
     <p class="big">Waiting for a game…</p>
-    <img id="b-qr-idle" class="qr" alt="QR code to join the quiz" hidden>
-    <p class="dim"><b>📱 Scan to join</b> — or open <span id="b-join-url" class="join-url">this page's address</span> on your phone</p>
+    <div class="qrrow">
+      <div id="b-wifi-idle-wrap" hidden>
+        <img class="qr" alt="QR code to join the guest WiFi" hidden
+             onload="this.hidden=false; document.getElementById('b-wifi-idle-wrap').hidden=false; document.getElementById('b-join-step').textContent='2. '"
+             onerror="document.getElementById('b-wifi-idle-wrap').hidden=true"
+             src="/api/wifi-qr.svg">
+        <p class="dim"><b>📶 1. Join the WiFi</b></p>
+      </div>
+      <div>
+        <img id="b-qr-idle" class="qr" alt="QR code to join the quiz" hidden>
+        <p class="dim"><b>📱 <span id="b-join-step"></span>Scan to join</b></p>
+      </div>
+    </div>
+    <p class="dim">or open <span id="b-join-url" class="join-url">this page's address</span> on your phone</p>
   </div>
   <div id="b-live" hidden>
     <p class="big center" id="b-status"></p>
@@ -80,6 +95,13 @@
         <ul class="scores" id="b-alltime"></ul>
       </div>
       <div class="card center" id="b-qr-card" hidden>
+        <div id="b-wifi-lobby-wrap" hidden>
+          <p class="dim">📶 Join the WiFi</p>
+          <img class="qr" alt="QR code to join the guest WiFi" hidden
+               onload="this.hidden=false; document.getElementById('b-wifi-lobby-wrap').hidden=false"
+               onerror="document.getElementById('b-wifi-lobby-wrap').hidden=true"
+               src="/api/wifi-qr.svg">
+        </div>
         <p class="dim">📱 Scan to join</p>
         <img id="b-qr-lobby" class="qr" alt="QR code to join the quiz" hidden>
         <p class="dim join-url" id="b-join-url-lobby"></p>

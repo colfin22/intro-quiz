@@ -53,6 +53,14 @@ a *different* address than the board (e.g. the board is served via a
 reverse-proxy hostname that guests can't reach), set `JOIN_URL` in `.env` to the
 address phones should open.
 
+### Guest-WiFi QR (optional)
+
+Set `GUEST_WIFI_SSID` / `GUEST_WIFI_PASSWORD` (and `GUEST_WIFI_AUTH`, default
+WPA, `nopass` for open networks) and the board shows a second QR that joins
+guests to the WiFi — step 1 before the scan-to-join QR. **Use a guest network's
+credentials, never your main one**: anyone who can reach the app can read this
+QR. Unset = no second QR, nothing changes.
+
 ## Navidrome user permissions
 
 The Navidrome user needs the standard Subsonic permissions plus **download and streaming

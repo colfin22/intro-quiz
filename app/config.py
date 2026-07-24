@@ -24,3 +24,9 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 # host); only set it if that guess is wrong, e.g. behind a reverse proxy on a
 # different host than the board is cast from.
 JOIN_URL = os.environ.get("JOIN_URL", "").rstrip("/")
+# guest-WiFi QR (shown beside the scan-to-join QR when configured). SSID unset =
+# the feature is entirely absent. Use a GUEST network's credentials, never your
+# main one — anyone who can reach the app can read this QR.
+GUEST_WIFI_SSID = os.environ.get("GUEST_WIFI_SSID", "")
+GUEST_WIFI_PASSWORD = os.environ.get("GUEST_WIFI_PASSWORD", "")
+GUEST_WIFI_AUTH = os.environ.get("GUEST_WIFI_AUTH", "WPA").strip() or "WPA"

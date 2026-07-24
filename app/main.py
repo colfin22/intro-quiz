@@ -962,6 +962,39 @@ def api_join_qr(request: Request, url: str | None = None):
                     headers={"Cache-Control": "no-store"})
 
 
+def _wifi_escape(value: str) -> str:
+    """Escape the WIFI: QR payload's special characters (backslash first)."""
+    for ch in ("\\", ";", ",", ":", '"'):
+        value = value.replace(ch, "\\" + ch)
+    return value
+
+
+def _wifi_payload() -> str:
+    """The standard WIFI: join string phones auto-join from (#55)."""
+    auth = config.GUEST_WIFI_AUTH.upper()
+    if auth == "NOPASS":
+        return f"WIFI:T:nopass;S:{_wifi_escape(config.GUEST_WIFI_SSID)};;"
+    return (f"WIFI:T:{auth};S:{_wifi_escape(config.GUEST_WIFI_SSID)};"
+            f"P:{_wifi_escape(config.GUEST_WIFI_PASSWORD)};;")
+
+
+@app.get("/api/wifi-qr.svg")
+def api_wifi_qr():
+    """An SVG QR that joins guests to the guest WiFi (#55).
+
+    404 when GUEST_WIFI_SSID is unset — the board's <img> onerror hides the
+    card, so an unconfigured install shows nothing (same fail-safe as the
+    join QR). NB: deliberately readable by anyone who can reach the app —
+    document as guest-network-only credentials."""
+    if not config.GUEST_WIFI_SSID:
+        return Response(status_code=404)
+    qr = segno.make(_wifi_payload(), error="m")
+    buff = io.BytesIO()
+    qr.save(buff, kind="svg", scale=6, border=2, dark="#000000", light="#ffffff")
+    return Response(content=buff.getvalue(), media_type="image/svg+xml",
+                    headers={"Cache-Control": "no-store"})
+
+
 KNOWN_PLAYERS = {}  # ip -> name, from env "Name=ip,Name=ip"
 for _part in os.environ.get("KNOWN_PLAYERS", "").split(","):
     if "=" in _part:

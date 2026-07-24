@@ -62,6 +62,13 @@
     <p class="dim center" id="lobby-wait" hidden></p>
     <div id="lobby-invite" class="invite">
       <p class="dim center">📱 Someone else want in? Show them this — no TV needed:</p>
+      <div id="wifi-invite-wrap" hidden>
+        <img class="qr" alt="QR code to join the guest WiFi" hidden
+             onload="this.hidden=false; document.getElementById('wifi-invite-wrap').hidden=false"
+             onerror="document.getElementById('wifi-invite-wrap').hidden=true"
+             src="/api/wifi-qr.svg">
+        <p class="dim center">📶 guest WiFi first, then:</p>
+      </div>
       <img id="join-qr" class="qr" alt="QR code to join the quiz" hidden>
       <p class="center"><a href="#" id="join-share" onclick="shareJoin();return false">🔗 Share the link</a></p>
       <p class="dim center join-url" id="join-url"></p>

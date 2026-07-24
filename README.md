@@ -114,7 +114,9 @@ subscriptions.
   sound — the board shows an overlay asking for it. While it waits for a game — and in
   the lobby, for latecomers — the board shows a **scan-to-join QR** of the app's address,
   so players point a camera at the TV instead of typing a URL (override the encoded
-  address with `JOIN_URL` if the app is reached via a different host).
+  address with `JOIN_URL` if the app is reached via a different host). Optionally
+  set `GUEST_WIFI_SSID`/`GUEST_WIFI_PASSWORD` and a second QR joins guests to the
+  guest WiFi first — see `docs/setup.md`.
 - **Half-time trivia** — a curated seed pack ships in the repo (~180 read-aloud music
   facts + ~215 true/false questions, **deliberately Irish/UK-centric** — Eurovision,
   Thin Lizzy and Westlife feature) and lives in SQLite; the true/false pool tops
