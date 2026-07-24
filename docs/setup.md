@@ -61,6 +61,13 @@ guests to the WiFi — step 1 before the scan-to-join QR. **Use a guest network'
 credentials, never your main one**: anyone who can reach the app can read this
 QR. Unset = no second QR, nothing changes.
 
+**Check the join URL is reachable FROM the guest network.** Many guest
+networks/VLANs deliberately isolate guests from the main LAN — a guest can then
+join the WiFi (scan 1) but the join address (scan 2) times out. Test it once
+from a phone on the guest SSID; if it can't reach the app, add a firewall
+exception on your router allowing the guest network to reach the quiz host and
+port only.
+
 ## Navidrome user permissions
 
 The Navidrome user needs the standard Subsonic permissions plus **download and streaming
