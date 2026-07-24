@@ -196,8 +196,9 @@ seeded automatically at the next game start. Full format, rules and a copy-paste
 
 ## Roadmap
 
-Planned:
+Planned (roughly in priority order):
 
+- **Jellyfin & Plex library sources** *(high priority)* — support Jellyfin and Plex as music-library backends alongside Subsonic (behind a provider interface), so you're not limited to a Navidrome/LMS server. The most-requested feature ([#51](https://github.com/colfin22/intro-quiz/issues/51)).
 - **Hear more after the reveal** — once everyone's guessed, optionally play a longer snippet or the whole song, with playback controls to keep it going ([#44](https://github.com/colfin22/intro-quiz/issues/44)).
 
 Recently shipped:
