@@ -29,9 +29,39 @@ def custom_pack_path() -> str:
     return os.path.join(os.path.dirname(config.DB_PATH), "trivia_custom.json")
 
 
+def insert_items(conn, pack: list, source: str, origin: str = "pack") -> dict:
+    """Validate + insert a list of pack items. Idempotent — text is UNIQUE, so
+    re-running only inserts new items; duplicates are counted, not errors.
+    Per-item problems skip that item (with a reason), never the whole batch."""
+    added, duplicates, rejects = 0, 0, []
+    for item in pack:
+        if not isinstance(item, dict):
+            rejects.append(f"not an object: {str(item)[:60]}")
+            continue
+        kind = item.get("kind")
+        if kind not in ("fact", "tf") or not item.get("text"):
+            LOGGER.warning("trivia %s: skipping malformed item %r", origin, item)
+            rejects.append(f"malformed (needs kind fact/tf + text): {str(item)[:60]}")
+            continue
+        if kind == "tf" and item.get("answer") not in (0, 1, True, False):
+            LOGGER.warning("trivia %s: T/F item without a 0/1 answer skipped: %r",
+                           origin, item.get("text"))
+            rejects.append(f"T/F without a 0/1 answer: {str(item.get('text'))[:60]}")
+            continue
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO trivia(kind, text, answer, source) VALUES(?,?,?,?)",
+            (kind, item["text"],
+             int(item["answer"]) if kind == "tf" else None, source))
+        if cur.rowcount:
+            added += 1
+        else:
+            duplicates += 1
+    conn.commit()
+    return {"added": added, "duplicates": duplicates, "rejects": rejects}
+
+
 def _seed_pack(conn, path: str, source: str) -> int:
-    """Idempotent — text is UNIQUE, so re-running only inserts new items.
-    A missing/broken pack must never block a game — half time just
+    """A missing/broken pack must never block a game — half time just
     degrades to a plain snacks break."""
     try:
         with open(path, encoding="utf-8") as f:
@@ -41,23 +71,54 @@ def _seed_pack(conn, path: str, source: str) -> int:
     except (OSError, ValueError) as e:
         LOGGER.error("trivia pack %s unusable (%s) — skipped", path, e)
         return 0
-    added = 0
-    for item in pack:
-        kind = item.get("kind")
-        if kind not in ("fact", "tf") or not item.get("text"):
-            LOGGER.warning("trivia pack %s: skipping malformed item %r", path, item)
-            continue
-        if kind == "tf" and item.get("answer") not in (0, 1, True, False):
-            LOGGER.warning("trivia pack %s: T/F item without a 0/1 answer skipped: %r",
-                           path, item.get("text"))
-            continue
-        cur = conn.execute(
-            "INSERT OR IGNORE INTO trivia(kind, text, answer, source) VALUES(?,?,?,?)",
-            (kind, item["text"],
-             int(item["answer"]) if kind == "tf" else None, source))
-        added += cur.rowcount
-    conn.commit()
-    return added
+    return insert_items(conn, pack, source, origin=path)["added"]
+
+
+LLM_PROMPT = """Write me a music trivia pack for a family quiz night, as a single JSON
+list and nothing else. Two kinds of item:
+  {"kind": "fact", "text": "..."}                 — a fun music fact one
+    player reads aloud to the table
+  {"kind": "tf", "text": "...", "answer": 1 or 0} — a true/false question
+    (1 = true, 0 = false)
+
+Produce {facts} facts and {tf} true/false questions about popular music from
+{region}, plus internationally famous acts as heard from there. Rules:
+- Only well-established, easily verifiable claims — no obscure trivia,
+  no disputed stories. If a story is folklore, start it with "Legend has
+  it" or "As the story goes".
+- Facts must read naturally when spoken aloud, one or two sentences.
+- False T/F statements must be plainly false, not technicalities.
+- Make roughly 40% of the T/F items false, and don't cluster them.
+- Family-friendly; span the 1960s to today; vary the artists — no more
+  than three items about any one act.
+- Output raw JSON only: no markdown fences, no commentary."""
+
+
+def llm_prompt(region: str, facts: int = 60, tf: int = 80) -> str:
+    """The docs/trivia-pack.md prompt with the blanks filled in."""
+    # str.format would choke on the JSON braces in the template — plain replace
+    return (LLM_PROMPT
+            .replace("{region}", region.strip() or "<YOUR REGION/COUNTRY>")
+            .replace("{facts}", str(max(1, min(500, facts))))
+            .replace("{tf}", str(max(1, min(500, tf)))))
+
+
+def parse_pack(text: str) -> list:
+    """Pull the JSON array out of an LLM response — tolerates code fences and
+    surrounding prose. Raises ValueError when no JSON list can be found."""
+    text = text.strip()
+    if not text:
+        raise ValueError("nothing pasted")
+    start = text.find("[")
+    if start < 0:
+        raise ValueError("no JSON list found — expected a [ ... ] array")
+    try:
+        pack, _ = json.JSONDecoder().raw_decode(text[start:])
+    except ValueError as e:
+        raise ValueError(f"could not parse the JSON list: {e}") from e
+    if not isinstance(pack, list):
+        raise ValueError("parsed JSON is not a list")
+    return pack
 
 
 def ensure_seeded(conn) -> int:

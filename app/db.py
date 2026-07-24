@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS results (
 
 def connect(path: str | None = None) -> sqlite3.Connection:
     p = path or config.DB_PATH
-    os.makedirs(os.path.dirname(p), exist_ok=True)
+    if os.path.dirname(p):  # ":memory:" and bare filenames have no dir to make
+        os.makedirs(os.path.dirname(p), exist_ok=True)
     conn = sqlite3.connect(p, timeout=15)
     conn.row_factory = sqlite3.Row
     # WAL + busy_timeout: the Last.fm sweep writes continuously in the

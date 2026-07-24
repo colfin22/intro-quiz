@@ -780,6 +780,54 @@ def api_admin_leaderboard_wipe():
         conn.close()
 
 
+@app.get("/api/admin/trivia/prompt", dependencies=ADMIN)
+def api_admin_trivia_prompt(region: str = "", facts: int = 60, tf: int = 80):
+    """The docs/trivia-pack.md LLM prompt, parameterised, ready to paste."""
+    return {"prompt": trivia.llm_prompt(region, facts, tf)}
+
+
+class TriviaImport(BaseModel):
+    text: str
+    commit: bool = False
+
+
+@app.post("/api/admin/trivia/import", dependencies=ADMIN)
+def api_admin_trivia_import(body: TriviaImport):
+    """Import a pasted LLM response into the trivia pool.
+
+    commit=false parses + validates only (the preview); commit=true inserts.
+    New items land as never-played (used_at NULL, source 'import') so they're
+    picked first — same rules as every other pack."""
+    try:
+        pack = trivia.parse_pack(body.text)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    counts = {"fact": 0, "tf": 0}
+    sample = []
+    for item in pack:
+        if isinstance(item, dict) and item.get("kind") in counts and item.get("text"):
+            counts[item["kind"]] += 1
+            if len(sample) < 3:
+                sample.append(f"[{item['kind']}] {str(item['text'])[:80]}")
+    if not body.commit:
+        # dry-run the validation for honest reject counts, without inserting
+        conn = db.connect(":memory:")
+        try:
+            r = trivia.insert_items(conn, pack, "import", origin="/admin preview")
+        finally:
+            conn.close()
+        return {"preview": True, "items": len(pack), **counts,
+                "would_reject": r["rejects"], "sample": sample}
+    conn = db.connect()
+    try:
+        r = trivia.insert_items(conn, pack, "import", origin="/admin import")
+    finally:
+        conn.close()
+    LOGGER.warning("trivia import from /admin: %d added, %d duplicates, %d rejected",
+                   r["added"], r["duplicates"], len(r["rejects"]))
+    return {"preview": False, "items": len(pack), **counts, **r}
+
+
 @app.post("/api/admin/trivia/reset", dependencies=ADMIN)
 def api_admin_trivia_reset():
     """Mark every trivia item fresh again — facts and T/F both re-enter the

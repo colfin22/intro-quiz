@@ -11,7 +11,7 @@ let pollTimer = 0;
 
 function token() { return localStorage.getItem("adminToken") || ""; }
 
-const TABS = ["game", "library", "trivia"];
+const TABS = ["game", "library", "trivia", "scores"];
 function showTab(name) {
   for (const t of TABS) {
     document.getElementById(`sec-${t}`).hidden = t !== name;
@@ -22,7 +22,7 @@ function showTab(name) {
 
 async function call(path, opts) {
   const r = await fetch(path, Object.assign({}, opts, {
-    headers: { "X-Admin-Token": token() },
+    headers: Object.assign({ "X-Admin-Token": token() }, (opts || {}).headers),
   }));
   if (r.status === 401) {
     const pw = prompt("Admin password");
@@ -173,6 +173,41 @@ async function runAction(name) {
     if (!r.ok) { err(`start failed (${r.status})`); return; }
     await refresh();
   } catch (e) { err(e.message); }
+}
+
+async function copyPrompt() {
+  try {
+    const region = encodeURIComponent(document.getElementById("prompt-region").value || "");
+    const r = await call(`/api/admin/trivia/prompt?region=${region}`);
+    if (!r.ok) { err(`prompt failed (${r.status})`); return; }
+    const p = (await r.json()).prompt;
+    try { await navigator.clipboard.writeText(p); err("prompt copied — paste it to your LLM"); }
+    catch (e) { prompt("Copy this:", p); }  // clipboard needs https; fall back
+  } catch (e) { err(e.message); }
+}
+
+async function importTrivia(commit) {
+  const text = document.getElementById("import-text").value;
+  const out = document.getElementById("import-result");
+  const commitBtn = document.getElementById("import-commit-btn");
+  try {
+    const r = await call("/api/admin/trivia/import", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, commit }),
+    });
+    const d = await r.json();
+    if (!r.ok) { out.textContent = d.detail || `failed (${r.status})`; commitBtn.hidden = true; return; }
+    if (d.preview) {
+      const rej = (d.would_reject || []).length;
+      out.textContent = `${d.fact} facts + ${d.tf} T/F ready` + (rej ? ` · ${rej} would be skipped` : "");
+      commitBtn.hidden = false;
+    } else {
+      out.textContent = `imported ${d.added} · ${d.duplicates} duplicates · ${(d.rejects || []).length} skipped`;
+      commitBtn.hidden = true;
+      document.getElementById("import-text").value = "";
+      await refresh();
+    }
+  } catch (e) { out.textContent = e.message; }
 }
 
 async function resetTrivia() {

@@ -159,3 +159,45 @@ def test_trivia_stats_and_reset_semantics(tmp_path):
     s = main._trivia_stats(conn)
     assert s["fact"]["left"] == 2 and s["tf"]["left"] == 3
     assert s["fact"]["total"] == 2 and s["tf"]["total"] == 3
+
+
+def test_llm_prompt_parameterised():
+    from app import trivia
+    p = trivia.llm_prompt("Canada", facts=10, tf=20)
+    assert "10 facts and 20 true/false" in p
+    assert "Canada" in p
+    assert "<YOUR REGION" in trivia.llm_prompt("")  # blank keeps the placeholder
+    assert "500 facts" in trivia.llm_prompt("X", facts=9999)  # clamped
+
+
+def test_parse_pack_tolerates_llm_wrapping():
+    from app import trivia
+    items = [{"kind": "fact", "text": "A."}, {"kind": "tf", "text": "B?", "answer": 0}]
+    import json as j
+    raw = j.dumps(items)
+    assert trivia.parse_pack(raw) == items
+    assert trivia.parse_pack(f"Sure! Here you go:\n```json\n{raw}\n```\nEnjoy!") == items
+    with pytest.raises(ValueError):
+        trivia.parse_pack("no json here")
+    with pytest.raises(ValueError):
+        trivia.parse_pack('{"kind": "fact"}')  # object, not a list
+    with pytest.raises(ValueError):
+        trivia.parse_pack("")
+
+
+def test_insert_items_reports_and_is_idempotent(tmp_path):
+    from app import db as adb, trivia
+    conn = adb.connect(str(tmp_path / "t.db"))
+    pack = [{"kind": "fact", "text": "A."},
+            {"kind": "tf", "text": "B?", "answer": 1},
+            {"kind": "tf", "text": "no answer"},          # reject
+            {"kind": "nope", "text": "bad kind"},          # reject
+            "not an object"]                               # reject
+    r = trivia.insert_items(conn, pack, "import")
+    assert r["added"] == 2 and r["duplicates"] == 0 and len(r["rejects"]) == 3
+    # imported items are never-played and source=import
+    rows = conn.execute("SELECT source, used_at FROM trivia").fetchall()
+    assert all(x["source"] == "import" and x["used_at"] is None for x in rows)
+    # re-import: everything is a duplicate, nothing added
+    r = trivia.insert_items(conn, pack[:2], "import")
+    assert r["added"] == 0 and r["duplicates"] == 2

@@ -44,7 +44,8 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
 <div class="tabs">
   <button id="tab-game" class="sel" onclick="showTab('game')">Game</button>
   <button id="tab-library" onclick="showTab('library')">Library</button>
-  <button id="tab-trivia" onclick="showTab('trivia')">Trivia &amp; scores</button>
+  <button id="tab-trivia" onclick="showTab('trivia')">Trivia</button>
+  <button id="tab-scores" onclick="showTab('scores')">Scores</button>
 </div>
 
 <section id="sec-game">
@@ -128,7 +129,28 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
     <div class="dim" id="leaderboard-info"></div>
     <button class="warn" id="trivia-reset-btn" onclick="resetTrivia()">Reset trivia usage</button>
   </div>
+</div>
+<div class="card">
+  <b>Add localised trivia</b>
+  <div class="dim" style="margin-top:.3rem">1 — copy a prompt for ChatGPT (or any LLM):</div>
   <div class="row" style="margin-top:.5rem">
+    <input id="prompt-region" placeholder="Region, e.g. Canada" style="flex:1">
+    <button id="copy-prompt-btn" onclick="copyPrompt()">Copy prompt</button>
+  </div>
+  <div class="dim" style="margin-top:.8rem">2 — paste its reply here (fences/chat text around the JSON are fine):</div>
+  <textarea id="import-text" rows="6" style="width:100%;margin-top:.5rem;background:#0e1118;color:var(--fg);border:1px solid #333;border-radius:10px;padding:.7rem;font-size:.9rem"></textarea>
+  <div class="row" style="margin-top:.5rem">
+    <div class="dim" id="import-result"></div>
+    <button id="import-preview-btn" onclick="importTrivia(false)">Preview</button>
+    <button class="primary" id="import-commit-btn" onclick="importTrivia(true)" hidden>Import</button>
+  </div>
+  <div class="dim" style="margin-top:.5rem">Fact-check what an LLM writes before the family reads it out — they state wrong facts fluently.</div>
+</div>
+</section>
+
+<section id="sec-scores" hidden>
+<div class="card">
+  <div class="row">
     <div class="dim">All-time scores, every game ever played</div>
     <button class="warn" id="leaderboard-wipe-btn" onclick="wipeLeaderboard()">Wipe leaderboard</button>
   </div>

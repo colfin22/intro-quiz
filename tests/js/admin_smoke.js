@@ -107,12 +107,17 @@ if (!/12 games/.test(document.getElementById("leaderboard-wipe-btn").textContent
 adminState = { current: null, jobs: {}, game: { phase: "idle" } };
 try { render(); } catch (e) { console.log("render threw without trivia:", e.message); failures++; }
 // tabs: exactly one section visible, selected tab highlighted, choice persisted
-for (const t of ["game", "library", "trivia"]) {
+for (const t of ["game", "library", "trivia", "scores"]) {
   try { showTab(t); } catch (e) { console.log("showTab threw:", t, e.message); failures++; }
-  for (const o of ["game", "library", "trivia"]) {
+  for (const o of ["game", "library", "trivia", "scores"]) {
     if (document.getElementById("sec-" + o).hidden !== (o !== t)) {
       console.log("tab visibility wrong:", t, "->", o); failures++; }
   }
+}
+// import flow elements exist and preview handles a server reject without throwing
+for (const id of ["prompt-region", "copy-prompt-btn", "import-text", "import-result",
+                  "import-preview-btn", "import-commit-btn"]) {
+  document.getElementById(id);  // MISSING ELEMENT fires if absent
 }
 `;
 eval(src.replace(/^refresh\(\);?$/m, "") + scenario);

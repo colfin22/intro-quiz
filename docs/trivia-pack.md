@@ -21,6 +21,10 @@ It's a flat JSON list of two kinds of item:
 - Set `TRIVIA_BUILTIN_PACK=false` in `.env` **before your first game** to skip
   the shipped pack entirely — items already seeded stay in the bank (pruning
   after the fact is a `DELETE FROM trivia WHERE source='seed'` in `data/quiz.db`).
+- **Easiest path: the `/admin` page's Trivia tab does this whole loop in the
+  browser** — it generates the prompt below (with your region filled in), and you
+  paste the LLM's reply straight back into an import box with a preview. The
+  file-based route here still works and is what the import uses under the hood.
 - An LLM drafts a regional pack in minutes. Copy this prompt, swap the region,
   and paste the output into `data/trivia_custom.json` — but **fact-check what it
   writes before your family reads it out with confidence.** LLMs state wrong
