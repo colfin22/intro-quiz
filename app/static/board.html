@@ -30,6 +30,11 @@
   #b-results li b.good { color:var(--good); } #b-results li b.bad { color:var(--bad); }
   .clipbar { height:1.6vh; background:#2a3140; border-radius:1vh; overflow:hidden; margin:1.5vh 8% 0; }
   .clipbar > div { height:100%; width:0%; background:var(--good); border-radius:1vh; }
+  /* scan-to-join QR: white field so the (dark-module) code scans off the dark board */
+  .qr { display:block; width:auto; height:auto; background:#fff; border-radius:1vh; }
+  #b-idle .qr { max-height:34vh; margin:1.5vh auto; padding:1.4vh; }
+  #b-qr-card .qr { max-height:26vh; max-width:90%; margin:1vh auto; padding:1vh; }
+  .join-url { font-family:monospace; letter-spacing:.02em; }
 </style>
 </head>
 <body>
@@ -37,7 +42,8 @@
   <h1 class="center">🎵 Intro Quiz</h1>
   <div id="b-idle" class="card center" hidden>
     <p class="big">Waiting for a game…</p>
-    <p class="dim">Open this page's address on your phone to play.</p>
+    <img id="b-qr-idle" class="qr" alt="QR code to join the quiz" hidden>
+    <p class="dim"><b>📱 Scan to join</b> — or open <span id="b-join-url" class="join-url">this page's address</span> on your phone</p>
   </div>
   <div id="b-live" hidden>
     <p class="big center" id="b-status"></p>
@@ -72,6 +78,11 @@
       <div class="card" id="b-alltime-card" hidden>
         <p class="dim">🏆 All-time</p>
         <ul class="scores" id="b-alltime"></ul>
+      </div>
+      <div class="card center" id="b-qr-card" hidden>
+        <p class="dim">📱 Scan to join</p>
+        <img id="b-qr-lobby" class="qr" alt="QR code to join the quiz" hidden>
+        <p class="dim join-url" id="b-join-url-lobby"></p>
       </div>
     </div>
   </div>
@@ -306,6 +317,7 @@ function connect() {
     // all-time leaderboard beside the scores in the lobby and on the final screen;
     // fetched once per phase entry (finish() saves before broadcasting, so the
     // finished fetch already includes this game)
+    document.getElementById("b-qr-card").hidden = s.phase !== "lobby";
     const atCard = document.getElementById("b-alltime-card");
     atCard.hidden = !(s.phase === "lobby" || s.phase === "finished");
     if (!atCard.hidden && alltimeKey !== `${s.phase}-${s.game_no}`) {
@@ -332,6 +344,29 @@ function connect() {
   };
   ws.onclose = () => setTimeout(connect, 1500);
 }
+
+// Scan-to-join QR: the board tells the server its own origin (how it was actually
+// reached), the server resolves the join address (JOIN_URL / BOARD_URL / that origin)
+// and hands back both the QR and the matching caption. Purely cosmetic — a failed
+// fetch just leaves the fallback caption text, the board never breaks over it.
+(function initJoinQR() {
+  const qs = "?url=" + encodeURIComponent(location.origin);
+  ["b-qr-idle", "b-qr-lobby"].forEach(id => {
+    const img = document.getElementById(id);
+    if (!img) return;
+    img.onload = () => { img.hidden = false; };
+    img.onerror = () => { img.hidden = true; };
+    img.src = "/api/join-qr.svg" + qs;
+  });
+  const setCaption = (text) => ["b-join-url", "b-join-url-lobby"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && text) el.textContent = text;
+  });
+  fetch("/api/join-url" + qs).then(r => r.json())
+    .then(d => setCaption((d.url || location.origin).replace(/^https?:\/\//, "")))
+    .catch(() => setCaption(location.origin.replace(/^https?:\/\//, "")));
+})();
+
 connect();
 </script>
 </body>

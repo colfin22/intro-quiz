@@ -109,7 +109,10 @@ subscriptions.
   scoreboard, because a cast device runs one app at a time. Audio is served from an
   anonymous per-round endpoint so phones can't extract the track id mid-round. Android
   TV (e.g. Nvidia Shield) autoplays; touch displays (Nest Hub) need one tap to unlock
-  sound — the board shows an overlay asking for it.
+  sound — the board shows an overlay asking for it. While it waits for a game — and in
+  the lobby, for latecomers — the board shows a **scan-to-join QR** of the app's address,
+  so players point a camera at the TV instead of typing a URL (override the encoded
+  address with `JOIN_URL` if the app is reached via a different host).
 - **Half-time trivia** — a curated seed pack ships in the repo (~180 read-aloud music
   facts + ~215 true/false questions, **deliberately Irish/UK-centric** — Eurovision,
   Thin Lizzy and Westlife feature) and lives in SQLite; the true/false pool tops
