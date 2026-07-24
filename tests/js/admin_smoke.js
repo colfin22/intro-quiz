@@ -106,6 +106,14 @@ if (!/12 games/.test(document.getElementById("leaderboard-wipe-btn").textContent
 // missing trivia payload must not throw and renders zeros
 adminState = { current: null, jobs: {}, game: { phase: "idle" } };
 try { render(); } catch (e) { console.log("render threw without trivia:", e.message); failures++; }
+// tabs: exactly one section visible, selected tab highlighted, choice persisted
+for (const t of ["game", "library", "trivia"]) {
+  try { showTab(t); } catch (e) { console.log("showTab threw:", t, e.message); failures++; }
+  for (const o of ["game", "library", "trivia"]) {
+    if (document.getElementById("sec-" + o).hidden !== (o !== t)) {
+      console.log("tab visibility wrong:", t, "->", o); failures++; }
+  }
+}
 `;
 eval(src.replace(/^refresh\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }

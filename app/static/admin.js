@@ -11,6 +11,15 @@ let pollTimer = 0;
 
 function token() { return localStorage.getItem("adminToken") || ""; }
 
+const TABS = ["game", "library", "trivia"];
+function showTab(name) {
+  for (const t of TABS) {
+    document.getElementById(`sec-${t}`).hidden = t !== name;
+    document.getElementById(`tab-${t}`).classList[t === name ? "add" : "remove"]("sel");
+  }
+  localStorage.setItem("adminTab", name);
+}
+
 async function call(path, opts) {
   const r = await fetch(path, Object.assign({}, opts, {
     headers: { "X-Admin-Token": token() },
@@ -221,5 +230,7 @@ async function refresh() {
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("master-select")
     .addEventListener("change", ev => { changeMaster(ev.target.value); ev.target.value = ""; });
+  const saved = localStorage.getItem("adminTab");
+  showTab(TABS.includes(saved) ? saved : "game");
 });
 refresh();

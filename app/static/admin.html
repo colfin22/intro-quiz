@@ -27,6 +27,12 @@ select { padding:.55rem .7rem; font-size:1rem; border-radius:10px; border:1px so
 h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var(--dim);
      margin:1.3rem 0 .2rem; }
 .dim a { color:var(--accent); }
+.tabs { display:flex; gap:.4rem; margin:1rem 0 .2rem; }
+.tabs button { width:auto; flex:1; margin:0; padding:.6rem .5rem; text-align:center;
+               font-size:.95rem; color:var(--dim); background:transparent;
+               border-bottom:2px solid transparent; border-radius:10px 10px 0 0; }
+.tabs button.sel { color:var(--fg); font-weight:700; background:var(--card);
+                   border-bottom:2px solid var(--accent); }
 </style>
 </head>
 <body>
@@ -35,7 +41,13 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
 <h1>Server control <span class="dim" id="app-version" style="font-size:.85rem;font-weight:400"></span></h1>
 <div id="ready-chip" style="font-size:.92rem"></div>
 
-<h2>Game</h2>
+<div class="tabs">
+  <button id="tab-game" class="sel" onclick="showTab('game')">Game</button>
+  <button id="tab-library" onclick="showTab('library')">Library</button>
+  <button id="tab-trivia" onclick="showTab('trivia')">Trivia &amp; scores</button>
+</div>
+
+<section id="sec-game">
 <div class="card" id="game-card">
   <div id="game-info" class="dim">no game running</div>
   <div class="stats" id="game-players"></div>
@@ -46,8 +58,9 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
     <button class="warn" id="abandon-btn" onclick="abandonGame()">Abandon game</button>
   </div>
 </div>
+</section>
 
-<h2>Library</h2>
+<section id="sec-library" hidden>
 <div class="card">
   <div class="stats" id="stats-row"><span class="dim">loading…</span></div>
 </div>
@@ -106,8 +119,9 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
   <div class="status" id="status-bootstrap">no runs since restart</div>
   <details id="logwrap-bootstrap" hidden><summary>run output</summary><pre class="log" id="log-bootstrap"></pre></details>
 </div>
+</section>
 
-<h2>Trivia &amp; leaderboard</h2>
+<section id="sec-trivia" hidden>
 <div class="card">
   <div class="stats" id="trivia-row"><span class="dim">loading…</span></div>
   <div class="row" style="margin-top:.8rem">
@@ -119,6 +133,7 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
     <button class="warn" id="leaderboard-wipe-btn" onclick="wipeLeaderboard()">Wipe leaderboard</button>
   </div>
 </div>
+</section>
 </main>
 <script src="/static/admin.js"></script>
 </body>
