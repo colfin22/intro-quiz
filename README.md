@@ -220,6 +220,10 @@ game start. Full format and rules: **[docs/trivia-pack.md](docs/trivia-pack.md)*
 
 ## Notes
 
+- **No sound on the first round?** Browsers block audio until you've interacted with
+  the page. If you're playing in a browser tab (e.g. AirPlaying from a laptop, or on
+  a smart display), click or tap anywhere in the game tab once — audio then works for
+  the rest of the session. Casting to a TV/Chromecast doesn't have this issue.
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
   table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
   (rows of `{"id", "play_count", "starred"}` summed across your users).
