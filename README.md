@@ -9,6 +9,13 @@
 
 </div>
 
+> **This is a fork** of [colfin22/intro-quiz](https://github.com/colfin22/intro-quiz),
+> with remote players, browser-based speaker picking and grouping, phone-side top scores,
+> a skippable payoff song, a no-dependencies local dev setup, and a few
+> deployment-specific compose changes. What diverges and what to watch out for when
+> merging upstream: **[docs/fork-changes.md](docs/fork-changes.md)**. The badges above
+> track upstream's build, not this fork's.
+
 Self-hosted "guess the intro" music quiz for family game night, built on your own
 [Navidrome](https://www.navidrome.org/) library. A song's **first 5 seconds** play
 and everyone races to name it on their phones — fastest correct answer scores most.
@@ -145,7 +152,10 @@ subscriptions.
   buffering doesn't cost them points — the phone reports the start over the
   websocket and the server scores from there (credit capped at 5s, since that
   timestamp comes from the client). Phones in the room stay silent so the room
-  isn't a mess of echoes. Remote players show a 🌐 on the scoreboard.
+  isn't a mess of echoes. Remote players show a 🌐 on the scoreboard. A remote player
+  can also **start and run the game** — one person elsewhere driving it on their own
+  phone audio while everyone else listens together on the house speaker
+  ([how, and the no-TV-board caveat](docs/setup.md#hosting-from-another-room)).
 - **Pick the speaker from the browser** — the **Speakers tab on `/admin`** lists every
   media player Home Assistant can see, so you choose where the music plays without
   editing `.env` or restarting; there's a **Test** button that plays the fanfare on it.

@@ -138,6 +138,30 @@ Two things worth knowing:
 Remote players are marked 🌐 on the scoreboard and in the lobby, so it's obvious who's
 listening on their own phone.
 
+### Hosting from another room
+
+A remote player can **start and run the game**: nothing ties the game master's chair to
+being in the room. The common shape is one person elsewhere driving the quiz on their own
+phone audio while everyone else listens together on the house speaker:
+
+- The remote host taps **Start a new game**, picks *"somewhere else"*, and gets the clips
+  on their own phone.
+- Everyone in the room joins as *"in the room"*, so their phones stay silent and the
+  music comes out of the speaker chosen on `/admin`.
+- The host keeps the start / next-song / half-time controls wherever they are.
+
+**This needs no TV board — and in fact only works without one.** The room speaker is used
+only when no cast board is present: if a board is up, it plays the audio itself and the
+speaker is deliberately skipped, so a remote host with a board running would leave the
+room hearing whatever the TV is connected to rather than the speaker. Either put the board
+on the TV in the room *or* use the speaker, not both.
+
+One rough edge if you were casting earlier in the same session: after a board disappears
+the app keeps expecting it for **120 seconds** (so a websocket blip doesn't bounce audio
+onto a speaker mid-round). Start a speaker-only game inside that window and the first
+round or two can be silent in the room. Wait a couple of minutes after turning the TV
+board off, or turn it off before starting.
+
 ## Navidrome user permissions
 
 The Navidrome user needs the standard Subsonic permissions plus **download and streaming
