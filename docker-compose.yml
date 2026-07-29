@@ -1,17 +1,19 @@
 services:
   quiz:
-    # Pre-built images are published on each release. To pull instead of build:
-    #   docker compose pull && docker compose up -d
-    # `build: .` stays so you can still build locally (docker compose up -d --build).
-    image: ghcr.io/colfin22/intro-quiz:latest
+    # Built from this checkout: docker compose up -d --build
+    # (image: is just the local tag the build gets; nothing is pulled by default)
+    image: ghcr.io/giantsystems/intro-quiz:latest
     build: .
     container_name: intro-quiz
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      # host 8001 — 8000 is taken by portainer on the docker server
+      - "8001:8000"
     env_file:
       - .env
     volumes:
-      - ./data:/data
-      # override with CLIPS_HOST_DIR in .env (e.g. /clips or C:\quiz-clips)
-      - ${CLIPS_HOST_DIR:-./clips}:/clips
+      # :Z relabels for SELinux (AlmaLinux/RHEL enforcing) — harmless elsewhere
+      - ./data:/data:Z
+      # CLIPS_HOST_DIR in .env points at the server's local SSD (/mnt/data);
+      # falls back to ./clips so a fresh checkout still works
+      - ${CLIPS_HOST_DIR:-./clips}:/clips:Z
