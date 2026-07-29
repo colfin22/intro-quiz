@@ -259,7 +259,7 @@ different act, which is what stops all 12 Blacklist covers being retagged as Met
 **A leading "The" is never added or removed.** The artist key ignores it so that `The Verve`
 and `Verve` fold to one band — but that also means whichever spelling a file's `album_artist`
 happens to use would win, and on this library that came out as `The Beatles` → `Beatles`,
-`The Eagles` → `Eagles` and `Stray Cats` → `The Stray Cats`: 209 of 811 planned changes,
+`The Eagles` → `Eagles` and `Stray Cats` → `The Stray Cats`: 206 of 811 planned changes,
 churn in both directions with no correct answer. Those are skipped. Use an explicit override
 if you *do* have an opinion about a particular band.
 

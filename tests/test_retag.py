@@ -87,7 +87,7 @@ def test_plan_never_targets_the_spelling_it_already_has():
 def test_plan_never_rewrites_an_article_only_difference():
     """The real library's dry run wanted 'The Beatles' -> 'Beatles' and
     'The Eagles' -> 'Eagles' (because the album_artist happened to omit it) while
-    also pushing 'Stray Cats' -> 'The Stray Cats'. 209 of 811 changes were this,
+    also pushing 'Stray Cats' -> 'The Stray Cats'. 206 of 811 changes were this,
     in both directions. artist_key already folds them, so the quiz sees one band
     either way and rewriting the files buys nothing.
     """

@@ -189,7 +189,7 @@ def plan(tracks: list[dict], overrides: dict | None = None) -> list[dict]:
     both spellings share a key, whichever the album_artist happens to use "wins",
     and on the real library that meant retagging 'The Beatles' -> 'Beatles' and
     'The Eagles' -> 'Eagles' while pushing 'Stray Cats' -> 'The Stray Cats'. That
-    was 209 of 811 planned changes (26%) — pure churn, in both directions, with no
+    was 206 of 811 planned changes (25%) — pure churn, in both directions, with no
     winner: there is no library-wide truth about whether a band's name includes the
     article, and the quiz already treats them as identical. An explicit --map
     override still wins, for the cases where you DO have an opinion.

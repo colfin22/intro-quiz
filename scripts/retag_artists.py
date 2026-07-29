@@ -53,7 +53,7 @@ A LEADING 'THE' IS NEVER ADDED OR REMOVED by rules 2 and 3. artist_key strips it
 so variants fold, which is what the quiz wants — but that also means whichever
 spelling the album_artist happens to use would "win", and on a real library that
 came out as 'The Beatles' -> 'Beatles', 'The Eagles' -> 'Eagles' and
-'Stray Cats' -> 'The Stray Cats': 209 of 811 changes, churn in both directions,
+'Stray Cats' -> 'The Stray Cats': 206 of 811 changes, churn in both directions,
 no winner. Use --map if you do have an opinion about a particular band.
 
 After writing, trigger a Navidrome rescan so the DB picks the new tags up, then
