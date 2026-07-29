@@ -52,8 +52,9 @@ subscriptions.
 ## How a game works
 
 1. Everyone joins on their phone — **scan the QR on the TV** (or open the app's
-   LAN address, a plain web page) and pick a name. Anyone already in can also
-   share the join link from their lobby screen.
+   LAN address, a plain web page) and pick a name, and say whether they're **in the
+   room** or **somewhere else**. Anyone already in can also share the join link from
+   their lobby screen.
    Whoever started the game is the **game master** — only their phone gets the
    start / next-song / half-time controls. A 🎤 banner on every phone shows who's
    in charge, and **the master's chair rotates each game**: the final screen
@@ -134,6 +135,22 @@ subscriptions.
 - **Speaker-only mode** — pick "no scoreboard" at game start and clips cast to a
   speaker via Home Assistant + Music Assistant instead; the phones do the rest.
   A display isn't required to play.
+- **Remote players** — anyone not in the room says so at join (a toggle, changeable
+  from the lobby) and the clips **stream to their own phone** instead. Their speed
+  bonus is measured from when *their* audio actually started, not the room's, so
+  buffering doesn't cost them points — the phone reports the start over the
+  websocket and the server scores from there (credit capped at 5s, since that
+  timestamp comes from the client). Phones in the room stay silent so the room
+  isn't a mess of echoes. Remote players show a 🌐 on the scoreboard.
+- **Pick the speaker from the browser** — the **Speakers tab on `/admin`** lists every
+  media player Home Assistant can see, so you choose where the music plays without
+  editing `.env` or restarting; there's a **Test** button that plays the fanfare on it.
+  Tick two or more and they're **grouped for the game** (`media_player.join`) and put
+  back exactly as they were when it ends. The `.env` `MEDIA_PLAYER` stays the default
+  if you never choose one. Both of these are covered in
+  [docs/setup.md](docs/setup.md#choosing-the-speaker-and-grouping-several) — including
+  the one trap worth knowing about, that playing and grouping use *different* entities
+  for the same speaker.
 - **Upkeep** — schedule the four maintenance endpoints nightly with whatever you
   like (cron, systemd timer): `POST /api/sync`, `/api/score/lastfm`,
   `/api/score/tiers`, `/api/clips/cut` — the library re-syncs, new tracks get
@@ -143,7 +160,8 @@ subscriptions.
   the browser instead: one job at a time, live progress while it runs, the run's
   log output, and each action's last outcome. It also shows the running game
   (players, scores, round — never the current song, so a playing admin can't
-  cheat) with **abandon game** and **change game master** controls. Set
+  cheat) with **abandon game** and **change game master** controls, and picks the
+  speaker the music plays on (**Speakers tab**, above). Set
   `ADMIN_PASSWORD` in `.env` to gate it (the page asks once); unset, it's as
   open as the rest of the app on your LAN. NB once set, scheduled curls need
   `-H "X-Admin-Token: $ADMIN_PASSWORD"` too.
@@ -223,13 +241,15 @@ game start. Full format and rules: **[docs/trivia-pack.md](docs/trivia-pack.md)*
 - **No sound on the first round?** Browsers block audio until you've interacted with
   the page. If you're playing in a browser tab (e.g. AirPlaying from a laptop, or on
   a smart display), click or tap anywhere in the game tab once — audio then works for
-  the rest of the session. Casting to a TV/Chromecast doesn't have this issue.
+  the rest of the session. Same on a **remote player's phone**: it shows a "tap for
+  sound" overlay on the first clip. Casting to a TV/Chromecast doesn't have this issue.
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
   table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
   (rows of `{"id", "play_count", "starred"}` summed across your users).
 - Tests: `python -m pytest tests/` (includes node-based smokes that render every
   phone-UI phase and the admin page — a thrown render fails CI instead of shipping
-  a half-drawn screen).
+  a half-drawn screen). Working on the code? **[docs/development.md](docs/development.md)**
+  runs it on a laptop with no Navidrome, no Home Assistant and no Docker.
 - The all-time leaderboard can be wiped from the **Scores tab on `/admin`** (two
   clicks), or with `POST /api/leaderboard/reset?confirm=yes`.
 - **Mis-tag detection:** junk in a track's *subtitle* tag ("Teenage Kicks (PMEDIA)")
@@ -251,6 +271,11 @@ Planned (roughly in priority order):
 
 Recently shipped:
 
+- **Remote players + speaker picking** — players not in the room say so at join and the
+  clips stream to their own phone, scored fairly against the room (speed bonus measured
+  from their own audio start, capped). The `/admin` **Speakers tab** lists Home
+  Assistant's media players so you pick where the music plays without a restart, and
+  groups several for a game, restoring them afterwards.
 - **Scan-to-join QR** — the TV board and phone lobby show a QR of the join address
   (plus a share-link action), so players scan instead of typing a URL; optional
   `JOIN_URL` override for reverse-proxy setups. Contributed by
