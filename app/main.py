@@ -687,8 +687,8 @@ async def ws_endpoint(ws: WebSocket):
                         if hub.game.host and name != hub.game.host:
                             raise game.GameError(f"only {hub.game.host} controls the rounds")
                         wait = hub.game.payoff_wait()
-                        if wait > 0:  # the payoff plays in full — no skipping the song
-                            raise game.GameError(f"let the song play out — {int(wait) + 1}s left")
+                        if wait > 0:  # only guards the reveal from being skipped unread
+                            raise game.GameError(f"hold on — showing the answer ({int(wait) + 1}s)")
                         if hub.game.phase == "break":
                             if hub.game.advance_break() == "resume":
                                 await hub.start_round()

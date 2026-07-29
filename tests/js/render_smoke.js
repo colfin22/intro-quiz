@@ -6,9 +6,24 @@ const path = require("path");
 const base = path.join(__dirname, "..", "..", "app", "static");
 const src = fs.readFileSync(path.join(base, "quiz.js"), "utf8");
 const html = fs.readFileSync(path.join(base, "index.html"), "utf8");
+const css = fs.readFileSync(path.join(base, "quiz.css"), "utf8");
 const ids = new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]));
 const elems = {};
 let failures = 0;
+
+// A disabled button must not advertise itself as clickable. The base `button`
+// rule sets cursor:pointer, so `button:disabled` has to override it — without
+// that, a locked button shows a hand on hover and then swallows the tap in
+// silence (disabled buttons fire no onclick, so there isn't even an error
+// banner). That shipped, and got reported as a broken button, which is exactly
+// what it looked like. Checked here because it's a CSS-only failure no amount
+// of render assertions can see.
+{
+  const rule = (css.match(/button:disabled\s*\{([^}]*)\}/) || [])[1];
+  if (!rule) { console.log("no button:disabled rule in quiz.css at all"); failures++; }
+  else if (!/cursor\s*:\s*(not-allowed|default)/.test(rule)) {
+    console.log("button:disabled must override cursor:pointer, got:", rule.trim()); failures++; }
+}
 function mkEl(id) {
   return { id, hidden: false, disabled: false, textContent: "", innerHTML: "", value: "", src: "",
            style: {}, classList: { add(){}, remove(){} }, parentElement: { hidden: false },
@@ -100,9 +115,11 @@ const snapshots = [
     options: [{title:"a",artist:"b"},{title:"c",artist:"d"},{title:"e",artist:"f"},{title:"g",artist:"h"}],
     answered: ["Alice"], players },
   { phase: "reveal", host: "Alice", round: 3, total_rounds: 10, track,
-    round_answers: { Alice: { points: 120 } }, flagged: false, players, payoff_wait: 0 },
+    round_answers: { Alice: { points: 120 } }, flagged: false, players,
+    payoff_wait: 0, payoff_left: 0 },
   { phase: "reveal", host: "Alice", round: 3, total_rounds: 10, track,
-    round_answers: { Alice: { points: 120 } }, flagged: false, players, payoff_wait: 8.4 },
+    round_answers: { Alice: { points: 120 } }, flagged: false, players,
+    payoff_wait: 2, payoff_left: 11.4 },
   { phase: "break", host: "Alice", players },
   { phase: "break", host: "Alice", break_stage: "facts",
     facts: { Alice: "A fact to read", Bob: "Another fact" }, players },
@@ -140,28 +157,48 @@ if (!document.getElementById("r-next").hidden) { console.log("r-next visible for
 // payoff_wait keeps the first deadline. That's right in production — within one
 // round payoff_wait only ever counts down — but these checks drive the value up
 // and down out of order, so each one needs a fresh round to land on.
-const relock = (payoff_wait, round) => {
-  payoffUntil = 0; payoffUntilKey = "";
-  state = Object.assign({}, ${JSON.stringify(snapshots[4])}, { payoff_wait, round: round || 3 });
+const relock = (payoff_wait, round, payoff_left) => {
+  payoffUntil = 0; songUntil = 0; payoffUntilKey = "";
+  state = Object.assign({}, ${JSON.stringify(snapshots[4])},
+    { payoff_wait, payoff_left: payoff_left === undefined ? payoff_wait : payoff_left,
+      round: round || 3 });
   render();
 };
-// payoff lock: next button disabled with countdown text while the song plays out
-joined = true; myName = "Alice"; relock(8.4);
-if (!btn.disabled) { console.log("r-next not locked during payoff"); failures++; }
-if (!/9s/.test(btn.textContent)) { console.log("payoff countdown missing:", btn.textContent); failures++; }
-relock(0);
-if (btn.disabled) { console.log("r-next still locked after payoff"); failures++; }
+// payoff: a brief grace so the answer isn't skipped unread, then live
+joined = true; myName = "Alice"; relock(2, 3, 11.4);
+if (!btn.disabled) { console.log("r-next not locked during the grace"); failures++; }
+if (!/2s/.test(btn.textContent)) { console.log("grace countdown missing:", btn.textContent); failures++; }
+relock(0, 3, 0);
+if (btn.disabled) { console.log("r-next still locked after the grace"); failures++; }
 
-// ---- the payoff lock must always let go -----------------------------------
-// It shipped able to disable the next button FOREVER while CSS still gave it a
-// pointer cursor: a dead button that looks clickable, and the game cannot move
-// on. Three ways in, all reproduced below. The button unlocking is the only way
-// a round ever ends, so every one of these is a stuck game.
-// 1. a sub-second remainder (any re-broadcast in the payoff's last second:
+// ---- the host can move on while the song is still playing ------------------
+// The lock used to run the full length of the payoff (12s), every round. A
+// disabled button inherits cursor:pointer and fires no onclick, so it showed a
+// hand and then ignored the tap — reported, reasonably, as a broken button.
+// The grace is now short, and the rest of the song is the host's to skip.
+relock(2, 5, 12);
+advance(2200);                     // grace served; ~9.8s of song left
+if (btn.disabled) {
+  console.log("next still locked once the grace passed: " + btn.textContent); failures++; }
+if (!/Round 6/.test(btn.textContent)) {
+  console.log("next label missing while the song plays:", btn.textContent); failures++; }
+if (!/enjoy the song/.test(btn.textContent)) {
+  console.log("song-still-playing hint missing:", btn.textContent); failures++; }
+// and once the song is over the hint goes away, leaving a plain label
+advance(10200);
+if (btn.disabled) { console.log("next locked after the song ended"); failures++; }
+if (btn.textContent !== "▶ Round 6") {
+  console.log("label not clean after the song:", btn.textContent); failures++; }
+
+// ---- the grace must always let go -----------------------------------------
+// It shipped able to disable the button FOREVER (see startPayoffLock). Three
+// ways in, all reproduced below. Unlocking is the only way a round ever ends,
+// so each of these was a stuck game.
+// 1. a sub-second remainder (any re-broadcast in the grace's last second:
 //    a flag, a set_remote, a reconnect re-join). Counted down before deciding
 //    whether to schedule a tick, so it scheduled none and stuck on "1s".
 for (const pw of [1, 0.4]) {
-  relock(pw);
+  relock(pw, 3, pw);
   if (!btn.disabled) { console.log("payoff_wait=" + pw + " did not lock at all"); failures++; }
   advance(1600);
   if (btn.disabled) {
@@ -169,23 +206,23 @@ for (const pw of [1, 0.4]) {
 }
 // 2. local re-renders (flag tap, remote toggle) each restarted a full countdown
 //    from the original payoff_wait, so taps pushed the unlock ever further out
-relock(12);
-for (let i = 0; i < 3; i++) { advance(3000); render(); }   // renders at 3s, 6s, 9s
-advance(3600);                                             // t = 12.6s > 12s deadline
+relock(2, 3, 2);
+for (let i = 0; i < 3; i++) { advance(500); render(); }   // renders at .5s, 1s, 1.5s
+advance(700);                                            // t = 2.2s > 2s deadline
 if (btn.disabled) {
   console.log("payoff lock extended by re-renders: " + btn.textContent); failures++; }
 // 3. a backgrounded phone has its intervals throttled; the countdown must be
 //    re-derived from the clock on the next render, not resumed where it froze
-relock(12);
+relock(2, 3, 2);
 sleepThrough(30000);
 render();
 if (btn.disabled) {
   console.log("payoff lock still held after the phone slept: " + btn.textContent); failures++; }
-// and a genuinely new round still locks on its own deadline
-relock(12, 4);
-if (!btn.disabled) { console.log("a new round's payoff did not lock"); failures++; }
-advance(12600);
-if (btn.disabled) { console.log("new round's payoff lock never released"); failures++; }
+// and a genuinely new round still locks for its own grace
+relock(2, 4, 2);
+if (!btn.disabled) { console.log("a new round's grace did not lock"); failures++; }
+advance(2600);
+if (btn.disabled) { console.log("new round's grace never released"); failures++; }
 if (btn.textContent !== "▶ Round 5") {
   console.log("label not restored after the lock:", btn.textContent); failures++; }
 // half-time facts: my fact shows, someone else's doesn't leak into my card

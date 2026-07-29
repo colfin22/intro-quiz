@@ -72,8 +72,9 @@ subscriptions.
    once before revealing.
 4. Stuck? Anyone can extend the clip (5 → 10 → 20 seconds).
 5. The reveal shows album art and **who got it right** while a "payoff" chunk of
-   the song plays — **in full**: the next-song button stays locked with a countdown
-   until the music finishes. No skipping the good bit.
+   the song plays. The next-song button holds for two seconds so nobody skips the
+   answer before it's read, then it's live — it shows how much song is left, and
+   the game master decides whether to let it run or press on.
 6. At the midpoint, the game breaks for a **half-time show**: every player's phone gets a music
    fact to read out to the table, then three quick **true-or-false** questions —
    answered on the phones, question up on the TV, +50 points each on the main
@@ -274,10 +275,14 @@ Planned (roughly in priority order):
 
 Recently shipped:
 
+- **The game master can skip the payoff song** — the next-song button used to lock for
+  the song's full 12 seconds, every round, and a disabled button still showed a hand
+  cursor while silently ignoring taps, so it looked broken. Now it holds two seconds
+  (long enough that the answer gets read), then goes live showing how much song is
+  left. Disabled buttons across the phone UI are greyed and show a "not-allowed"
+  cursor, so locked no longer looks like broken.
 - **All-time top scores on the phone** — the persistent leaderboard now shows on the
-  join screen and with the final scores, not just on the TV board. Also fixes a
-  next-song button that could stay locked for the rest of the game while still looking
-  clickable (the payoff countdown now runs off a deadline, not a tick counter).
+  join screen and with the final scores, not just on the TV board.
 - **Remote players + speaker picking** — players not in the room say so at join and the
   clips stream to their own phone, scored fairly against the room (speed bonus measured
   from their own audio start, capped). The `/admin` **Speakers tab** lists Home

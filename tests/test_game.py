@@ -200,12 +200,22 @@ def test_payoff_gates_next():
         clock.t += 2
         g.answer("A", 0)
         g.reveal()
-        assert g.payoff_wait() == game.PAYOFF_S
-        clock.t += 5
-        assert g.payoff_wait() == game.PAYOFF_S - 5
-        clock.t += 10  # past the end
+        # the gate is the short grace, NOT the length of the song: the host is
+        # allowed to cut the payoff short, and a button locked for a full 12s
+        # was indistinguishable from a broken one.
+        assert g.payoff_wait() == game.PAYOFF_GRACE_S
+        assert game.PAYOFF_GRACE_S < game.PAYOFF_S
+        clock.t += 1
+        assert g.payoff_wait() == game.PAYOFF_GRACE_S - 1
+        clock.t += 1  # grace served, song still playing
         assert g.payoff_wait() == 0
-        assert g.snapshot()["payoff_wait"] == 0
+        assert g.payoff_left() > 0
+        snap = g.snapshot()
+        assert snap["payoff_wait"] == 0        # next is live...
+        assert snap["payoff_left"] > 0         # ...while the song runs on
+        clock.t += game.PAYOFF_S              # past the end of the song
+        assert g.payoff_left() == 0
+        assert g.snapshot()["payoff_left"] == 0
     finally:
         os.unlink(p)
 

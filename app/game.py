@@ -12,7 +12,13 @@ from datetime import datetime, timezone
 from . import trivia
 
 ANSWER_WINDOW_S = 20
-PAYOFF_S = 12          # mirrors clips.PAYOFF_LEN — the reveal payoff plays in full
+PAYOFF_S = 12          # mirrors clips.PAYOFF_LEN — how long the reveal payoff runs
+# The payoff is a sing-along, not a cutscene: the host can move on early. This
+# grace only stops the reveal being skipped before anyone has read it (a stray
+# double-tap on the answer that triggered the reveal), so it's deliberately
+# short — a locked button reads as a broken one, and every extra second of it
+# is a second the host is jabbing at a button that ignores them.
+PAYOFF_GRACE_S = 2
 TF_COUNT = 3           # true/false questions at half time
 TF_POINTS = 50         # enough to shake the standings, not to decide the game
 MAX_DURATION_S = int(os.environ.get("MAX_DURATION_S", "720"))  # longer = DJ mix / live jam, not quizzable
@@ -283,7 +289,17 @@ class Game:
         return rnd
 
     def payoff_wait(self) -> float:
-        """Seconds until the payoff clip has played out — 'next' is locked until 0."""
+        """Seconds until 'next' is allowed — a brief grace, not the whole song.
+
+        The host may cut the payoff short; see PAYOFF_GRACE_S. Use
+        payoff_left() for how much song is actually still playing.
+        """
+        if self.phase != "reveal" or self.revealed_at is None:
+            return 0.0
+        return max(0.0, PAYOFF_GRACE_S - (self.clock() - self.revealed_at))
+
+    def payoff_left(self) -> float:
+        """Seconds of payoff clip still to play — display only, gates nothing."""
         if self.phase != "reveal" or self.revealed_at is None:
             return 0.0
         return max(0.0, PAYOFF_S - (self.clock() - self.revealed_at))
@@ -396,6 +412,7 @@ class Game:
                               "album": t["album"], "year": t["year"]}
                 s["round_answers"] = rnd["answers"]
                 s["payoff_wait"] = round(self.payoff_wait(), 1)
+                s["payoff_left"] = round(self.payoff_left(), 1)
         if self.phase == "break":
             s["break_stage"] = "facts" if self.tf_index < 0 else "tf"
             s["facts"] = self.break_facts  # phones show only their own; it's a kitchen

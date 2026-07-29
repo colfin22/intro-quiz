@@ -1,8 +1,9 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
 let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
-// payoff lock deadline, pinned per round so a local re-render can't restart it
-let payoffUntil = 0, payoffUntilKey = "";
+// payoff deadlines, pinned per round so a local re-render can't restart them:
+// payoffUntil = the brief lock on `next`, songUntil = when the song itself ends
+let payoffUntil = 0, songUntil = 0, payoffUntilKey = "";
 let myTf = null, tfKey = "", timerKey = "", lastGameNo, finishedBuzz, extendTimer = null;
 // remote play: this phone is not in the room, so the clips come out of it.
 // Sticky across reloads — someone on a train shouldn't have to re-declare it.
@@ -617,12 +618,20 @@ function startTimer(seconds) {
 }
 function stopTimer() { if (timerHandle) clearInterval(timerHandle); timerHandle = null; }
 
-// reveal: hold the next button until the payoff clip has played out (server enforces too).
+// reveal: the next button holds for a two-second grace so the answer can't be
+// skipped before anyone reads it, then it's live even though the payoff song is
+// still playing — the host can cut it short. While the song runs the label says
+// so, so moving on early is a visible choice rather than something you wonder
+// about. The server applies the same grace (and only the grace).
 //
-// Counts down against a wall-clock deadline instead of decrementing a counter on
-// a 1s interval. The counter version could leave the button disabled FOREVER,
-// while CSS still gave it a pointer cursor — a dead button that looks alive, and
-// the game can't move on:
+// It was the whole 12s song, which is where a "broken" button came from: a
+// disabled button inherited cursor:pointer and fires no onclick, so hovering
+// gave a hand and tapping did nothing at all. Locked and broken looked the same.
+// quiz.css now greys it and shows not-allowed, and this is short enough that a
+// host is unlikely to meet it.
+//
+// Counts down against a wall-clock deadline rather than decrementing a counter
+// on a 1s interval. The counter version could leave the button disabled FOREVER:
 //
 //   - the opening tick() decremented `left` before the `left > 0` guard decided
 //     whether to schedule the interval, so any render with 0 < payoff_wait <= 1
@@ -635,34 +644,36 @@ function stopTimer() { if (timerHandle) clearInterval(timerHandle); timerHandle 
 // A deadline is immune to both: every tick re-derives the remainder, so a missed
 // or late tick corrects itself, and the unlock can't be skipped.
 //
-// The deadline is pinned to the round (payoffUntilKey) rather than recomputed per
-// render, because render() runs on local events too — a flag tap, the remote
-// toggle, an error banner — and each of those carried the ORIGINAL payoff_wait,
-// restarting a full 12s countdown from whenever it happened. Two taps and the
-// button outlived the song by half a minute.
+// Both deadlines are pinned to the round (payoffUntilKey) rather than recomputed
+// per render, because render() runs on local events too — a flag tap, the remote
+// toggle, an error banner — and each of those carried the ORIGINAL wait,
+// restarting the countdown from whenever it happened.
 function startPayoffLock(btn, label) {
   const key = `${state.game_no}-${state.round}`;
   if (payoffUntilKey !== key) {
     payoffUntilKey = key;
     payoffUntil = Date.now() + (state.payoff_wait || 0) * 1000;
+    songUntil = Date.now() + (state.payoff_left || 0) * 1000;
   }
   stopPayoffLock();
-  const until = payoffUntil;
+  const until = payoffUntil, songEnd = songUntil;
   const tick = () => {
     const left = Math.ceil((until - Date.now()) / 1000);
+    const song = Math.ceil((songEnd - Date.now()) / 1000);
     if (left > 0) {
       btn.disabled = true;
-      btn.textContent = `🎶 enjoy the song… ${left}s`;
+      btn.textContent = `📀 the answer's up… ${left}s`;
     } else {
       btn.disabled = false;
-      btn.textContent = label;
-      stopPayoffLock();
+      // still playing: say so, and that pressing on is allowed
+      btn.textContent = song > 0 ? `${label} — or enjoy the song (${song}s)` : label;
+      if (song <= 0) stopPayoffLock();
     }
   };
   tick();
-  // 250ms, not 1s: the label only changes once a second, but a short tick keeps
-  // the unlock prompt instead of trailing the song by up to a second
-  if (btn.disabled) payoffHandle = setInterval(tick, 250);
+  // 250ms, not 1s: the labels only change once a second, but a short tick keeps
+  // the unlock prompt instead of trailing by up to a second
+  if (btn.disabled || Date.now() < songEnd) payoffHandle = setInterval(tick, 250);
 }
 function stopPayoffLock() { if (payoffHandle) clearInterval(payoffHandle); payoffHandle = null; }
 
