@@ -153,6 +153,10 @@ def find_too_short(conn) -> list[dict]:
         (MIN_DURATION_S,))]
 
 
+# ORDER IS SIGNIFICANT — clean() runs these in sequence against live state, so
+# each sees the previous one's bans. 'duplicate' MUST come before 'untrustworthy':
+# deduping first can drop a group below JUNK_GROUP_MIN and rightly spare it, while
+# the reverse order bans the whole group and loses a real song. See clean().
 FINDERS = {
     "duplicate": find_duplicates,
     "untrustworthy": find_untrustworthy,
@@ -173,6 +177,16 @@ def clean(conn, reasons: list[str] | None = None, dry_run: bool = False) -> dict
 
     `ban_reason` records which finder caught a row, so a mistake is reversible:
     UPDATE tracks SET banned=0, ban_reason=NULL WHERE ban_reason='duplicate'.
+
+    Finders run IN ORDER against live state, each seeing the previous one's bans,
+    and that order is deliberate. Deduping first can legitimately dissolve an
+    'untrustworthy' group: three rows of AC/DC's 'Round And Round' on one album
+    (201s, 201s, 200s) look like tag damage, but once the exact-duration duplicate
+    is banned only two rows remain — below JUNK_GROUP_MIN, and a 200s/201s pair is
+    a normal near-identical rip, not a tagger that lost the distinguishing part of
+    the title. Running untrustworthy first would have banned all three, losing a
+    real song. So counts here can come out lower than a standalone audit(), which
+    scores each finder independently against the untouched table.
     """
     picked = reasons or list(FINDERS)
     out: dict = {"dry_run": dry_run, "banned": {}, "examples": {}}

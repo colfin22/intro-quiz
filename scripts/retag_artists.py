@@ -49,6 +49,13 @@ grouped by artist — skim it before writing. Rule 3 also needs the WHOLE scan t
 be meaningful: pass every --root you own in one run, or a majority computed from
 half your library may pick the wrong winner.
 
+A LEADING 'THE' IS NEVER ADDED OR REMOVED by rules 2 and 3. artist_key strips it
+so variants fold, which is what the quiz wants — but that also means whichever
+spelling the album_artist happens to use would "win", and on a real library that
+came out as 'The Beatles' -> 'Beatles', 'The Eagles' -> 'Eagles' and
+'Stray Cats' -> 'The Stray Cats': 209 of 811 changes, churn in both directions,
+no winner. Use --map if you do have an opinion about a particular band.
+
 After writing, trigger a Navidrome rescan so the DB picks the new tags up, then
 re-run the audit (GET /api/library/audit) to confirm the variant count dropped.
 
@@ -64,6 +71,7 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.library import artist_key  # noqa: E402
+from app.retag import _article_only  # noqa: E402  (shared with the server-side job)
 
 AUDIO_EXT = {".mp3", ".m4a", ".flac", ".ogg", ".opus", ".wma", ".aac", ".aiff", ".alac"}
 # tag keys holding the track artist and the album artist, across container formats
@@ -225,6 +233,10 @@ def plan(tracks: list[dict], overrides: dict) -> list[dict]:
             target, why = majority[k], "majority"
         else:
             continue  # only one spelling and nothing to apply — leave it alone
+        if why != "--map" and _article_only(target, t["artist"]):
+            # 'The Verve' vs 'Verve' folds to one artist already, so rewriting the
+            # files buys nothing and picks a side at random. See app/retag.plan.
+            continue
         if target != t["artist"]:
             changes.append({**t, "target": target, "why": why})
     return changes

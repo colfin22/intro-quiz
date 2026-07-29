@@ -263,6 +263,44 @@ def test_clean_is_idempotent():
         os.unlink(p)
 
 
+def test_deduping_first_saves_a_song_from_the_untrustworthy_rule():
+    """Finder ORDER matters, and this is the case that proves it.
+
+    Real rows from the library: AC/DC's 'Round And Round' appears three times on
+    one album at 201s, 201s and 200s. Three rows sharing album+artist+title is the
+    untrustworthy signature, so running that rule first would ban all three and
+    lose the song. Deduping first bans the exact-duration twin, leaving two rows —
+    below JUNK_GROUP_MIN — and a 200s/201s pair is a normal near-identical rip, not
+    a tagger that dropped the distinguishing part of a title. So one row is banned
+    and the song survives.
+    """
+    rows = [
+        {"id": "a", "title": "Round And Round", "artist": "AC/DC", "duration": 201},
+        {"id": "b", "title": "Round And Round", "artist": "AC/DC", "duration": 201},
+        {"id": "c", "title": "Round And Round", "artist": "AC/DC", "duration": 200},
+    ]
+    conn, p = make_db(rows)
+    try:
+        out = library.clean(conn)
+        assert out["banned"] == {"duplicate": 1, "untrustworthy": 0, "too_short": 0}
+        survivors = [r[0] for r in conn.execute(
+            "SELECT id FROM tracks WHERE banned=0 ORDER BY id")]
+        assert survivors in (["a", "c"], ["b", "c"]), \
+            "the song must survive — exactly one 201s twin goes, the 200s stays"
+    finally:
+        os.unlink(p)
+
+    # ...and the reverse order is what we're protecting against: untrustworthy
+    # first sees all three rows and takes the whole group, song and all.
+    conn, p = make_db(rows)
+    try:
+        out = library.clean(conn, reasons=["untrustworthy", "duplicate"])
+        assert out["banned"]["untrustworthy"] == 3
+        assert conn.execute("SELECT COUNT(*) FROM tracks WHERE banned=0").fetchone()[0] == 0
+    finally:
+        os.unlink(p)
+
+
 def test_clean_rejects_an_unknown_reason():
     conn, p = make_db([{"id": "a"}])
     try:

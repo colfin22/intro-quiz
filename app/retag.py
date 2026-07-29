@@ -32,7 +32,7 @@ import os
 import time
 from collections import defaultdict
 
-from .library import artist_key
+from .library import _ARTICLE, artist_key
 
 LOGGER = logging.getLogger(__name__)
 
@@ -157,6 +157,22 @@ def scan(paths: list[str], cache: dict, set_stage=None) -> list[dict]:
     return found
 
 
+def _article_only(a: str, b: str) -> bool:
+    """True when two spellings differ ONLY by a leading 'The'/'A'/'An'.
+
+    'The Beatles' vs 'Beatles' -> True.  'Stray Cats' vs 'The Stray Cats' -> True.
+
+    Strictly *only* the article: strip the leading article from each and the
+    remainder must match EXACTLY, not just after folding punctuation. Otherwise
+    'Bee.Gees' -> 'The Bee Gees' would be suppressed as article churn when it also
+    fixes the punctuation — a real correction that has to survive.
+    """
+    a, b = a.strip(), b.strip()
+    if bool(_ARTICLE.match(a)) == bool(_ARTICLE.match(b)):
+        return False  # both carry an article, or neither: not an article difference
+    return _ARTICLE.sub("", a).casefold() == _ARTICLE.sub("", b).casefold()
+
+
 def plan(tracks: list[dict], overrides: dict | None = None) -> list[dict]:
     """Decide the target spelling per file.
 
@@ -166,6 +182,17 @@ def plan(tracks: list[dict], overrides: dict | None = None) -> list[dict]:
 
     The majority rule needs the whole library in one scan to be meaningful — a
     majority computed from half a library can pick the wrong winner.
+
+    **Article-only differences are never rewritten.** artist_key() strips a leading
+    'The' so that variants FOLD — which is right for the quiz, since 'The Verve' and
+    'Verve' are one band. But folding and rewriting need different strictness: once
+    both spellings share a key, whichever the album_artist happens to use "wins",
+    and on the real library that meant retagging 'The Beatles' -> 'Beatles' and
+    'The Eagles' -> 'Eagles' while pushing 'Stray Cats' -> 'The Stray Cats'. That
+    was 209 of 811 planned changes (26%) — pure churn, in both directions, with no
+    winner: there is no library-wide truth about whether a band's name includes the
+    article, and the quiz already treats them as identical. An explicit --map
+    override still wins, for the cases where you DO have an opinion.
     """
     groups: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for t in tracks:
@@ -184,6 +211,8 @@ def plan(tracks: list[dict], overrides: dict | None = None) -> list[dict]:
             target, why = majority[k], "majority"
         else:
             continue  # single spelling, nothing to apply
+        if why != "override" and _article_only(target, t["artist"]):
+            continue  # 'The Verve' vs 'Verve' — already one band to the quiz
         if target != t["artist"]:
             changes.append({**t, "target": target, "why": why})
     return changes

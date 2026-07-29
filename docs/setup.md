@@ -219,8 +219,13 @@ To enable it, mount the library read-write and name the roots as seen inside the
 ```ini
 # .env
 MUSIC_HOST_DIR=/mnt/nas                 # host path, mounted at /music-src
-MUSIC_DIRS=/music-src/music:/music-src/itunes/iTunes Music
+MUSIC_DIRS="/music-src/music:/music-src/itunes/iTunes Music"
 ```
+
+**Quote `MUSIC_DIRS` if any root contains a space.** Docker's `env_file` reads the line
+literally either way and strips the quotes, but `.env` also gets `source`d by shell scripts
+(and by the scheduled-curl examples above) — unquoted, a path like `iTunes Music` makes the
+shell try to run `Music` as a command and the whole file fails to load.
 
 `MUSIC_HOST_DIR` is a single mount, so point it at a parent of all your roots and list the
 roots under `/music-src`. With `MUSIC_DIRS` unset the job refuses to run at all.
@@ -250,6 +255,13 @@ applying. Per file it prefers, in order: the file's own `album_artist` when that
 same artist; otherwise the most-used spelling across the scan, tie-broken toward the longer
 string so `AC/DC` beats `ACDC`. A compilation's `album_artist` is ignored when it names a
 different act, which is what stops all 12 Blacklist covers being retagged as Metallica.
+
+**A leading "The" is never added or removed.** The artist key ignores it so that `The Verve`
+and `Verve` fold to one band — but that also means whichever spelling a file's `album_artist`
+happens to use would win, and on this library that came out as `The Beatles` → `Beatles`,
+`The Eagles` → `Eagles` and `Stray Cats` → `The Stray Cats`: 209 of 811 planned changes,
+churn in both directions with no correct answer. Those are skipped. Use an explicit override
+if you *do* have an opinion about a particular band.
 
 Two things it will not do:
 

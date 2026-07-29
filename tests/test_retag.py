@@ -84,6 +84,61 @@ def test_plan_never_targets_the_spelling_it_already_has():
     assert [c["path"] for c in retag.plan(tracks)] == ["b"]
 
 
+def test_plan_never_rewrites_an_article_only_difference():
+    """The real library's dry run wanted 'The Beatles' -> 'Beatles' and
+    'The Eagles' -> 'Eagles' (because the album_artist happened to omit it) while
+    also pushing 'Stray Cats' -> 'The Stray Cats'. 209 of 811 changes were this,
+    in both directions. artist_key already folds them, so the quiz sees one band
+    either way and rewriting the files buys nothing.
+    """
+    tracks = [
+        # album_artist drops the article — must NOT propagate
+        {"path": "a", "artist": "The Beatles", "album_artist": "Beatles"},
+        {"path": "b", "artist": "The Eagles", "album_artist": "Eagles"},
+        # ...and the other direction
+        {"path": "c", "artist": "Stray Cats", "album_artist": "The Stray Cats"},
+        # majority disagreeing only by the article is also left alone
+        {"path": "d", "artist": "Verve", "album_artist": None},
+        {"path": "e", "artist": "The Verve", "album_artist": None},
+        {"path": "f", "artist": "The Verve", "album_artist": None},
+    ]
+    assert retag.plan(tracks) == []
+
+
+def test_plan_still_fixes_a_real_variant_on_an_articled_name():
+    """Suppressing article churn must not suppress genuine fixes on bands whose
+    name carries an article. 'The Bee-Gees' differs by punctuation, not by 'The',
+    so it is still corrected — and the correction keeps the article."""
+    tracks = [
+        {"path": "a", "artist": "The Bee Gees", "album_artist": None},
+        {"path": "b", "artist": "The Bee Gees", "album_artist": None},
+        {"path": "c", "artist": "The Bee-Gees", "album_artist": "The Bee Gees"},
+        # a case that differs by BOTH the article and punctuation is a real fix
+        # too — dropping it would leave 'beegees' spelled three ways
+        {"path": "d", "artist": "Bee.Gees", "album_artist": "The Bee Gees"},
+    ]
+    changes = {c["path"]: c["target"] for c in retag.plan(tracks)}
+    assert changes == {"c": "The Bee Gees", "d": "The Bee Gees"}
+
+
+def test_an_explicit_override_can_still_set_the_article():
+    """The suppression is a default, not a prohibition — if you DO have an opinion
+    about whether the name carries 'The', --map still applies it."""
+    tracks = [{"path": "a", "artist": "Beatles", "album_artist": None}]
+    changes = retag.plan(tracks, overrides={"Beatles": "The Beatles"})
+    assert [(c["target"], c["why"]) for c in changes] == [("The Beatles", "override")]
+
+
+def test_article_only_helper_is_not_fooled_by_punctuation_or_case():
+    assert retag._article_only("The Corrs", "corrs")
+    assert retag._article_only("A Perfect Circle", "Perfect Circle")
+    # both have the article, or neither: not an article-only difference
+    assert not retag._article_only("The Beatles", "The Beatless")
+    assert not retag._article_only("Beatles", "Beatless")
+    # a band whose name genuinely starts with a word that isn't an article
+    assert not retag._article_only("Theory of a Deadman", "Deadman")
+
+
 # -- run guards ------------------------------------------------------------
 
 def test_run_refuses_without_music_dirs(monkeypatch):
