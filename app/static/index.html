@@ -25,6 +25,12 @@
   <div id="v-join" class="card" hidden>
     <p class="dim">Who's playing on this phone?</p>
     <input id="name" placeholder="Your name" autocomplete="off" maxlength="24">
+    <p class="dim">Are you with everyone else?</p>
+    <div id="where-choice">
+      <button id="where-local" onclick="setWhere(false)">🏠 I'm in the room</button>
+      <button id="where-remote" onclick="setWhere(true)">🌐 I'm joining from elsewhere</button>
+    </div>
+    <p class="dim center" id="where-hint"></p>
     <button class="primary" onclick="join()">Join</button>
   </div>
 
@@ -58,6 +64,7 @@
       <p class="dim center"><a href="#" onclick="skipArtists();return false">skip</a></p>
     </div>
     <div id="artist-picked" hidden><p class="dim">✅ Your artists are in. Waiting for the game…</p></div>
+    <p class="dim center" id="lobby-where"><a href="#" id="lobby-where-link" onclick="toggleWhere();return false"></a></p>
     <button class="primary" onclick="send({type:'start_round'})">▶ Start round 1</button>
     <p class="dim center" id="lobby-wait" hidden></p>
     <div id="lobby-invite" class="invite">
@@ -77,6 +84,7 @@
 
   <div id="v-question" hidden>
     <p class="dim center" id="q-progress"></p>
+    <p class="dim center" id="q-audio" hidden></p>
     <div class="timer"><div id="q-bar" style="width:100%"></div></div>
     <div id="q-options"></div>
     <p class="dim center" id="q-answered"></p>
@@ -122,6 +130,14 @@
     <button class="primary" onclick="send({type:'new_game', rounds:10})">Play again</button>
   </div>
 </main>
+<!-- Remote players only: phones block audio until the page has been touched, so
+     the first clip would be silently swallowed. Same overlay as the board. -->
+<div id="tap-unlock" style="position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;
+     align-items:center;justify-content:center;z-index:20;flex-direction:column;text-align:center;padding:1rem">
+  <div style="font-size:3.5rem">🔊</div>
+  <div style="font-size:1.3rem;font-weight:700;margin-top:.4rem">Tap for sound</div>
+  <div class="dim" style="margin-top:.4rem">you're playing remotely — the clips come out of this phone</div>
+</div>
 <script src="/static/quiz.js"></script>
 </body>
 </html>

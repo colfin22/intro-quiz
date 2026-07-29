@@ -12,7 +12,17 @@ let failures = 0;
 function mkEl(id) {
   return { id, hidden: false, disabled: false, textContent: "", innerHTML: "", value: "",
            className: "", style: {}, classList: { add(){}, remove(){} },
-           addEventListener(){}, appendChild(){}, querySelectorAll(){ return []; } };
+           addEventListener(){}, appendChild(){},
+           // Parses the inputs back out of whatever innerHTML the render wrote, so
+           // groupPicks() reads the real checked state instead of a hand-fed list —
+           // that's the bit that decides which speakers get grouped.
+           querySelectorAll(sel) {
+             if (sel !== "input") return [];
+             return [...String(this.innerHTML).matchAll(/<input[^>]*>/g)].map(m => ({
+               value: (/value="([^"]*)"/.exec(m[0]) || [, ""])[1],
+               checked: /\schecked/.test(m[0]),
+             }));
+           } };
 }
 global.document = {
   getElementById(id) {
@@ -53,6 +63,25 @@ const snapshots = [
     game: { phase: "reveal", host: "Bob", round: 3, total_rounds: 10, players,
             display: "none", last_revealed: { round: 3, title: "Song", artist: "Artist" } } },
 ];
+// A /api/admin/speakers payload shaped like the real house: entity PAIRS (native +
+// Music Assistant twin), a TV, and a saved target/group already in the DB.
+const speakers = {
+  configured: true, env_default: "media_player.kitchen_music_assistant",
+  target: "media_player.study_music_assistant", overridden: true,
+  group: ["media_player.kitchen"],
+  players: [
+    { entity_id: "media_player.kitchen", name: "Kitchen", state: "playing",
+      can_group: true, is_ma: false, group_members: ["media_player.kitchen"], volume: 0.3 },
+    { entity_id: "media_player.kitchen_music_assistant", name: "Kitchen MA", state: "idle",
+      can_group: false, is_ma: true, group_members: [], volume: 0.3 },
+    { entity_id: "media_player.living_room_tv", name: "Living Room TV", state: "idle",
+      can_group: false, is_ma: false, group_members: [], volume: null },
+    { entity_id: "media_player.study", name: "Study", state: "idle",
+      can_group: true, is_ma: false, group_members: ["media_player.study"], volume: null },
+    { entity_id: "media_player.study_music_assistant", name: "Study MA", state: "idle",
+      can_group: false, is_ma: true, group_members: [], volume: null },
+  ],
+};
 const scenario = `
 statsState = { tracks_active: 47540, with_family_score: 884,
                tiered: [{tier:"easy",c:232},{tier:"medium",c:12470},{tier:"hard",c:15307}] };
@@ -107,9 +136,9 @@ if (!/12 games/.test(document.getElementById("leaderboard-wipe-btn").textContent
 adminState = { current: null, jobs: {}, game: { phase: "idle" } };
 try { render(); } catch (e) { console.log("render threw without trivia:", e.message); failures++; }
 // tabs: exactly one section visible, selected tab highlighted, choice persisted
-for (const t of ["game", "library", "trivia", "scores"]) {
+for (const t of TABS) {
   try { showTab(t); } catch (e) { console.log("showTab threw:", t, e.message); failures++; }
-  for (const o of ["game", "library", "trivia", "scores"]) {
+  for (const o of TABS) {
     if (document.getElementById("sec-" + o).hidden !== (o !== t)) {
       console.log("tab visibility wrong:", t, "->", o); failures++; }
   }
@@ -119,6 +148,46 @@ for (const id of ["prompt-region", "prompt-facts", "prompt-tf", "copy-prompt-btn
                   "import-preview-btn", "import-commit-btn"]) {
   document.getElementById(id);  // MISSING ELEMENT fires if absent
 }
+
+// ---- Speakers tab ----
+const sel = document.getElementById("speaker-select");
+const picks = document.getElementById("speaker-group");
+speakerState = ${JSON.stringify(speakers)};
+try { renderSpeakers(); } catch (e) { console.log("renderSpeakers threw:", e.message); failures++; }
+// the target is preselected, so Save/Test don't silently retarget a different speaker
+if (!/value="media_player.study_music_assistant" selected/.test(sel.innerHTML)) {
+  console.log("saved target not selected:", sel.innerHTML); failures++; }
+// MA entities are what can actually play a URL — they must be offered first
+if (sel.innerHTML.indexOf("Music Assistant<") > sel.innerHTML.indexOf("Other (")) {
+  console.log("Music Assistant entities not listed first:", sel.innerHTML); failures++; }
+if (!/— use .env default —/.test(sel.innerHTML)) { console.log("no way to clear the override"); failures++; }
+// only groupable speakers get a checkbox, and only the NATIVE entity is groupable
+if (/kitchen_music_assistant"/.test(picks.innerHTML)) {
+  console.log("MA twin offered for grouping — joining it does nothing:", picks.innerHTML); failures++; }
+if (!/value="media_player.kitchen"/.test(picks.innerHTML) ||
+    !/value="media_player.study"/.test(picks.innerHTML)) {
+  console.log("groupable speakers missing from the group list:", picks.innerHTML); failures++; }
+if (/living_room_tv/.test(picks.innerHTML)) { console.log("a TV offered for grouping"); failures++; }
+// the saved group comes back ticked, and is what groupPicks() would submit
+if (JSON.stringify(groupPicks()) !== '["media_player.kitchen"]') {
+  console.log("saved group not preselected:", JSON.stringify(groupPicks())); failures++; }
+if (!/overrides .env/.test(document.getElementById("speaker-status").textContent)) {
+  console.log("override not flagged:", document.getElementById("speaker-status").textContent); failures++; }
+// a speaker saved earlier but offline now must stay selectable, or Save silently moves it
+speakerState = Object.assign({}, ${JSON.stringify(speakers)}, { target: "media_player.gone" });
+renderSpeakers();
+if (!/media_player.gone" selected/.test(sel.innerHTML)) {
+  console.log("offline saved target dropped from the list:", sel.innerHTML); failures++; }
+// HA unreachable: the reason shows and the page still works
+speakerState = { configured: true, players: [], target: "", group: [], env_default: "", error: "HA is down" };
+renderSpeakers();
+if (!/HA is down/.test(document.getElementById("speaker-status").textContent)) {
+  console.log("HA error not surfaced:", document.getElementById("speaker-status").textContent); failures++; }
+// no HA at all (cast-board-only setup) renders an explanation, not an empty box
+speakerState = { configured: false, players: [], target: "", group: [], env_default: "" };
+renderSpeakers();
+if (!/not configured/.test(sel.innerHTML)) { console.log("unconfigured HA not explained"); failures++; }
+if (groupPicks().length) { console.log("group picks non-empty without HA"); failures++; }
 `;
 eval(src.replace(/^refresh\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }

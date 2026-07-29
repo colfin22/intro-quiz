@@ -354,6 +354,59 @@ class Hub:
         self.games_started = 0  # phones reset per-game state when this changes (#22)
         self.lock = asyncio.Lock()
         self.deadline_task: asyncio.Task | None = None
+        # speaker grouping we did for this game, so it can be undone afterwards
+        self.group_snapshot: dict[str, list[str]] | None = None
+
+    async def group_speakers(self):
+        """Join the configured speakers for a game, remembering how they were.
+
+        Auto-grouping touches speakers the house uses for other things, so the
+        prior arrangement is snapshotted first and put back when the game ends.
+        A grouping failure is never fatal — one speaker beats no game.
+        """
+        self.group_snapshot = None
+        if not ha.available():
+            return
+        loop = asyncio.get_event_loop()
+        conn = db.connect()
+        try:
+            group = json.loads(db.get_setting(conn, ha.SETTING_GROUP) or "[]")
+        except Exception as e:  # noqa: BLE001
+            LOGGER.warning("speaker group unreadable: %s", e)
+            return
+        finally:
+            conn.close()
+        if len(group) < 2:
+            return  # nothing to group (a single speaker is just the play target)
+        try:
+            self.group_snapshot = await loop.run_in_executor(None, ha.group_state, group)
+            await loop.run_in_executor(None, ha.join_group, group[0], group[1:])
+        except Exception as e:  # noqa: BLE001 — never let grouping abort a game
+            LOGGER.warning("grouping speakers failed, carrying on: %s", e)
+
+    async def ungroup_speakers(self):
+        """Put the speakers back as they were before the game."""
+        snap, self.group_snapshot = self.group_snapshot, None
+        if not snap:
+            return
+        try:
+            await asyncio.get_event_loop().run_in_executor(None, ha.restore_groups, snap)
+        except Exception as e:  # noqa: BLE001
+            LOGGER.warning("restoring speaker groups failed: %s", e)
+
+    def schedule_ungroup(self, delay: int = 30):
+        """Restore grouping a beat after the game ends — but only if no new game
+        has started by then. Immediate ungrouping cuts the closing fanfare off,
+        and Play Again begins the next game inside this window (cf. the board's
+        drop-to-ambient, #47)."""
+        if not self.group_snapshot:
+            return
+        loop = asyncio.get_event_loop()
+
+        def _if_still_idle():  # runs on the loop thread, so a task is enough
+            if self.game is None or self.game.phase == "finished":
+                asyncio.create_task(self.ungroup_speakers())
+        loop.call_later(delay, _if_still_idle)
 
     async def broadcast(self):
         snap = self.game.snapshot() if self.game else {"phase": "idle"}
@@ -544,15 +597,27 @@ async def ws_endpoint(ws: WebSocket):
                         # lobby over its existing websocket. First game / no board -> cast.
                         if hub.display and not hub.board_expected():
                             asyncio.get_event_loop().run_in_executor(None, board_cast.show_board, hub.display, False)
+                        # group the chosen speakers for the game (restored at the end)
+                        await hub.group_speakers()
                         await hub.broadcast()
                     elif kind == "join":
                         if not hub.game:
                             raise game.GameError("no game — start one first")
                         name = msg.get("name", "")
-                        hub.game.join(name)
+                        hub.game.join(name, remote=bool(msg.get("remote")))
                         if hub.game.host is None and ws is hub.host_ws:
                             hub.game.host = name.strip()[:24]
                         await hub.broadcast()
+                    elif kind == "set_remote":
+                        # players can move: "I'm in the room" <-> "I'm remote"
+                        hub.game.set_remote(name or msg.get("name", ""), bool(msg.get("remote")))
+                        await hub.broadcast()
+                    elif kind == "audio_started":
+                        # a remote phone's own copy of the clip just began — this is
+                        # the baseline its speed bonus is measured from. No broadcast:
+                        # it changes nothing anyone else can see, and it arrives once
+                        # per remote player per round.
+                        hub.game.note_audio_started(name or msg.get("name", ""))
                     elif kind == "set_artists":
                         hub.game.set_artists(name or msg.get("name", ""), msg.get("artists") or [])
                         await hub.broadcast()
@@ -609,6 +674,7 @@ async def ws_endpoint(ws: WebSocket):
                         hub.cancel_deadline()
                         hub.game = None
                         asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
+                        await hub.ungroup_speakers()
                         await hub.broadcast()
                     elif kind == "tf_answer":
                         hub.game.tf_answer(name or msg.get("name", ""), bool(msg.get("answer")))
@@ -645,6 +711,12 @@ async def ws_endpoint(ws: WebSocket):
                                 asyncio.get_event_loop().run_in_executor(
                                     None, ha.play_url,
                                     f"{ha.APP_BASE_URL}/static/fanfare.mp3", "fanfare")
+                            # Hand the speakers back — deferred, like the board's
+                            # drop-to-ambient below and for the same two reasons:
+                            # ungrouping immediately would cut the fanfare off
+                            # mid-note, and Play Again starts the next game inside
+                            # this window, which wants the group left alone.
+                            hub.schedule_ungroup()
                             # Rotate the game master: whoever has waited LONGEST.
                             #
                             # It used to rotate over the current game's join order — which
@@ -866,6 +938,7 @@ async def api_admin_game_abandon():
         hub.cancel_deadline()
         hub.game = None
         asyncio.get_event_loop().run_in_executor(None, board_cast.hide_board, hub.display)
+        await hub.ungroup_speakers()
         await hub.broadcast()
     return {"abandoned": True}
 
@@ -890,6 +963,81 @@ async def api_admin_game_master(name: str):
         LOGGER.info("game master changed from /admin: %s -> %s", old, name)
         await hub.broadcast()
     return {"master": name, "was": old}
+
+
+# --- speakers: pick where the music plays, and group speakers for a game ------
+
+@app.get("/api/admin/speakers", dependencies=ADMIN)
+async def api_admin_speakers():
+    """Every usable media_player in HA, plus the current selection.
+
+    The HA call is blocking httpx, so it goes to the executor like every other
+    HA call on this path.
+    """
+    if not ha.available():
+        return {"configured": False, "players": [], "target": "", "group": [],
+                "env_default": ha.MEDIA_PLAYER}
+    try:
+        players = await asyncio.get_event_loop().run_in_executor(None, ha.list_players)
+    except Exception as e:  # noqa: BLE001 — an HA outage shows as empty, not a 500
+        LOGGER.warning("listing HA media players failed: %s", e)
+        return {"configured": True, "players": [], "target": "", "group": [],
+                "env_default": ha.MEDIA_PLAYER, "error": str(e)}
+    conn = db.connect()
+    try:
+        target = ha.resolve_target(conn)
+        group = json.loads(db.get_setting(conn, ha.SETTING_GROUP) or "[]")
+    finally:
+        conn.close()
+    return {"configured": True, "players": players, "target": target,
+            "group": group, "env_default": ha.MEDIA_PLAYER,
+            "overridden": target != ha.MEDIA_PLAYER}
+
+
+@app.post("/api/admin/speakers", dependencies=ADMIN)
+async def api_admin_set_speakers(body: dict):
+    """Persist the playback target and/or the game-start group.
+
+    Stored in the DB rather than .env so it takes effect on the next round with
+    no restart (ha.resolve_target reads it per call). Sending target="" clears
+    the override and falls back to MEDIA_PLAYER from .env.
+    """
+    conn = db.connect()
+    try:
+        out = {}
+        if "target" in body:
+            target = (body.get("target") or "").strip()
+            if target and not target.startswith("media_player."):
+                raise HTTPException(status_code=400, detail="target must be a media_player entity")
+            db.set_setting(conn, ha.SETTING_TARGET, target)
+            out["target"] = target or ha.MEDIA_PLAYER
+            LOGGER.info("speaker target set to %s", target or f"(env default {ha.MEDIA_PLAYER})")
+        if "group" in body:
+            group = [g for g in (body.get("group") or []) if isinstance(g, str)
+                     and g.startswith("media_player.")]
+            db.set_setting(conn, ha.SETTING_GROUP, json.dumps(group))
+            out["group"] = group
+            LOGGER.info("speaker group set to %s", ", ".join(group) or "(none)")
+        if not out:
+            raise HTTPException(status_code=400, detail="send target and/or group")
+        return {"saved": True, **out}
+    finally:
+        conn.close()
+
+
+@app.post("/api/admin/speakers/test", dependencies=ADMIN)
+async def api_admin_speakers_test(body: dict | None = None):
+    """Play the fanfare on a speaker so you can hear which one you picked.
+
+    Same call path as a real round (ha.play_url), so a pass here means the game
+    will be audible — this is exactly the check that verified the live setup.
+    """
+    target = ((body or {}).get("target") or "").strip() or None
+    if not ha.configured():
+        raise HTTPException(status_code=400, detail="HA_URL / HA_TOKEN / APP_BASE_URL not set")
+    ok = await asyncio.get_event_loop().run_in_executor(
+        None, ha.play_url, f"{ha.APP_BASE_URL}/static/fanfare.mp3", "speaker test", target)
+    return {"played": ok, "target": target or "(configured target)"}
 
 
 @app.get("/favicon.ico")

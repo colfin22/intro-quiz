@@ -1,6 +1,10 @@
 # runtime secrets + data — never tracked (repo will be public)
 .env
+.env.local
 /data/
+# local dev scratch (make seed / make dev) — see .env.local.example
+/devdata/
+/devclips/
 __pycache__/
 *.pyc
 .venv/

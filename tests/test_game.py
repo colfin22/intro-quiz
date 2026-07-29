@@ -452,3 +452,150 @@ def test_admin_game_summary_is_spoiler_safe():
             main.hub.game = old_game
     finally:
         conn.close(); os.unlink(p)
+
+
+# ---------- remote players: streaming to their own phone, scored fairly ----------
+
+def test_remote_player_speed_bonus_is_measured_from_their_own_audio():
+    """The whole point of the feature: a remote player whose stream started 2s
+    late and who answered 2s after hearing it should score the same as someone in
+    the room who answered 2s after the room heard it. Measuring both from the
+    room clock would quietly tax everyone who isn't there."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=clock)
+        g.join("Local")
+        g.join("Away", remote=True)
+        assert g.players["Away"]["remote"] and not g.players["Local"]["remote"]
+        g.build_rounds(conn)
+        rnd = g.start_round()
+        correct = rnd["correct"]
+
+        clock.t += 2                      # in the room: 2s of thinking
+        local = g.answer("Local", correct)
+        clock.t += 2                      # Away's stream only starts now (2s buffering)
+        g.note_audio_started("Away")
+        clock.t += 2                      # ...then the same 2s of thinking
+        away = g.answer("Away", correct)
+
+        assert away["points"] == local["points"]
+        assert away["elapsed_ms"] == local["elapsed_ms"] == 2000
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_remote_latency_credit_is_capped():
+    """audio_started is client-reported, so it is not trusted. A phone claiming
+    its audio began 30s late must not be able to answer at leisure and still
+    collect a full-speed bonus."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=clock)
+        g.join("Cheat", remote=True)
+        g.build_rounds(conn)
+        rnd = g.start_round()
+        clock.t += 15                     # a very late "my audio just started"
+        g.note_audio_started("Cheat")
+        a = g.answer("Cheat", rnd["correct"])
+        # credit is clamped to 5s, so 15s in reads as 10s elapsed, not 0s
+        assert a["elapsed_ms"] == 10_000
+        assert a["points"] == 100 + int(50 * (1 - 10 / 20))
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_first_audio_report_wins():
+    """A replay (or a duplicate message) must not push the baseline out and buy a
+    bigger bonus part-way through the round."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=clock)
+        g.join("Away", remote=True)
+        g.build_rounds(conn)
+        rnd = g.start_round()
+        clock.t += 1
+        g.note_audio_started("Away")
+        clock.t += 4
+        g.note_audio_started("Away")      # ignored
+        a = g.answer("Away", rnd["correct"])
+        assert a["elapsed_ms"] == 4000    # from t+1, not t+5
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_remote_who_never_reports_audio_falls_back_to_the_room_clock():
+    """No report = no credit, and above all no crash: a phone with audio blocked
+    (autoplay overlay untapped) still has to be able to answer."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=clock)
+        g.join("Silent", remote=True)
+        g.build_rounds(conn)
+        rnd = g.start_round()
+        clock.t += 3
+        a = g.answer("Silent", rnd["correct"])
+        assert a["elapsed_ms"] == 3000
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_locals_get_no_credit_and_the_room_deadline_still_binds():
+    """A local player's audio_started is ignored (they hear the room), and the
+    answer window shuts on the ROOM clock for everyone — a remote player gets a
+    fairer bonus, not a longer round."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=clock)
+        g.join("Local")
+        g.join("Away", remote=True)
+        g.build_rounds(conn)
+        rnd = g.start_round()
+        clock.t += 4
+        g.note_audio_started("Local")     # no-op for a local player
+        assert "Local" not in rnd["audio_started"]
+        g.note_audio_started("Away")
+        clock.t += 17                     # past the room's 20s window
+        with pytest.raises(game.GameError):
+            g.answer("Away", rnd["correct"])
+        with pytest.raises(game.GameError):
+            g.answer("Local", rnd["correct"])
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_remote_flag_survives_a_reconnect_and_can_be_changed():
+    """quiz.js re-sends `join` on every reconnect. That must not flip someone
+    back to local mid-game — but an explicit set_remote must still work."""
+    conn, p = make_db()
+    try:
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=Clock())
+        g.join("Away", remote=True)
+        g.join("Away")                    # reconnect, no remote flag
+        assert g.players["Away"]["remote"] is True
+        g.set_remote("Away", False)       # walked into the room
+        assert g.players["Away"]["remote"] is False
+        assert g.snapshot()["players"][0]["remote"] is False
+        with pytest.raises(game.GameError):
+            g.set_remote("Nobody", True)
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_note_audio_started_outside_a_question_is_a_no_op():
+    conn, p = make_db()
+    try:
+        g = game.Game(conn, rounds=1, tiers=["easy", "medium"], clock=Clock())
+        g.join("Away", remote=True)
+        g.note_audio_started("Away")      # lobby: no round exists yet
+        g.build_rounds(conn)
+        rnd = g.start_round()
+        g.reveal()
+        g.note_audio_started("Away")
+        assert rnd["audio_started"] == {}
+    finally:
+        conn.close(); os.unlink(p)
