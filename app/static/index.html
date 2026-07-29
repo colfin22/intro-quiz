@@ -129,6 +129,14 @@
     <p class="center" id="f-next-master" hidden style="font-size:1.1em"></p>
     <button class="primary" onclick="send({type:'new_game', rounds:10})">Play again</button>
   </div>
+
+  <!-- All-time top scores. Every game ever played, kept in the database, so it
+       survives restarts. Sits outside the v-* views (which show() hides as a set)
+       because it belongs to two of them: the join screen and the final scores. -->
+  <div class="card" id="alltime-card" hidden>
+    <p class="dim" id="alltime-title">🏆 All-time top scores</p>
+    <ul class="scores" id="alltime-list"></ul>
+  </div>
 </main>
 <!-- Remote players only: phones block audio until the page has been touched, so
      the first clip would be silently swallowed. Same overlay as the board. -->

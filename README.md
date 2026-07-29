@@ -81,7 +81,10 @@ subscriptions.
 7. Rubbish clip (applause intro, ambient noise)? The game master's reveal screen has
    a **🚫 bad clip** link — two taps to confirm — that bans the track forever.
 8. Ten rounds a game, a 🎺 fanfare on the final scores, persistent all-time
-   leaderboard.
+   leaderboard — **🏆 top scores show on the phone too**, on the join screen (who
+   you're chasing) and under the final scores (what tonight changed), with your own
+   row highlighted. Totalled across every game ever played and kept in the database,
+   so it survives restarts and redeploys.
 
 <p align="center">
   <img src="docs/screenshots/board-halftime.png" width="90%"
@@ -271,6 +274,10 @@ Planned (roughly in priority order):
 
 Recently shipped:
 
+- **All-time top scores on the phone** — the persistent leaderboard now shows on the
+  join screen and with the final scores, not just on the TV board. Also fixes a
+  next-song button that could stay locked for the rest of the game while still looking
+  clickable (the payoff countdown now runs off a deadline, not a tick counter).
 - **Remote players + speaker picking** — players not in the room say so at join and the
   clips stream to their own phone, scored fairly against the room (speed bonus measured
   from their own audio start, capped). The `/admin` **Speakers tab** lists Home

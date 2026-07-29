@@ -101,6 +101,19 @@ finishes. Notes:
   plays on the single target rather than refusing to start.
 - One ticked speaker means no grouping — it's just the play target.
 
+## All-time top scores
+
+Every finished game writes each player's score to the database, and the totals show up in
+three places without any configuration: the TV board (lobby and final screen), and on the
+phones — on the join screen and under the final scores. Your own row is highlighted, and
+each row shows the total plus how many games it came from.
+
+It's cumulative across every game ever played and survives restarts and redeploys. Wipe it
+from the **Scores tab on `/admin`** (two clicks) or with
+`POST /api/leaderboard/reset?confirm=yes`. Players are matched **by name**, so the same
+person on a different phone still adds to their own total as long as they type the same
+name.
+
 ## Remote players
 
 Anyone not in the room picks **"somewhere else"** on the join screen (or flips it from

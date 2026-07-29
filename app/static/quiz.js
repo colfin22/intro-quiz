@@ -1,6 +1,8 @@
 let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || "";
 let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
+// payoff lock deadline, pinned per round so a local re-render can't restart it
+let payoffUntil = 0, payoffUntilKey = "";
 let myTf = null, tfKey = "", timerKey = "", lastGameNo, finishedBuzz, extendTimer = null;
 // remote play: this phone is not in the room, so the clips come out of it.
 // Sticky across reloads — someone on a train shouldn't have to re-declare it.
@@ -348,6 +350,51 @@ function scoresInto(el, players) {
   });
 }
 
+// --- all-time top scores ----------------------------------------------------
+// Every game ever played, totalled from the `results` table, so it survives
+// restarts and deploys. Shown in two places: on the join screen (walk up, see
+// who's winning overall) and under the final scores (see what tonight changed).
+//
+// Fetched, not pushed on the socket: it changes once per GAME, whereas states
+// broadcast many times per round, and the board does the same with the same
+// endpoint. Keyed so a re-render doesn't re-request it — but the key includes
+// the phase and game number, so finishing a game refetches and the new totals
+// land. finish() writes the DB before broadcasting "finished", so the numbers
+// already include the game just played.
+let alltimeKey = "";
+function renderAlltime() {
+  const card = document.getElementById("alltime-card");
+  const wanted = state.phase === "finished" ||
+                 (!joined && ["idle", "lobby"].includes(state.phase));
+  card.hidden = !wanted;
+  if (!wanted) { alltimeKey = ""; return; }
+  document.getElementById("alltime-title").textContent =
+    state.phase === "finished" ? "🏆 All-time top scores" : "🏆 All-time top scores — who to beat";
+  const key = `${state.phase}-${state.game_no}`;
+  if (key === alltimeKey) return;
+  alltimeKey = key;
+  fetch("/api/leaderboard").then(r => r.json()).then(rows => {
+    const ul = document.getElementById("alltime-list");
+    ul.innerHTML = "";
+    if (!rows.length) {
+      ul.innerHTML = '<li class="dim">no games finished yet — tonight\'s could be the first</li>';
+      return;
+    }
+    rows.slice(0, 8).forEach((r, i) => {
+      const li = document.createElement("li");
+      // own row highlighted: on a phone this list is the only place you see
+      // where you stand across every game, not just this one
+      const me = r.player === myName;
+      li.innerHTML =
+        `<span${me ? ' style="color:var(--accent);font-weight:700"' : ""}>` +
+        `${["🥇","🥈","🥉"][i] || "&nbsp;&nbsp;"} ${r.player}</span>` +
+        `<b>${r.total_score}<span class="dim" style="font-weight:400;font-size:.82em">` +
+        ` · ${r.games} game${r.games === 1 ? "" : "s"}</span></b>`;
+      ul.appendChild(li);
+    });
+  }).catch(() => { alltimeKey = ""; });  // let a failed fetch retry on the next render
+}
+
 function renderDisplays() {
   const box = document.getElementById("display-choice");
   if (!state.displays) { box.innerHTML = ""; return; }
@@ -363,6 +410,7 @@ function renderDisplays() {
 function render() {
   renderDisplays();
   renderWhere();
+  renderAlltime();  // up here with the others: render() returns early on idle/join
   if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
   // is the crowned master actually in the game? if not, anyone may take over / abandon (#46)
@@ -569,15 +617,42 @@ function startTimer(seconds) {
 }
 function stopTimer() { if (timerHandle) clearInterval(timerHandle); timerHandle = null; }
 
-// reveal: hold the next button until the payoff clip has played out (server enforces too)
+// reveal: hold the next button until the payoff clip has played out (server enforces too).
+//
+// Counts down against a wall-clock deadline instead of decrementing a counter on
+// a 1s interval. The counter version could leave the button disabled FOREVER,
+// while CSS still gave it a pointer cursor — a dead button that looks alive, and
+// the game can't move on:
+//
+//   - the opening tick() decremented `left` before the `left > 0` guard decided
+//     whether to schedule the interval, so any render with 0 < payoff_wait <= 1
+//     scheduled nothing and stuck on "…1s". Every re-broadcast during the last
+//     second of the payoff (a flag, a set_remote, a reconnect re-join) hit this.
+//   - a phone that slept or backgrounded mid-payoff had its interval throttled,
+//     so the countdown resumed from where it froze rather than from the real time
+//     left, holding the button well past the end of the song.
+//
+// A deadline is immune to both: every tick re-derives the remainder, so a missed
+// or late tick corrects itself, and the unlock can't be skipped.
+//
+// The deadline is pinned to the round (payoffUntilKey) rather than recomputed per
+// render, because render() runs on local events too — a flag tap, the remote
+// toggle, an error banner — and each of those carried the ORIGINAL payoff_wait,
+// restarting a full 12s countdown from whenever it happened. Two taps and the
+// button outlived the song by half a minute.
 function startPayoffLock(btn, label) {
+  const key = `${state.game_no}-${state.round}`;
+  if (payoffUntilKey !== key) {
+    payoffUntilKey = key;
+    payoffUntil = Date.now() + (state.payoff_wait || 0) * 1000;
+  }
   stopPayoffLock();
-  let left = Math.ceil(state.payoff_wait || 0);
+  const until = payoffUntil;
   const tick = () => {
+    const left = Math.ceil((until - Date.now()) / 1000);
     if (left > 0) {
       btn.disabled = true;
       btn.textContent = `🎶 enjoy the song… ${left}s`;
-      left -= 1;
     } else {
       btn.disabled = false;
       btn.textContent = label;
@@ -585,7 +660,9 @@ function startPayoffLock(btn, label) {
     }
   };
   tick();
-  if (left > 0) payoffHandle = setInterval(tick, 1000);
+  // 250ms, not 1s: the label only changes once a second, but a short tick keeps
+  // the unlock prompt instead of trailing the song by up to a second
+  if (btn.disabled) payoffHandle = setInterval(tick, 250);
 }
 function stopPayoffLock() { if (payoffHandle) clearInterval(payoffHandle); payoffHandle = null; }
 
