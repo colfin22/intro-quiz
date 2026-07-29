@@ -360,7 +360,8 @@ function connect() {
     ul.innerHTML = "";
     (s.players || []).forEach((p, i) => {
       const li = document.createElement("li");
-      li.innerHTML = `<span>${["🥇","🥈","🥉"][i] || "&nbsp;&nbsp;"} ${p.name}</span><b>${p.score}</b>`;
+      // 🌐 = playing from somewhere else, hearing the clip on their own phone
+      li.innerHTML = `<span>${["🥇","🥈","🥉"][i] || "&nbsp;&nbsp;"} ${p.remote ? "🌐 " : ""}${p.name}</span><b>${p.score}</b>`;
       ul.appendChild(li);
     });
   };

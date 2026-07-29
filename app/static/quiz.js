@@ -2,6 +2,9 @@ let ws, state = {phase: "idle"}, myName = localStorage.getItem("quizName") || ""
 let lastBuzzRound = "";
 let joined = false, myPick = null, timerHandle = null, payoffHandle = null;
 let myTf = null, tfKey = "", timerKey = "", lastGameNo, finishedBuzz, extendTimer = null;
+// remote play: this phone is not in the room, so the clips come out of it.
+// Sticky across reloads — someone on a train shouldn't have to re-declare it.
+let iAmRemote = localStorage.getItem("quizRemote") === "1";
 
 // --- connection resilience (#50) -------------------------------------------
 // A backgrounded phone tab can leave the socket half-dead: no close event ever
@@ -75,6 +78,8 @@ function connect() {
       if (state.phase !== "question" || state.round !== prevRound) myPick = null;
       if (state.phase === "idle") { artistsSent = false; myArtists = []; }
       render();
+      // after render, so it sees the `joined` flag render() may have just cleared
+      remoteAudioTick();
     }
   };
   ws.onclose = () => scheduleReconnect();
@@ -83,6 +88,130 @@ function connect() {
 function send(obj) {
   if (!ws || ws.readyState !== WebSocket.OPEN) { reconnectNow(); return; }  // drop it — the state re-sync re-renders
   ws.send(JSON.stringify(obj));
+}
+
+// --- remote audio ----------------------------------------------------------
+// Only for players who declared they're NOT in the room: the clip streams to
+// this phone instead. Locals stay silent, or the room is a mess of echoes a
+// second out of step with the speaker.
+//
+// Deliberately the same shape as board.html's engine (#47): ONE AudioContext for
+// the session, each clip fetch()'d and decodeAudioData'd through a short-lived
+// source node. A fresh <audio> per clip leaked native decoder buffers until the
+// audio engine died — don't reintroduce that here.
+//
+// Clips come from /api/round/audio, NEVER /clips/{id}/... — the former is
+// phase-gated and hides the track id, the latter would hand over the answer.
+let actx = null, curSource = null, curBuffer = null, audioKey = "";
+let audioRetry = null, audioRetries = 0, audioReported = "";
+
+function ensureCtx() {
+  if (!actx) {
+    const C = (typeof window !== "undefined") && (window.AudioContext || window.webkitAudioContext);
+    if (!C) return null;                       // no Web Audio (or the node smoke) — stay silent
+    actx = new C();
+  }
+  return actx;
+}
+
+function aStatus(text) {
+  const el = document.getElementById("q-audio");
+  if (!el) return;
+  el.textContent = text;
+  el.hidden = !text;
+}
+
+function stopClip() {
+  if (curSource) {
+    try { curSource.onended = null; curSource.stop(); } catch (e) {}
+    try { curSource.disconnect(); } catch (e) {}
+    curSource = null;
+  }
+}
+
+function startBuffer(buf) {
+  const ctx = ensureCtx();
+  if (!ctx) return;
+  stopClip();
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  try { src.start(); } catch (e) { return; }
+  curSource = src; curBuffer = buf;
+  aStatus("🔊 playing on this phone");
+  // The speed bonus is measured from HERE, not from when the room heard it —
+  // otherwise everyone not in the room pays for their own buffering. Once per
+  // round: the server ignores repeats, and this keeps a replay honest too.
+  if (audioReported !== audioKey) {
+    audioReported = audioKey;
+    send({type: "audio_started"});
+  }
+}
+
+function showTapUnlock() {
+  const el = document.getElementById("tap-unlock");
+  if (el) el.style.display = "flex";
+  aStatus("🔇 tap the screen once to allow sound");
+}
+
+async function loadAndPlay(url, key) {
+  const ctx = ensureCtx();
+  if (!ctx) return;
+  if (ctx.state === "suspended") { try { await ctx.resume(); } catch (e) {} }
+  if (ctx.state === "suspended") { showTapUnlock(); return; }  // still blocked — wait for a tap
+  try {
+    const resp = await fetch(url, {cache: "no-store"});
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const buf = await ctx.decodeAudioData(await resp.arrayBuffer());
+    if (key !== audioKey) return;              // a newer round already took over
+    audioRetries = 0;
+    startBuffer(buf);
+  } catch (e) {
+    if (key !== audioKey) return;
+    audioRetries++;
+    aStatus(audioRetries > 2 ? "⚠️ can't load the clip — the others can still hear it" : "⏳ loading the clip…");
+    if (audioRetries < 8)
+      audioRetry = setTimeout(() => { if (key === audioKey) loadAndPlay(url, key); },
+                              audioRetries < 3 ? 900 : 2000);
+  }
+}
+
+// keyed exactly like the board's so a re-broadcast of the same round doesn't
+// restart the clip from the top mid-listen
+function playRemote(kind, key) {
+  if (key === audioKey) return;
+  clearTimeout(audioRetry); audioRetries = 0;
+  audioKey = key;
+  loadAndPlay(`/api/round/audio?kind=${kind}&k=${encodeURIComponent(key)}`, key);
+}
+
+function remoteAudioTick() {
+  if (!iAmRemote || !joined) {
+    if (audioKey) { stopClip(); audioKey = ""; aStatus(""); }
+    return;
+  }
+  if (state.phase === "question")
+    playRemote(state.clip_len, `q${state.round}-${state.clip_len}-${state.replay || 0}`);
+  else if (state.phase === "reveal" && state.track)
+    playRemote("payoff", `p${state.round}`);
+  else if (audioKey) { stopClip(); audioKey = ""; aStatus(""); }
+}
+
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("pointerdown", () => {
+    const el = document.getElementById("tap-unlock");
+    if (el) el.style.display = "none";
+    if (!iAmRemote) return;
+    const ctx = ensureCtx();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    // Recover whatever the autoplay block swallowed. If we got as far as decoding,
+    // replay that buffer; if the block hit before the fetch (the usual case, since
+    // we bail early on a suspended context) there's nothing decoded yet — clear the
+    // key so the current round's clip is fetched fresh.
+    if (curBuffer && audioKey) startBuffer(curBuffer);
+    else { audioKey = ""; remoteAudioTick(); }
+  }, {capture: true});
 }
 function showErr(m) { const e = document.getElementById("err"); e.textContent = "⚠️ " + m;
                       if (navigator.vibrate) navigator.vibrate(100);
@@ -165,8 +294,41 @@ function join() {
   myName = document.getElementById("name").value.trim();
   if (!myName) return;
   localStorage.setItem("quizName", myName);
-  send({type: "join", name: myName});
+  send({type: "join", name: myName, remote: iAmRemote});
   joined = true;
+}
+
+// where you are, on the join screen (before joining) and in the lobby (after)
+function setWhere(remote) {
+  iAmRemote = !!remote;
+  localStorage.setItem("quizRemote", iAmRemote ? "1" : "0");
+  if (joined) send({type: "set_remote", remote: iAmRemote});
+  if (iAmRemote) {
+    // grab the audio unlock off THIS tap while we still have a user gesture —
+    // asking again mid-round means missing the first clip
+    const ctx = ensureCtx();
+    if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+  } else {
+    stopClip(); audioKey = ""; aStatus("");
+  }
+  render();
+}
+
+function toggleWhere() { setWhere(!iAmRemote); }
+
+function renderWhere() {
+  for (const [id, on] of [["where-local", !iAmRemote], ["where-remote", iAmRemote]]) {
+    const b = document.getElementById(id);
+    if (b) b.classList[on ? "add" : "remove"]("picked");
+  }
+  const hint = document.getElementById("where-hint");
+  if (hint) hint.textContent = iAmRemote
+    ? "🔊 the clips will play out of this phone — headphones or speaker up"
+    : "🔇 this phone stays silent; you'll hear the clips in the room";
+  const link = document.getElementById("lobby-where-link");
+  if (link) link.textContent = iAmRemote
+    ? "🌐 playing remotely — tap if you're actually in the room"
+    : "🏠 in the room — tap if you're somewhere else";
 }
 
 function show(id) {
@@ -200,6 +362,7 @@ function renderDisplays() {
 
 function render() {
   renderDisplays();
+  renderWhere();
   if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
   // is the crowned master actually in the game? if not, anyone may take over / abandon (#46)
@@ -235,7 +398,7 @@ function render() {
       let allReady = state.players.length > 0;
       for (const p of state.players) {
         const li = document.createElement("li");
-        li.innerHTML = `<span>${p.name}</span><b>${p.ready ? "✅ READY" : "⏳ picking artists…"}</b>`;
+        li.innerHTML = `<span>${p.remote ? "🌐 " : ""}${p.name}</span><b>${p.ready ? "✅ READY" : "⏳ picking artists…"}</b>`;
         if (!p.ready) { li.style.opacity = ".7"; allReady = false; }
         roster.appendChild(li);
       }

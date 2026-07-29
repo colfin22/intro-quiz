@@ -25,16 +25,40 @@ global.document = {
   addEventListener() {},
   hidden: false,
 };
-global.window = { location: { protocol: "http:", host: "x" } };
+// A minimal Web Audio stub, so the remote-player audio path is exercised rather
+// than short-circuited: ensureCtx() returns null when AudioContext is absent.
+const fetched = [];
+global.window = {
+  location: { protocol: "http:", host: "x" },
+  AudioContext: function () {
+    return { state: "running", currentTime: 0, destination: {},
+             resume: () => Promise.resolve(),
+             createBufferSource: () => ({ buffer: null, connect(){}, disconnect(){}, start(){}, stop(){} }),
+             decodeAudioData: () => Promise.resolve({ duration: 5 }) };
+  },
+};
 global.localStorage = { getItem: () => "Alice", setItem(){} };
 global.navigator = {};
-global.WebSocket = function(){ return { send(){}, close(){} }; };
-global.fetch = () => ({ then: () => ({ then(){}, catch(){} }), catch(){} });
+// an "open" socket, so client->server messages are captured rather than
+// triggering the reconnect path
+const sent = [];
+global.WebSocket = function(){ return { readyState: 1, send(m){ sent.push(JSON.parse(m)); }, close(){} }; };
+global.WebSocket.OPEN = 1;
+// Clip fetches resolve for real (a thenable stub would never reach decode, so
+// the audio_started report would go untested); everything else keeps the inert
+// stub the other call sites expect.
+global.fetch = (url) => {
+  fetched.push(url);
+  if (typeof url === "string" && /audio|\.mp3|\/clips\//.test(url))
+    return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+  return { then: () => ({ then(){}, catch(){} }), catch(){} };
+};
 global.setInterval = () => 0; global.clearInterval = () => {}; global.setTimeout = () => 0;
+global.clearTimeout = () => {};
 
 const track = { id: "abc", title: "Song", artist: "Artist", album: "Album", year: 2001 };
-const players = [{ name: "Alice", score: 100, ready: true, picked_artists: true },
-                 { name: "Bob", score: 200, ready: false, picked_artists: false }];
+const players = [{ name: "Alice", score: 100, ready: true, picked_artists: true, remote: false },
+                 { name: "Bob", score: 200, ready: false, picked_artists: false, remote: true }];
 const snapshots = [
   { phase: "idle", players: [] },
   { phase: "lobby", host: "Alice", players },
@@ -113,7 +137,73 @@ joined = true; state = ${JSON.stringify(snapshots[10])}; myName = "Alice"; rende
 const sb2 = document.querySelector("#v-lobby > button.primary");
 if (sb2.hidden) { console.log("no take-over button when master absent"); failures++; }
 if (!/take over/.test(sb2.textContent)) { console.log("take-over label wrong:", sb2.textContent); failures++; }
+
+// ---- remote players: the clip must reach a phone that isn't in the room ----
+// Fetch+decode is async, so these steps are awaited (settle() drains the
+// microtask queue) — a synchronous check would pass before playback happened.
+const settle = () => new Promise(r => process.nextTick(r));
+const clipsOf = () => fetched.filter(u => typeof u === "string" && /audio|\\.mp3|\\/clips\\//.test(u));
+global.__remoteChecks = async () => {
+  ws = new WebSocket();  // connect() is stripped below, so stand a live socket up
+
+  // a local player's phone stays silent — otherwise the room echoes itself
+  joined = true; myName = "Alice"; iAmRemote = false;
+  fetched.length = 0; sent.length = 0;
+  state = ${JSON.stringify(snapshots[2])}; render(); remoteAudioTick(); await settle();
+  if (clipsOf().length) { console.log("local player fetched clip audio:", clipsOf()); failures++; }
+  if (sent.some(m => m.type === "audio_started")) { console.log("local player reported audio_started"); failures++; }
+  if (!/silent/.test(document.getElementById("where-hint").textContent)) {
+    console.log("local hint wrong:", document.getElementById("where-hint").textContent); failures++; }
+
+  // a remote player DOES fetch it, from the phase-gated endpoint only, and
+  // reports the start so the server can measure their speed bonus fairly
+  fetched.length = 0; sent.length = 0; iAmRemote = true; audioKey = ""; audioReported = "";
+  render(); remoteAudioTick(); await settle();
+  const urls = clipsOf();
+  if (!urls.length) { console.log("remote player never fetched the clip"); failures++; }
+  if (urls.some(u => u.startsWith("/clips/"))) {
+    console.log("remote fetched /clips — that URL leaks the track id:", urls); failures++; }
+  if (!urls.every(u => u.startsWith("/api/round/audio?kind="))) {
+    console.log("remote clip url is not the phase-gated endpoint:", urls); failures++; }
+  if (!sent.some(m => m.type === "audio_started")) {
+    console.log("remote player did not report audio_started:", JSON.stringify(sent)); failures++; }
+
+  // the same round re-broadcast must not restart the clip mid-listen, nor
+  // re-report the start (which would push the scoring baseline out)
+  fetched.length = 0; sent.length = 0; render(); remoteAudioTick(); await settle();
+  if (clipsOf().length) { console.log("re-broadcast restarted the clip"); failures++; }
+  if (sent.some(m => m.type === "audio_started")) { console.log("re-broadcast re-reported audio_started"); failures++; }
+
+  // ...nor does replaying the SAME buffer (what the tap-unlock overlay does when
+  // autoplay swallowed the first attempt) re-report the start. The server ignores
+  // repeats too, but a second report here would be asking for a bigger bonus.
+  sent.length = 0; startBuffer(curBuffer);
+  if (sent.some(m => m.type === "audio_started")) {
+    console.log("replaying the same clip re-reported audio_started"); failures++; }
+
+  // ...but the next round does re-fetch
+  fetched.length = 0;
+  state = Object.assign({}, ${JSON.stringify(snapshots[2])}, {round: 4}); render(); remoteAudioTick(); await settle();
+  if (!clipsOf().length) { console.log("new round did not fetch a clip"); failures++; }
+
+  // leaving the question phase stops the audio and clears the status line
+  state = ${JSON.stringify(snapshots[5])}; render(); remoteAudioTick(); await settle();
+  if (!document.getElementById("q-audio").hidden) { console.log("audio status left showing outside a round"); failures++; }
+
+  // the lobby toggle tells the server, and the roster marks who's away
+  joined = true; sent.length = 0; iAmRemote = false;
+  state = ${JSON.stringify(snapshots[1])}; render();
+  if (!/somewhere else/.test(document.getElementById("lobby-where-link").textContent)) {
+    console.log("lobby where-link wrong when local:", document.getElementById("lobby-where-link").textContent); failures++; }
+  toggleWhere();
+  if (!sent.some(m => m.type === "set_remote" && m.remote === true)) {
+    console.log("toggleWhere did not send set_remote:", JSON.stringify(sent)); failures++; }
+  if (!/in the room/.test(document.getElementById("lobby-where-link").textContent)) {
+    console.log("lobby where-link wrong when remote"); failures++; }
+};
 `;
 eval(src.replace(/^connect\(\);?$/m, "") + scenario);
-if (failures) { console.log("FAIL:", failures); process.exit(1); }
-console.log("render smoke: all phases render clean for host + non-host");
+global.__remoteChecks().then(() => {
+  if (failures) { console.log("FAIL:", failures); process.exit(1); }
+  console.log("render smoke: all phases render clean for host + non-host, remote audio routed");
+});

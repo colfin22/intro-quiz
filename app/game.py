@@ -21,6 +21,12 @@ QUIZZABLE = ("active=1 AND banned=0 AND clipped_at IS NOT NULL "
              f"AND (duration IS NULL OR duration <= {MAX_DURATION_S})")
 BASE_POINTS = 100
 SPEED_BONUS_MAX = 50  # linear decay to 0 across the window
+# Remote players stream the clip to their own phone, so their audio starts a
+# beat after the room's — buffering, then decode. Their speed bonus is measured
+# from when their audio actually started instead of from the room clock, but the
+# credit is capped: audio_started is client-reported, and without a ceiling a
+# phone could claim a very late start and mint a full-speed bonus at leisure.
+REMOTE_LATENCY_CREDIT_MAX_S = 5.0
 
 
 class GameError(RuntimeError):
@@ -120,6 +126,7 @@ class Game:
             "correct": next(i for i, o in enumerate(options)
                             if o["title"] == t["title"] and o["artist"] == t["artist"]),
             "answers": {},        # player -> {choice, elapsed_ms, points}
+            "audio_started": {},  # remote player -> clock() their own clip began
             "started_at": None,   # clock() when the clip started
             "deadline_at": None,  # clock() when the answer window shuts (moves on extend)
             "clip_len": 5,
@@ -143,11 +150,24 @@ class Game:
         self.rounds = [self._mk_round(conn, t) for t in picked]
 
     # -- lobby ---------------------------------------------------------------
-    def join(self, name: str) -> None:
+    def join(self, name: str, remote: bool = False) -> None:
         name = name.strip()[:24]
         if not name:
             raise GameError("empty name")
-        self.players.setdefault(name, {"score": 0, "correct": 0, "fastest_ms": None, "artists": [], "ready": False})
+        fresh = name not in self.players
+        self.players.setdefault(name, {"score": 0, "correct": 0, "fastest_ms": None,
+                                       "artists": [], "ready": False, "remote": False})
+        if fresh:
+            # only on a first join: a reconnect re-sends `join`, and that must not
+            # silently flip a player back to local mid-game
+            self.players[name]["remote"] = bool(remote)
+
+    def set_remote(self, name: str, remote: bool) -> None:
+        """In the room or not. Changeable any time — someone can wander off with
+        their phone mid-game, or turn up in person after joining from the car."""
+        if name not in self.players:
+            raise GameError("join first")
+        self.players[name]["remote"] = bool(remote)
 
     # -- rounds --------------------------------------------------------------
     def start_round(self) -> dict:
@@ -190,13 +210,43 @@ class Game:
         rnd = self._round("question")
         return max(0.0, rnd["deadline_at"] - self.clock())
 
+    def note_audio_started(self, name: str) -> None:
+        """A remote phone reporting that its copy of the clip just began playing.
+
+        Only the first report per round counts, so a replay (or a duplicated
+        message) can't push the baseline out and buy a bigger speed bonus.
+        """
+        if self.phase != "question" or self.current < 0:
+            return
+        if not self.players.get(name, {}).get("remote"):
+            return  # locals hear the room; their baseline is the room clock
+        rnd = self.rounds[self.current]
+        rnd["audio_started"].setdefault(name, self.clock())
+
+    def _speed_baseline(self, name: str, rnd: dict) -> float:
+        """When this player's clock started ticking for the speed bonus.
+
+        The room start for everyone in the room; for a remote player, when their
+        own stream began — but never more than REMOTE_LATENCY_CREDIT_MAX_S of
+        credit, since that timestamp comes from their phone.
+        """
+        started = rnd["started_at"]
+        if not self.players.get(name, {}).get("remote"):
+            return started
+        own = rnd["audio_started"].get(name)
+        if own is None:
+            return started  # never reported — no credit, and no crash
+        return min(own, started + REMOTE_LATENCY_CREDIT_MAX_S)
+
     def answer(self, name: str, choice: int) -> dict:
         rnd = self._round("question")
         if name not in self.players:
             raise GameError("join first")
         if name in rnd["answers"]:
             raise GameError("already answered")
-        elapsed = self.clock() - rnd["started_at"]
+        # the window still shuts on the ROOM clock — a remote player gets the
+        # bonus measured fairly, not a longer round than everyone else
+        elapsed = max(0.0, self.clock() - self._speed_baseline(name, rnd))
         if self.clock() > rnd["deadline_at"]:
             raise GameError("too late")
         points = 0
@@ -326,7 +376,7 @@ class Game:
             "total_rounds": len(self.rounds),
             "players": [{"name": n, "score": p["score"], "correct": p["correct"],
                          "fastest_ms": p["fastest_ms"], "picked_artists": bool(p.get("artists")),
-                         "ready": bool(p.get("ready"))}
+                         "ready": bool(p.get("ready")), "remote": bool(p.get("remote"))}
                         for n, p in sorted(self.players.items(), key=lambda kv: -kv[1]["score"])],
         }
         if self.current >= 0 and self.phase in ("question", "reveal"):

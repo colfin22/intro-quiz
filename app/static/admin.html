@@ -33,6 +33,9 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
                border-bottom:2px solid transparent; border-radius:10px 10px 0 0; }
 .tabs button.sel { color:var(--fg); font-weight:700; background:var(--card);
                    border-bottom:2px solid var(--accent); }
+.picks { display:flex; flex-wrap:wrap; gap:.4rem 1rem; margin-top:.6rem; }
+.picks label { display:flex; align-items:center; gap:.4rem; font-size:.95rem; }
+.picks input { width:1.05rem; height:1.05rem; accent-color:var(--accent); }
 </style>
 </head>
 <body>
@@ -44,6 +47,7 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
 <div class="tabs">
   <button id="tab-game" class="sel" onclick="showTab('game')">Game</button>
   <button id="tab-library" onclick="showTab('library')">Library</button>
+  <button id="tab-speakers" onclick="showTab('speakers')">Speakers</button>
   <button id="tab-trivia" onclick="showTab('trivia')">Trivia</button>
   <button id="tab-scores" onclick="showTab('scores')">Scores</button>
 </div>
@@ -57,6 +61,31 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
   <div class="row" id="game-controls" style="margin-top:.8rem" hidden>
     <select id="master-select"><option value="">Change game master…</option></select>
     <button class="warn" id="abandon-btn" onclick="abandonGame()">Abandon game</button>
+  </div>
+</div>
+</section>
+
+<section id="sec-speakers" hidden>
+<div class="card">
+  <b>Where the music plays</b>
+  <div class="dim" style="margin-top:.3rem">Clips are cast through Music Assistant, so pick a
+    <b>Music Assistant</b> entity here — the plain speaker entity gives a chime and no audio.</div>
+  <div class="row" style="margin-top:.7rem">
+    <select id="speaker-select" style="flex:1"><option value="">loading…</option></select>
+    <button id="speaker-test-btn" onclick="testSpeaker()">Test</button>
+  </div>
+  <div class="status" id="speaker-status">loading…</div>
+</div>
+
+<div class="card">
+  <b>Group for a game</b>
+  <div class="dim" style="margin-top:.3rem">Tick two or more and they're joined into one group
+    when a game starts, then put back how they were when it ends. Only speakers that can be
+    grouped are listed — group the <b>plain</b> entity, not its Music Assistant twin.</div>
+  <div class="picks" id="speaker-group"><span class="dim">loading…</span></div>
+  <div class="row" style="margin-top:.8rem">
+    <div class="dim" id="speaker-group-info"></div>
+    <button class="primary" id="speaker-save-btn" onclick="saveSpeakers()">Save</button>
   </div>
 </div>
 </section>
