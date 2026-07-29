@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     clipped_at TEXT,              -- when intro clips were last cut (NULL = no clips)
     banned INTEGER DEFAULT 0,     -- never picked again
     ban_reason TEXT,              -- 'flag' (in-game) / 'decode' (cutter) / 'album' (pattern ban)
+                                  -- / 'duplicate' | 'untrustworthy' | 'too_short' (library.py)
     active INTEGER DEFAULT 1      -- still present in the library on last sync
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_tier ON tracks(tier);

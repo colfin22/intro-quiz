@@ -9,7 +9,7 @@ import random
 import time
 from datetime import datetime, timezone
 
-from . import trivia
+from . import library, trivia
 
 ANSWER_WINDOW_S = 20
 PAYOFF_S = 12          # mirrors clips.PAYOFF_LEN — how long the reveal payoff runs
@@ -22,9 +22,15 @@ PAYOFF_GRACE_S = 2
 TF_COUNT = 3           # true/false questions at half time
 TF_POINTS = 50         # enough to shake the standings, not to decide the game
 MAX_DURATION_S = int(os.environ.get("MAX_DURATION_S", "720"))  # longer = DJ mix / live jam, not quizzable
+# Too SHORT is the mirror problem and was unguarded: a 20s intro clip plus a 12s
+# payoff needs a song appreciably longer than 32s, or the "intro" IS the whole
+# track and the payoff overlaps it — the clip hands over the answer. Skits,
+# stings and album interludes live down here (65 of them in this library, the
+# shortest 8s). library.MIN_DURATION_S is the same number for the cutter.
+MIN_DURATION_S = int(os.environ.get("MIN_DURATION_S", "32"))
 # over-long DJ mixes / live jams never enter the quiz (compilations are fine)
 QUIZZABLE = ("active=1 AND banned=0 AND clipped_at IS NOT NULL "
-             f"AND (duration IS NULL OR duration <= {MAX_DURATION_S})")
+             f"AND (duration IS NULL OR duration BETWEEN {MIN_DURATION_S} AND {MAX_DURATION_S})")
 BASE_POINTS = 100
 SPEED_BONUS_MAX = 50  # linear decay to 0 across the window
 # Remote players stream the clip to their own phone, so their audio starts a
@@ -52,20 +58,37 @@ def pick_tracks(conn, rounds: int, tiers: list[str], exclude: set | None = None)
 
 
 def pick_artist_track(conn, artists: list[str], exclude: set) -> dict | None:
-    """One quizzable track by any of the player's chosen artists (any tier)."""
+    """One quizzable track by any of the player's chosen artists (any tier).
+
+    Matched on library.artist_key rather than the literal tag: picking 'AC/DC'
+    off the wall should reach the tracks tagged 'AC, DC' and 'AC-DC' too (52
+    tracks vs 77 in this library). SQLite can't index on a Python function, so
+    the key comparison happens in Python over the candidate rows — the pool is
+    thousands of rows, not millions, and this runs once per player per game.
+    """
     if not artists:
         return None
-    aq = ",".join("?" * len(artists))
+    wanted = {library.artist_key(a) for a in artists}
     ex = exclude or set()
     exq = f"AND id NOT IN ({','.join('?' * len(ex))}) " if ex else ""
-    row = conn.execute(
-        f"SELECT * FROM tracks WHERE {QUIZZABLE} AND artist IN ({aq}) {exq}"
-        f"ORDER BY RANDOM() LIMIT 1", (*artists, *ex)).fetchone()
-    return dict(row) if row else None
+    rows = conn.execute(
+        f"SELECT * FROM tracks WHERE {QUIZZABLE} {exq}ORDER BY RANDOM()", tuple(ex)).fetchall()
+    for r in rows:
+        if library.artist_key(r["artist"]) in wanted:
+            return dict(r)
+    return None
 
 
 def pick_decoys(conn, track: dict, n: int = 3) -> list[dict]:
-    """Plausible wrong answers: same tier, different artist, prefer same decade."""
+    """Plausible wrong answers: same tier, different artist, prefer same decade.
+
+    The SQL exclusion is a literal string compare, which a variant spelling of
+    the answer's own artist walks straight through: a 'Back In Black — AC/DC'
+    round could offer 'Back In Black — AC, DC' as a decoy, two options that read
+    the same with only one scored right. So the artist filtering below is done on
+    library.artist_key, not on the raw tag, and a decoy whose title matches the
+    answer's is dropped outright (11 songs in this library sit on two spellings).
+    """
     decade = (track["year"] or 0) // 10
     rows = conn.execute(
         "SELECT DISTINCT title, artist, year FROM tracks WHERE active=1 AND tier IS NOT NULL "
@@ -73,15 +96,18 @@ def pick_decoys(conn, track: dict, n: int = 3) -> list[dict]:
         (track["artist"], track["title"])).fetchall()
     same_decade = [r for r in rows if (r["year"] or 0) // 10 == decade]
     picked: list[dict] = []
-    seen_artists = {track["artist"]}
+    answer_title = (track["title"] or "").strip().lower()
+    seen_artists = {library.artist_key(track["artist"])}
     for pool in (same_decade, rows):
         for r in pool:
             if len(picked) == n:
                 break
-            if r["artist"] in seen_artists:
+            if library.artist_key(r["artist"]) in seen_artists:
                 continue
+            if (r["title"] or "").strip().lower() == answer_title:
+                continue  # same song under a variant artist tag — a duplicate option
             picked.append({"title": r["title"], "artist": r["artist"]})
-            seen_artists.add(r["artist"])
+            seen_artists.add(library.artist_key(r["artist"]))
     if len(picked) < n:
         raise GameError("not enough tiered tracks for decoys")
     return picked

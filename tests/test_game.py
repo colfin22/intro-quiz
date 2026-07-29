@@ -355,10 +355,15 @@ def test_bootstrap_job_sequence(monkeypatch):
                         lambda c: calls.append("tiers") or {"easy": 1})
     monkeypatch.setattr(main.clips, "sweep",
                         lambda: calls.append("clips") or {"cut": 7, "stopped": "done"})
+    monkeypatch.setattr(main.library, "clean",
+                        lambda c: calls.append("hygiene") or {"banned": {"duplicate": 3}})
     out = main._job_bootstrap(lambda stage: None)
-    assert calls == ["sync", "lastfm", "lastfm", "tiers", "clips"]
+    # hygiene must land BEFORE clips: each row it bans is a clip not cut, and
+    # cutting is the expensive step. Cleaning afterwards pays for the junk first.
+    assert calls == ["sync", "lastfm", "lastfm", "tiers", "hygiene", "clips"]
     assert out["clips_cut"] == 7
     assert out["tracks_synced"] == 42
+    assert out["hygiene"] == {"duplicate": 3}
     assert "warning" not in out
 
 
@@ -607,5 +612,126 @@ def test_note_audio_started_outside_a_question_is_a_no_op():
         g.reveal()
         g.note_audio_started("Away")
         assert rnd["audio_started"] == {}
+    finally:
+        conn.close(); os.unlink(p)
+
+
+# -- artist-variant handling and the duration floor -------------------------
+
+def _insert(conn, tid, title, artist, duration=200, tier="easy", year=1990, listeners=5000):
+    conn.execute(
+        "INSERT INTO tracks(id,title,artist,album,year,duration,tier,clipped_at,"
+        "global_listeners,active) VALUES(?,?,?,?,?,?,?,?,?,1)",
+        (tid, title, artist, "Album", year, duration, tier, "2026-07-06T00:00:00", listeners))
+    conn.commit()
+
+
+def test_decoys_never_offer_the_same_song_under_a_variant_artist_tag():
+    """The broken round this fixes: 'Back In Black — AC/DC' as the answer with
+    'Back In Black — AC, DC' as a decoy. Two options that read identically, only
+    one scored right — and the SQL `artist != ?` filter can't see it."""
+    conn, p = make_db(0)
+    try:
+        _insert(conn, "ans", "Back In Black", "AC/DC")
+        _insert(conn, "twin", "Back In Black", "AC, DC")      # the trap
+        for i in range(20):
+            _insert(conn, f"d{i}", f"Other Song {i}", f"Decoy Band {i}")
+        answer = dict(conn.execute("SELECT * FROM tracks WHERE id='ans'").fetchone())
+        for _ in range(40):  # decoys are random — one pass proves little
+            decoys = game.pick_decoys(conn, answer)
+            titles = [d["title"] for d in decoys]
+            assert "Back In Black" not in titles, decoys
+            assert "AC, DC" not in [d["artist"] for d in decoys], decoys
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_pick_artist_track_reaches_every_spelling_of_the_chosen_artist():
+    """Picking 'AC/DC' off the wall must reach tracks tagged 'AC, DC' too."""
+    conn, p = make_db(0)
+    try:
+        _insert(conn, "v1", "Shoot To Thrill", "AC, DC")
+        _insert(conn, "v2", "Stiff Upper Lip", "AC-DC")
+        got = set()
+        for _ in range(60):
+            t = game.pick_artist_track(conn, ["AC/DC"], set())
+            assert t is not None, "no spelling matched at all"
+            got.add(t["id"])
+        assert got == {"v1", "v2"}
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_pick_artist_track_still_returns_none_for_an_unknown_artist():
+    conn, p = make_db(0)
+    try:
+        _insert(conn, "a", "Song", "Someone Else")
+        assert game.pick_artist_track(conn, ["Nobody At All"], set()) is None
+        assert game.pick_artist_track(conn, [], set()) is None
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_pick_artist_track_honours_the_exclude_set():
+    conn, p = make_db(0)
+    try:
+        _insert(conn, "only", "Song", "AC/DC")
+        assert game.pick_artist_track(conn, ["AC/DC"], set())["id"] == "only"
+        assert game.pick_artist_track(conn, ["AC/DC"], {"only"}) is None
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_tracks_too_short_to_clip_are_not_quizzable():
+    """A 20s intro clip out of a 25s track IS the song — the clip gives the
+    answer away, so short tracks must never reach a round."""
+    conn, p = make_db(0)
+    try:
+        for i in range(12):
+            _insert(conn, f"ok{i}", f"Real Song {i}", f"Band {i}", duration=200)
+        _insert(conn, "skit", "Skit #2", "Kanye West", duration=8)
+        _insert(conn, "sting", "Interlude", "Someone", duration=31)
+        _insert(conn, "long", "DJ Mix", "Someone Else", duration=4000)
+        picked = {t["id"] for t in game.pick_tracks(conn, 12, ["easy"])}
+        assert "skit" not in picked and "sting" not in picked
+        assert "long" not in picked, "the existing MAX_DURATION_S guard must still hold"
+        assert len(picked) == 12
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_a_null_duration_track_is_still_quizzable():
+    """Duration is metadata that can simply be missing; that's not evidence the
+    track is unusable, and excluding NULLs would silently shrink the pool."""
+    conn, p = make_db(0)
+    try:
+        conn.execute(
+            "INSERT INTO tracks(id,title,artist,album,year,duration,tier,clipped_at,"
+            "global_listeners,active) VALUES('n','Song','Band','Album',1990,NULL,'easy',"
+            "'2026-07-06T00:00:00',5000,1)")
+        conn.commit()
+        assert [t["id"] for t in game.pick_tracks(conn, 1, ["easy"])] == ["n"]
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_decoys_never_offer_two_spellings_of_the_same_band():
+    """The other half of the variant problem: decoys are meant to be four
+    DIFFERENT artists. 'Highway To Hell — AC/DC' plus 'Shoot To Thrill — AC, DC'
+    in one round is one band twice, which narrows the guess unfairly."""
+    conn, p = make_db(0)
+    try:
+        _insert(conn, "ans", "Some Answer", "Answer Band")
+        for i, (title, artist) in enumerate((
+                ("Highway To Hell", "AC/DC"), ("Shoot To Thrill", "AC, DC"),
+                ("Stiff Upper Lip", "AC-DC"), ("Back In Black", "ACDC"))):
+            _insert(conn, f"v{i}", title, artist)
+        for i in range(6):
+            _insert(conn, f"o{i}", f"Other {i}", f"Band {i}")
+        answer = dict(conn.execute("SELECT * FROM tracks WHERE id='ans'").fetchone())
+        for _ in range(60):
+            decoys = game.pick_decoys(conn, answer)
+            acdc = [d for d in decoys if game.library.artist_key(d["artist"]) == "acdc"]
+            assert len(acdc) <= 1, decoys
     finally:
         conn.close(); os.unlink(p)

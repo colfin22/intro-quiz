@@ -48,6 +48,27 @@ showed a hand on hover and then swallowed the tap in silence — disabled button
 and it got reported as broken. Disabled buttons across the phone UI are now greyed and
 show `not-allowed`.
 
+### Library hygiene and artist-variant folding
+
+Upstream assumes reasonably clean tags. A 23,000-track library built up over two decades
+across a NAS and an old iTunes library is not clean, and the damage showed up in the game:
+the artist wall split `AC/DC` into four entries of a dozen tracks each (below the wall's
+cutoff, so the band vanished), and two spellings of one band could be offered as two
+separate answer options in the same question.
+
+New `app/library.py` normalises artist spellings onto one key and finds the rows worth
+banning. The design decision worth keeping on a merge is that **variant spellings are folded,
+never deleted**, and duplicates require an **exact duration match** — a title+artist dedupe
+looks obvious and deletes real music (`The Metallica Blacklist` has 12 different "Nothing
+Else Matters" covers filed under `album_artist=Metallica`). Measured against a copy of
+production: 233 variant groups, 816 true duplicates, 47 mistagged rows, 65 too short.
+
+`app/retag.py` then writes the agreed spelling back into the files' tags as a background
+job. It's the only part of the app that writes to the music library, so it's off unless
+`MUSIC_DIRS` is set and previews unless asked to write, and it never renames a file
+(Navidrome ids tracks by path, so a rename orphans the clips). See
+[setup.md](setup.md#artist-tag-repair-optional).
+
 ### A local development environment
 
 `make setup && make seed && make dev` runs the app on a laptop with **no Navidrome, no
@@ -65,7 +86,8 @@ These are specific to this deployment. They're the reason merging upstream needs
 | Change | Why |
 |---|---|
 | Published port `8001:8000` instead of `8000:8000` | Port 8000 on the server is Portainer. **Worth knowing when debugging:** curling `localhost:8000/health` there returns a bare `OK` from Portainer, which looks like a healthy app but isn't. |
-| `:Z` on both volume mounts | SELinux is enforcing on AlmaLinux/RHEL; without relabelling the container can't write `/data`. Harmless on other hosts. |
+| `:Z` on the `/data` and `/clips` mounts | SELinux is enforcing on AlmaLinux/RHEL; without relabelling the container can't write `/data`. Harmless on other hosts. |
+| `${MUSIC_HOST_DIR:-./data}:/music-src`, deliberately **without** `:Z` | The optional library mount for the retag job. `:Z` relabels the tree, which needs xattrs; the library is a CIFS share (`//10.0.1.68/nas-ssd` at `/mnt/nas`) and has none, so `:Z` there stops the container from starting. On this host the share also needs `sudo setsebool -P virt_use_samba on` — currently **off**, so the retag job can't see the library until it's set. |
 | `image:` points at `ghcr.io/giantsystems/intro-quiz` | This fork's tag. Nothing is pulled by default — it's just the local tag `--build` produces. |
 | `CLIPS_HOST_DIR` points at the server's local SSD | Clips are large and live on `/mnt/data`, not on the NAS share. Falls back to `./clips` so a fresh checkout still works. |
 

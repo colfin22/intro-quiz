@@ -17,3 +17,16 @@ services:
       # CLIPS_HOST_DIR in .env points at the server's local SSD (/mnt/data);
       # falls back to ./clips so a fresh checkout still works
       - ${CLIPS_HOST_DIR:-./clips}:/clips:Z
+      # Optional, for the artist-tag repair job only (MUSIC_DIRS in .env). This is
+      # the ONE mount the app writes tags into, so it's off unless you set
+      # MUSIC_HOST_DIR — everything else reads the library via Navidrome. Default
+      # is ./data (already mounted, harmless) rather than a guess at a real path.
+      #
+      # NOTE: no :Z here, unlike the mounts above. :Z makes Docker relabel the
+      # tree for SELinux, which needs xattrs — a network share (CIFS/NFS) has
+      # none, so the relabel fails and the container won't start. On an enforcing
+      # host with a network library, allow container access with:
+      #   sudo setsebool -P virt_use_samba on     (CIFS)
+      #   sudo setsebool -P virt_use_nfs on       (NFS)
+      # See docs/setup.md, "Artist-tag repair".
+      - ${MUSIC_HOST_DIR:-./data}:/music-src

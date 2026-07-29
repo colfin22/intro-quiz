@@ -24,14 +24,19 @@ screen), or **just as happily on a cast speaker** — no scoreboard, phones carr
 questions, the speaker carries the music. All local — your music, your network, no
 subscriptions.
 
-> ### 🔒 Your library is read-only to this app
-> The quiz **never writes to your music files or your Navidrome library — ever.**
-> It connects with a dedicated **non-admin** Subsonic login, never sees your
+> ### 🔒 Your library is read-only to this app, unless you explicitly opt in
+> Out of the box the quiz **never writes to your music files or your Navidrome
+> library.** It connects with a dedicated **non-admin** Subsonic login, never sees your
 > filesystem, and cuts its clips from *streamed* audio into its own folder.
 > Tags, files, playlists and play counts in your library are never created,
-> modified or deleted by any code in this repository. The mis-tag detector
-> *reports* suspect titles; fixing them is always yours to do, with your own
-> tools, if you choose to.
+> modified or deleted. The mis-tag detector *reports* suspect titles.
+>
+> **The one exception in this fork** is the optional [artist-tag repair
+> job](docs/setup.md#artist-tag-repair-optional), which rewrites variant artist
+> spellings (`AC, DC` → `AC/DC`) in the files themselves. It is **off unless you
+> mount your library and set `MUSIC_DIRS`**, it previews by default, and it never
+> renames or moves a file. Leave `MUSIC_DIRS` unset and the original guarantee holds
+> in full — nothing in the app can reach your files.
 
 <p align="center">
   <img src="docs/screenshots/board-lobby-qr.png" width="90%"
@@ -107,6 +112,25 @@ subscriptions.
   counts + stars) and *global* (Last.fm listeners via `track.getInfo`). Blended into
   difficulty tiers: your favourites are "easy"; world-famous songs you own but never
   play are "medium" — the sweet spot where everyone has a chance.
+- **Library hygiene** — real libraries have three problems that all look like
+  "duplicates", and they need opposite treatment. *Variant spellings* (`AC/DC`, `AC, DC`,
+  `AC DC`) are **folded, never deleted**: one normalised artist key means the quiz sees one
+  band, so a wall of split artists becomes one entry and two spellings of the same act can't
+  both appear as answer options. *True duplicates* — identical title, artist **and exact
+  duration** — keep one row, preferring one that's already had clips cut. Duration has to be
+  exact: `The Metallica Blacklist` alone has 12 different "Nothing Else Matters" covers, so a
+  title+artist match would delete real music. *Untrustworthy rows* — three or more tracks
+  sharing an album, artist and title but with a spread of durations — mean the tagger lost
+  the part that distinguished them, so the whole group goes. Rows are **banned, never
+  deleted** (sync re-inserts by id, and `ban_reason` makes it reversible). Preview with
+  `GET /api/library/audit`; the clean-up also runs automatically during bootstrap, before
+  clip cutting, so junk isn't cut first and thrown away after.
+- **Artist-tag repair** *(optional)* — hygiene folds variants for the quiz's purposes;
+  this fixes the spelling players actually see, by writing the agreed name back into the
+  files' tags. Runs as a background job with progress on `/admin`, and is **resumable** — a
+  scan cache plus a write journal mean a restart mid-run costs nothing. It **never renames or
+  moves a file** (Navidrome derives track ids from the path, so a rename would orphan every
+  clip). Off unless `MUSIC_DIRS` is set, and previews by default; see [docs/setup.md](docs/setup.md).
 - **Clip cutting** — a background job downloads originals and cuts loudness-normalised
   MP3 clips with ffmpeg (5/10/20s intros + a payoff from ~40% in), working through the
   library in global-popularity order. **Silence-aware**: if a track opens with a long
@@ -114,7 +138,8 @@ subscriptions.
   intro clips start where the audible song does (`silencedetect`, capped at 60s; re-cut
   existing tracks via `POST /api/clips/recut?q=%pattern%`). **ID3 tags are stripped and
   re-titled** so a display's now-playing overlay can't leak the answer. Tracks over 12 minutes (DJ
-  mixes) are excluded (tunable via `MAX_DURATION_S`, seconds); whole albums can be banned by pattern (`POST /api/ban/album`).
+  mixes) are excluded, as are stings and interludes too short to cut an intro from
+  (tunable via `MAX_DURATION_S` / `MIN_DURATION_S`, seconds); whole albums can be banned by pattern (`POST /api/ban/album`).
   Undecodable originals retry via the music server's transcode before being banned,
   and a stream that returns an error document (stale index after files were renamed)
   is recognised rather than fed to ffmpeg.

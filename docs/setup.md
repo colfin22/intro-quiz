@@ -7,7 +7,9 @@ a laptop to work on it, see [development.md](development.md).
 ## The one-time bootstrap, in detail
 
 `POST /api/bootstrap` chains the whole first-time setup as a single background job:
-library sync → Last.fm scoring → difficulty tiers → clip cutting. Watch progress in
+library sync → Last.fm scoring → difficulty tiers → **library clean-up** → clip cutting.
+The clean-up sits deliberately before the cutting: every row it bans is a clip not cut, and
+cutting is the expensive step. Watch progress in
 `/health` (which reports `ready_to_play`) or in `docker logs`. It's resumable — if it
 stops partway (a Last.fm hiccup, a restart), POST it again and it continues where it
 left off rather than starting over.
@@ -37,6 +39,7 @@ handy for running them on a nightly schedule rather than one big bootstrap:
 - `POST /api/sync` — pull the library from Navidrome
 - `POST /api/score/lastfm` — score tracks by Last.fm listeners
 - `POST /api/score/tiers` — sort scored tracks into difficulty tiers
+- `POST /api/admin/run/hygiene` — ban duplicates and mistagged rows (see below)
 - `POST /api/clips/cut` — cut clips for tiered tracks
 
 Or skip the curls entirely: the **`/admin` server control page** runs each of
@@ -161,6 +164,110 @@ the app keeps expecting it for **120 seconds** (so a websocket blip doesn't boun
 onto a speaker mid-round). Start a speaker-only game inside that window and the first
 round or two can be silent in the room. Wait a couple of minutes after turning the TV
 board off, or turn it off before starting.
+
+## Library clean-up (duplicates and mistagged rows)
+
+Real libraries carry junk that makes the quiz worse: the same song ripped twice, and rows
+whose tags are damaged enough that the title no longer identifies the song. `GET
+/api/library/audit` shows what a clean-up would do, without changing anything:
+
+```bash
+curl -s localhost:8000/api/library/audit | jq
+curl -s 'localhost:8000/api/library/audit?detail=true' | jq   # the actual rows
+```
+
+Three categories, deliberately treated differently:
+
+| Category | Rule | Action |
+|---|---|---|
+| `duplicate` | same title, artist **and exact duration** | keep one, ban the rest |
+| `untrustworthy` | ≥3 rows sharing album + artist + title, differing durations | ban the whole group |
+| `too_short` | shorter than `MIN_DURATION_S` (default 32s) | ban — too short to cut an intro from |
+
+The exact-duration rule matters. A title+artist match looks like the obvious dedupe and
+**would delete real music**: `The Metallica Blacklist` has 12 different "Nothing Else
+Matters" covers by 12 artists, all under `album_artist=Metallica`. Conversely, a *spread* of
+durations across one album+artist+title is the signature of a tagger that lost the
+distinguishing part of the title (17 rows of "Fear and Loathing" ranging 154–367s), so there
+is no "best" row to keep and the group goes.
+
+Nothing is deleted — rows are flagged `banned` with a `ban_reason` naming the category. Sync
+re-inserts by Navidrome id, so a delete would come straight back; a ban is also reversible
+(`UPDATE tracks SET banned=0 WHERE ban_reason='duplicate'`). When picking which duplicate to
+keep, a row that already has clips cut wins over a better-scored one that doesn't, so
+cleaning never throws away work.
+
+Run it with `POST /api/admin/run/hygiene`, or from `/admin`. It also runs inside
+`POST /api/bootstrap`, before clip cutting.
+
+Variant artist spellings are **not** in that table, because deleting them would be wrong —
+see below.
+
+## Artist-tag repair (optional)
+
+`AC/DC`, `AC, DC`, `AC DC` and `ACDC` are one band, and the quiz already treats them as one:
+an artist key normalises the spelling everywhere it matters, so the artist wall shows one
+entry and two spellings can never appear as two answer options. That fix needs no
+configuration and no writes.
+
+What it can't fix is the *text*, which still reads `AC, DC` on the reveal screen. This job
+rewrites the artist tag in the files themselves to the agreed spelling. It's **off by
+default** — it's the only part of the app that writes to your music library.
+
+To enable it, mount the library read-write and name the roots as seen inside the container:
+
+```ini
+# .env
+MUSIC_HOST_DIR=/mnt/nas                 # host path, mounted at /music-src
+MUSIC_DIRS=/music-src/music:/music-src/itunes/iTunes Music
+```
+
+`MUSIC_HOST_DIR` is a single mount, so point it at a parent of all your roots and list the
+roots under `/music-src`. With `MUSIC_DIRS` unset the job refuses to run at all.
+
+**If the library is on a network share and the host runs SELinux** (AlmaLinux/RHEL/Fedora,
+`getenforce` says `Enforcing`), the container is denied access until you allow it:
+
+```bash
+sudo setsebool -P virt_use_samba on   # CIFS/SMB
+sudo setsebool -P virt_use_nfs on     # NFS
+```
+
+Note this one mount deliberately has **no `:Z`** in `docker-compose.yml`, unlike the others:
+`:Z` relabels the tree for SELinux, which requires xattrs, and a network share has none — so
+`:Z` on a CIFS mount stops the container from starting at all.
+
+Then preview, and only then apply:
+
+```bash
+curl -X POST 'localhost:8000/api/library/retag'             # dry run — writes nothing
+curl -X POST 'localhost:8000/api/library/retag?write=true'  # applies it
+```
+
+The dry run returns the whole plan grouped by target spelling, with a per-file reason
+(`'AC, DC' x14 (by album_artist)`, `'AC-DC' x12 (by majority)`) — worth reading before
+applying. Per file it prefers, in order: the file's own `album_artist` when that folds to the
+same artist; otherwise the most-used spelling across the scan, tie-broken toward the longer
+string so `AC/DC` beats `ACDC`. A compilation's `album_artist` is ignored when it names a
+different act, which is what stops all 12 Blacklist covers being retagged as Metallica.
+
+Two things it will not do:
+
+- **It never renames or moves a file.** Navidrome derives track ids from the path, so a
+  rename re-ids the track and orphans every clip already cut for it. Mangled *folder* names
+  (`AC+DC/`) are left alone: `/` is illegal in a path, and Navidrome reads embedded tags, not
+  directory names, so they cost nothing.
+- **It never touches a library it can't see**, and previews unless you pass `write=true`.
+
+It's resumable in both phases — a scan cache keyed on mtime+size, and a write journal
+flushed per file — so a container restart mid-run costs seconds, not the whole pass. A
+22,000-file library scans in minutes from the server's local mount; the same scan over SMB
+from a laptop runs at ~8 files/s, which is why this belongs on the server. For the laptop
+equivalent, `scripts/retag_artists.py` takes `--root`, `--only`, `--map WRONG=RIGHT` and the
+same `--dry-run` / `--write` split.
+
+**After a write run, trigger a Navidrome rescan**, then check `GET /api/library/audit` — the
+variant count should drop. Until the rescan, the app's DB still holds the old spellings.
 
 ## Navidrome user permissions
 

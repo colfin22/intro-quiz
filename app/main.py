@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import os
+import random
 import shutil
 import time
 
@@ -13,7 +14,8 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, board_cast, clips, config, db, game, ha, jobs, lastfm, quality, scoring, subsonic, sync, trivia
+from . import (__version__, board_cast, clips, config, db, game, ha, jobs, lastfm, library,
+               quality, retag, scoring, subsonic, sync, trivia)
 
 LOGGER = logging.getLogger(__name__)
 app = FastAPI(title="Intro Quiz", version=__version__)
@@ -278,6 +280,31 @@ def _job_quality(set_stage) -> dict:
         conn.close()
 
 
+def _job_retag(set_stage) -> dict:
+    """DRY RUN by default — reports the artist-tag fixes it would make.
+
+    Writing to the music library is deliberately not the one-click default; use
+    POST /api/library/retag?write=true (or the Apply button) once the plan reads
+    right. See app/retag.py.
+    """
+    return retag.run(write=False, set_stage=set_stage)
+
+
+def _job_retag_write(set_stage) -> dict:
+    return retag.run(write=True, set_stage=set_stage)
+
+
+def _job_hygiene(set_stage) -> dict:
+    """Ban duplicate / untrustworthy / too-short rows. Run BEFORE a big clip cut:
+    every row it bans is a clip (4 files, ~1.5MB, one Navidrome download) not cut."""
+    conn = db.connect()
+    try:
+        set_stage("auditing")
+        return library.clean(conn)
+    finally:
+        conn.close()
+
+
 def _job_bootstrap(set_stage) -> dict:
     """The whole first-time pipeline, resumable: each step only processes
     what's missing, so re-running after a failure continues where it stopped."""
@@ -301,6 +328,11 @@ def _job_bootstrap(set_stage) -> dict:
                 break
         set_stage("tiers")
         out["tiers"] = scoring.assign_tiers(conn)
+        # Before clips, never after: every row banned here is a clip not cut, and
+        # clip cutting is the expensive step (one Navidrome download each, hours
+        # for a big library). Cleaning afterwards would mean paying for junk first.
+        set_stage("hygiene")
+        out["hygiene"] = library.clean(conn)["banned"]
     finally:
         conn.close()
     set_stage("clips")
@@ -314,6 +346,9 @@ jobs.register("lastfm", "Popularity scoring", _job_lastfm)
 jobs.register("tiers", "Tier rebuild", _job_tiers)
 jobs.register("clips", "Clip cutting", _job_clips)
 jobs.register("quality", "Quality check", _job_quality)
+jobs.register("hygiene", "Library clean-up", _job_hygiene)
+jobs.register("retag", "Artist tags: preview", _job_retag)
+jobs.register("retag_write", "Artist tags: apply", _job_retag_write)
 jobs.register("bootstrap", "Full pipeline", _job_bootstrap)
 
 
@@ -1213,14 +1248,64 @@ def api_artists_wall(limit: int = 60):
     """Popular artists with enough quizzable clips — the pick-3 wall."""
     conn = db.connect()
     try:
+        # Group on library.artist_key, not the raw tag: SQL's GROUP BY counted
+        # 'AC/DC' (52 clips), 'AC, DC' (13) and 'AC-DC' (12) as three artists, and
+        # the `n >= 3` cutoff then dropped 33 real artists off the wall entirely
+        # because no single spelling of theirs reached 3 (376 tracks unreachable).
+        # Aggregating in Python is affordable — a few thousand rows, once per load.
+        agg: dict[str, dict] = {}
+        for r in conn.execute(
+                f"SELECT artist, global_listeners FROM tracks WHERE {game.QUIZZABLE}"):
+            g = agg.setdefault(library.artist_key(r["artist"]),
+                               {"spellings": {}, "n": 0, "pop": 0})
+            g["n"] += 1
+            g["spellings"][r["artist"]] = g["spellings"].get(r["artist"], 0) + 1
+            g["pop"] = max(g["pop"], r["global_listeners"] or 0)
+        # display the artist's most-used spelling — the wall must not show 'AC, DC'
+        pool = [{"artist": max(g["spellings"], key=lambda a: (g["spellings"][a], len(a))),
+                 "tracks": g["n"], "pop": g["pop"]}
+                for g in agg.values() if g["n"] >= 3]
+        pool.sort(key=lambda a: -a["pop"])
         # fresh random selection from the top pool each load — the wall varies per game
-        rows = conn.execute(
-            f"SELECT * FROM (SELECT artist, COUNT(*) n, MAX(global_listeners) pop FROM tracks "
-            f"WHERE {game.QUIZZABLE} GROUP BY artist HAVING n >= 3 "
-            f"ORDER BY pop DESC LIMIT ?) ORDER BY RANDOM() LIMIT ?", (max(limit * 3, 200), limit)).fetchall()
-        return [{"artist": r["artist"], "tracks": r["n"]} for r in rows]
+        top = pool[:max(limit * 3, 200)]
+        random.shuffle(top)
+        return [{"artist": a["artist"], "tracks": a["tracks"]} for a in top[:limit]]
     finally:
         conn.close()
+
+
+@app.get("/api/library/audit", dependencies=ADMIN)
+def api_library_audit(detail: bool = False):
+    """What a clean-up would ban, and the artist-spelling variants found.
+
+    Read-only — this is the dry run. `detail=true` lists the rows and spellings
+    rather than just counting them.
+    """
+    conn = db.connect()
+    try:
+        out = library.audit(conn)
+        if detail:
+            out["variant_groups"] = library.artist_variants(conn)
+            out["rows"] = library.clean(conn, dry_run=True)["examples"]
+        return out
+    finally:
+        conn.close()
+
+
+@app.post("/api/library/retag", dependencies=ADMIN)
+def api_library_retag(write: bool = False):
+    """Repair variant artist spellings in the files' own tags (app/retag.py).
+
+    Defaults to a DRY RUN: `write=true` is what actually touches the library.
+    Runs as a background job — watch it on /admin or in `docker logs`.
+    """
+    if not retag.MUSIC_DIRS:
+        return Response(status_code=400, media_type="application/json",
+                        content=json.dumps({"error": "MUSIC_DIRS is not set — see docs/setup.md"}))
+    started, st = jobs.start("retag_write" if write else "retag")
+    if not started:
+        return {"started": False, "already_running": True, "status": st}
+    return {"started": True, "write": write, "watch": "/admin"}
 
 
 @app.post("/api/ban/album", dependencies=ADMIN)
