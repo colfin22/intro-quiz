@@ -162,6 +162,110 @@ def test_artist_boost_rounds():
         os.unlink(p)
 
 
+def make_artist_db(rows, decoy_filler=8):
+    """A pool with DELIBERATELY repeated artists — rows: list of (artist, tier).
+
+    make_db() gives every track a unique artist, which is exactly what #57 is about,
+    so these tests build their own. The filler tracks sit in a tier the games below
+    never request: pick_decoys needs 3 distinct OTHER artists across all tiered
+    tracks, and a pool starved of artists can't supply them.
+    """
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    conn = db.connect(path)
+    for i, (artist, tier) in enumerate(rows):
+        conn.execute(
+            "INSERT INTO tracks(id,title,artist,album,year,tier,clipped_at,global_listeners,active) "
+            "VALUES(?,?,?,?,?,?,?,?,1)",
+            (f"a{i}", f"Song {i}", artist, "Album", 1990 + (i % 4) * 10,
+             tier, "2026-08-04T00:00:00", 1000 + i))
+    for j in range(decoy_filler):
+        conn.execute(
+            "INSERT INTO tracks(id,title,artist,album,year,tier,clipped_at,global_listeners,active) "
+            "VALUES(?,?,?,?,?,?,?,?,1)",
+            (f"f{j}", f"Filler {j}", f"Filler Artist {j}", "Album", 1985,
+             "hard", "2026-08-04T00:00:00", 500 + j))
+    conn.commit()
+    return conn, path
+
+
+def test_artist_key_folds_variants():
+    assert game._artist_key("Nirvana Feat. Pat Smear") == game._artist_key("Nirvana")
+    assert game._artist_key("Beatles, The") == game._artist_key("The Beatles")
+    assert game._artist_key("nirvana") == game._artist_key("Nirvana")
+    # '&' names are left alone by clean_artist — must not fold onto each other
+    assert game._artist_key("Hall & Oates") != game._artist_key("Hall")
+
+
+def test_no_repeated_artist_in_rounds():
+    conn, p = make_artist_db([(f"Band {i}", "easy" if i % 2 == 0 else "medium")
+                              for i in range(4) for _ in range(5)])
+    try:
+        g = game.Game(conn, rounds=4, clock=Clock())
+        g.join("Bob")
+        g.build_rounds(conn)
+        artists = [r["track"]["artist"] for r in g.rounds]
+        assert len(g.rounds) == 4
+        assert len({game._artist_key(a) for a in artists}) == 4, artists
+    finally:
+        conn.close()
+        os.unlink(p)
+
+
+def test_repeats_allowed_when_artists_run_out():
+    """The small-library case that prompted #57 — a game must still START."""
+    conn, p = make_artist_db([(a, "easy") for a in ("Band A", "Band B") for _ in range(5)])
+    try:
+        g = game.Game(conn, rounds=4, clock=Clock())
+        g.join("Bob")
+        g.build_rounds(conn)  # must not raise
+        assert len(g.rounds) == 4
+        assert len({r["track"]["id"] for r in g.rounds}) == 4  # distinct TRACKS still
+    finally:
+        conn.close()
+        os.unlink(p)
+
+
+def test_boost_rounds_dedupe_shared_artist():
+    # Bob's only pick is A, so he always takes it and Carol MUST fall back to C —
+    # deliberately deterministic. The pool carries enough other artists to fill the
+    # remaining rounds distinctly, so a repeat here means the dedupe failed, not that
+    # the pool ran dry.
+    rows = [(a, "easy") for a in ("Band A", "Band C") for _ in range(5)]
+    rows += [(f"Pool {i}", "easy") for i in range(5) for _ in range(3)]
+    conn, p = make_artist_db(rows)
+    try:
+        g = game.Game(conn, rounds=5, clock=Clock())
+        g.join("Bob")
+        g.set_artists("Bob", ["Band A"])
+        g.join("Carol")
+        g.set_artists("Carol", ["Band A", "Band C"])  # shares A with Bob
+        g.build_rounds(conn)
+        artists = [game._artist_key(r["track"]["artist"]) for r in g.rounds]
+        assert artists.count(game._artist_key("Band A")) == 1, artists
+        # Carol keeps a boost round via her fallback pick rather than losing it
+        assert game._artist_key("Band C") in artists, artists
+        assert len(set(artists)) == len(artists), artists  # no artist twice
+    finally:
+        conn.close()
+        os.unlink(p)
+
+
+def test_feat_credit_counts_as_same_artist():
+    rows = [("Nirvana", "easy"), ("Nirvana Feat. Pat Smear", "easy")]
+    rows += [(f"Other {i}", "easy") for i in range(3)]
+    conn, p = make_artist_db(rows)
+    try:
+        g = game.Game(conn, rounds=4, clock=Clock())
+        g.join("Bob")
+        g.build_rounds(conn)
+        nirvana = [r for r in g.rounds if r["track"]["artist"].startswith("Nirvana")]
+        assert len(nirvana) <= 1, [r["track"]["artist"] for r in g.rounds]
+    finally:
+        conn.close()
+        os.unlink(p)
+
+
 def test_extend_clip_extends_the_window():
     """Extending to a 20s clip near the deadline must not cut the clip off —
     the answer window moves out with the replayed clip."""

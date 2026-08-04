@@ -9,7 +9,7 @@ import random
 import time
 from datetime import datetime, timezone
 
-from . import trivia
+from . import lastfm, trivia
 
 ANSWER_WINDOW_S = 20
 PAYOFF_S = 12          # mirrors clips.PAYOFF_LEN — the reveal payoff plays in full
@@ -21,26 +21,69 @@ QUIZZABLE = ("active=1 AND banned=0 AND clipped_at IS NOT NULL "
              f"AND (duration IS NULL OR duration <= {MAX_DURATION_S})")
 BASE_POINTS = 100
 SPEED_BONUS_MAX = 50  # linear decay to 0 across the window
+# how many candidates to draw when picking `rounds` tracks with distinct artists (#57)
+ARTIST_SAMPLE_MULT = 20
+ARTIST_SAMPLE_MIN = 100
 
 
 class GameError(RuntimeError):
     pass
 
 
-def pick_tracks(conn, rounds: int, tiers: list[str], exclude: set | None = None) -> list[dict]:
+def _artist_key(artist: str | None) -> str:
+    """Dedup key: 'Nirvana Feat. Pat Smear' and 'Nirvana' are one artist (#57).
+
+    Reuses the scorer's notion of the same act (strips a featured credit, un-reverses
+    'Beatles, The') so this file doesn't invent a second one. In-process only — never
+    written to the DB, so a wrong fold costs at most one extra or missing repeat.
+    """
+    a = (artist or "").strip()
+    return (lastfm.clean_artist(a) or a).casefold()
+
+
+def pick_tracks(conn, rounds: int, tiers: list[str], exclude: set | None = None,
+                used_artists: set | None = None) -> list[dict]:
+    """`rounds` random quizzable tracks, at most one per artist where possible (#57).
+
+    Distinctness is BEST-EFFORT: a pool with fewer distinct artists than rounds still
+    yields a full game with repeats. Refusing to start would be a far worse regression
+    than a repeated artist — small libraries are exactly who reported this.
+    """
     qmarks = ",".join("?" * len(tiers))
     ex = exclude or set()
     exq = f"AND id NOT IN ({','.join('?' * len(ex))}) " if ex else ""
+    # over-fetch: dedupe happens in Python (SQL can't apply clean_artist, and a bare
+    # column with GROUP BY is undefined behaviour in SQLite)
+    sample = max(rounds * ARTIST_SAMPLE_MULT, ARTIST_SAMPLE_MIN)
     rows = conn.execute(
         f"SELECT * FROM tracks WHERE {QUIZZABLE} AND tier IN ({qmarks}) {exq}"
-        f"ORDER BY RANDOM() LIMIT ?", (*tiers, *ex, rounds)).fetchall()
+        f"ORDER BY RANDOM() LIMIT ?", (*tiers, *ex, sample)).fetchall()
     if len(rows) < rounds:
         raise GameError(f"only {len(rows)} clipped tracks in tiers {tiers} — need {rounds}")
-    return [dict(r) for r in rows]
+    seen = set(used_artists or ())
+    picked, spare = [], []
+    for r in rows:  # already in random order, so first-come dedupe adds no bias
+        if len(picked) == rounds:
+            break
+        k = _artist_key(r["artist"])
+        if k in seen:
+            spare.append(r)
+            continue
+        seen.add(k)
+        picked.append(r)
+    picked += spare[:rounds - len(picked)]  # ran out of artists — repeats beat no game
+    return [dict(r) for r in picked]
 
 
-def pick_artist_track(conn, artists: list[str], exclude: set) -> dict | None:
-    """One quizzable track by any of the player's chosen artists (any tier)."""
+def pick_artist_track(conn, artists: list[str], exclude: set,
+                      used_artists: set | None = None) -> dict | None:
+    """One quizzable track by any of the player's chosen artists (any tier).
+
+    Skips artists already in the game so two players who picked the same band don't
+    both get it — the second falls back to another of their picks (#57).
+    """
+    used = used_artists or set()
+    artists = [a for a in (artists or []) if _artist_key(a) not in used]
     if not artists:
         return None
     aq = ",".join("?" * len(artists))
@@ -131,14 +174,20 @@ class Game:
             return
         picked: list[dict] = []
         ids: set = set()
+        artists: set = set()  # normalised keys already in this game (#57)
         for p in self.players.values():
             if len(picked) >= self.n_rounds - 1:
                 break  # keep at least one neutral round
-            t = pick_artist_track(conn, p.get("artists") or [], ids)
-            if t:
-                picked.append(t)
-                ids.add(t["id"])
-        picked += pick_tracks(conn, self.n_rounds - len(picked), self.tiers, exclude=ids)
+            t = pick_artist_track(conn, p.get("artists") or [], ids, artists)
+            # the returned row can still fold onto an artist already picked (a player
+            # who chose the 'X Feat. Y' spelling of someone else's X)
+            if t is None or _artist_key(t["artist"]) in artists:
+                continue
+            picked.append(t)
+            ids.add(t["id"])
+            artists.add(_artist_key(t["artist"]))
+        picked += pick_tracks(conn, self.n_rounds - len(picked), self.tiers,
+                              exclude=ids, used_artists=artists)
         random.shuffle(picked)  # boost rounds indistinguishable
         self.rounds = [self._mk_round(conn, t) for t in picked]
 
