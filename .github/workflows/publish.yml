@@ -33,7 +33,7 @@ jobs:
         id: dh
         run: echo "enabled=${{ secrets.DOCKERHUB_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: "v${{ steps.ver.outputs.version }}"
 
