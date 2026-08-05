@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/github/license/colfin22/intro-quiz)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/colfin22/intro-quiz?logo=docker&logoColor=white)](https://hub.docker.com/r/colfin22/intro-quiz)
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/colfin22)
+
 </div>
 
 Self-hosted "guess the intro" music quiz for family game night, built on your own
