@@ -32,6 +32,8 @@
     <p>No game running.</p>
     <p class="dim">Show the board on:</p>
     <div id="display-choice"></div>
+    <p class="dim">Half-time trivia:</p>
+    <div id="trivia-choice"></div>
     <button class="primary" onclick="send({type:'new_game', rounds:10})">Start a new game</button>
   </div>
 
@@ -43,7 +45,7 @@
     <p><b>🎤 You're the game master!</b></p>
     <p class="dim">You started this game, so you run it:<br>
     ▶ you start the rounds and move to the <b>next song</b><br>
-    🍿 you run the half-time trivia and restart the music<br>
+    <span id="m-halftime">🍿 you run the half-time trivia and restart the music<br></span>
     🚫 you can bin rubbish clips<br>
     🛑 and only you can abandon the game</p>
   </div>

@@ -198,8 +198,26 @@ function renderDisplays() {
   }
 }
 
+function renderTrivia() {
+  const box = document.getElementById("trivia-choice");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const on of [true, false]) {
+    const b = document.createElement("button");
+    b.textContent = (state.trivia === on ? "✅ " : "") +
+      (on ? "Yes — half-time facts and true/false"
+          : "No — play straight through");
+    b.onclick = () => send({type: "set_trivia", trivia: on});
+    box.appendChild(b);
+  }
+  // don't promise a half-time show the game won't have
+  const hm = document.getElementById("m-halftime");
+  if (hm) hm.hidden = state.trivia === false;
+}
+
 function render() {
   renderDisplays();
+  renderTrivia();
   if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
   // is the crowned master actually in the game? if not, anyone may take over / abandon (#46)

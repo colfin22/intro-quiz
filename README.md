@@ -134,7 +134,9 @@ subscriptions.
   (`POST /api/trivia/topup`, also called automatically at game start). Picks prefer
   never-used items and recycle oldest-first, so repeats take months. Answers never
   ship to phones before the reveal. Not your region? See
-  [Make your own trivia pack](#make-your-own-trivia-pack) below.
+  [Make your own trivia pack](#make-your-own-trivia-pack) below. Not your thing at all?
+  Turn it off on the setup screen and the game plays straight through, no half-time
+  break — the choice is remembered.
 - **Speaker-only mode** — pick "no scoreboard" at game start and clips cast to a
   speaker via Home Assistant + Music Assistant instead; the phones do the rest.
   A display isn't required to play.
