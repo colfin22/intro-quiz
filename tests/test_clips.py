@@ -197,3 +197,127 @@ def test_cut_batch_persists_detected_offset(quiet_intro_tone, tmp_path):
         assert probe_duration(str(clips_dir / "q1" / "5.mp3")) >= 4.5
     finally:
         os.unlink(p)
+
+
+# --- CLIP_START_S: start clips further into the song (#56) -------------------
+
+
+@pytest.fixture()
+def long_tone(tmp_path):
+    """70 seconds of audible tone — room for a 30s start plus a 20s clip."""
+    src = tmp_path / "long.mp3"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+                    "-i", "sine=frequency=440:duration=70", "-codec:a", "libmp3lame",
+                    str(src)], check=True)
+    return str(src)
+
+
+def capture_offsets(monkeypatch):
+    """Record the offset every _cut_all is asked for, while still cutting."""
+    seen = []
+    real = clips._cut_all
+    monkeypatch.setattr(clips, "_cut_all", lambda src, dest, offset, duration: (
+        seen.append(offset), real(src, dest, offset, duration))[1])
+    return seen
+
+
+def test_clip_start_s_shifts_the_cut(long_tone, tmp_path, monkeypatch):
+    monkeypatch.setattr(clips.config, "CLIP_START_S", 30.0)
+    seen = capture_offsets(monkeypatch)
+    conn, p = make_db([{"id": "late", "duration": 70}])
+    clips_dir = tmp_path / "clips"
+    try:
+        assert clips.cut_batch(conn, FakeClient(long_tone), clips_dir=str(clips_dir))["cut"] == 1
+        assert seen == [30.0]
+        assert abs(probe_duration(str(clips_dir / "late" / "20.mp3")) - 20) < 0.6
+        row = conn.execute("SELECT intro_offset, clip_start_s FROM tracks WHERE id='late'").fetchone()
+        assert row["clip_start_s"] == 30.0
+        # the SONG's own start is unchanged — only where we chose to cut moved
+        assert row["intro_offset"] == 0
+    finally:
+        os.unlink(p)
+
+
+def test_clip_start_s_clamped_on_a_short_song(tone, tmp_path, monkeypatch):
+    """A 40s song can't start 30s in — clamp so the 20s clip still fits."""
+    monkeypatch.setattr(clips.config, "CLIP_START_S", 30.0)
+    seen = capture_offsets(monkeypatch)
+    conn, p = make_db([{"id": "short", "duration": 40}])
+    clips_dir = tmp_path / "clips"
+    try:
+        clips.cut_batch(conn, FakeClient(tone), clips_dir=str(clips_dir))
+        assert seen == [15.0]
+        assert abs(probe_duration(str(clips_dir / "short" / "20.mp3")) - 20) < 0.6
+    finally:
+        os.unlink(p)
+
+
+def test_clip_start_s_clamped_when_duration_is_unknown(tone, tmp_path, monkeypatch):
+    """No duration on the row: probe the file rather than cutting past its end."""
+    monkeypatch.setattr(clips.config, "CLIP_START_S", 30.0)
+    seen = capture_offsets(monkeypatch)
+    conn, p = make_db([{"id": "nodur", "duration": None}])
+    clips_dir = tmp_path / "clips"
+    try:
+        clips.cut_batch(conn, FakeClient(tone), clips_dir=str(clips_dir))
+        assert seen == [15.0]  # probed 40s, clamped to 40-25
+        for length in (5, 10, 20):
+            f = str(clips_dir / "nodur" / f"{length}.mp3")
+            assert abs(probe_duration(f) - length) < 0.6, f
+    finally:
+        os.unlink(p)
+
+
+def test_clip_start_s_can_be_lowered_again(long_tone, tmp_path, monkeypatch):
+    """Turning the setting back down must actually take effect.
+
+    It only can because intro_offset holds the song's own start, not the
+    raised one — otherwise every cut track would be pinned at 30s forever.
+    """
+    conn, p = make_db([{"id": "late", "duration": 70}])
+    clips_dir = tmp_path / "clips"
+    try:
+        monkeypatch.setattr(clips.config, "CLIP_START_S", 30.0)
+        clips.cut_batch(conn, FakeClient(long_tone), clips_dir=str(clips_dir))
+        monkeypatch.setattr(clips.config, "CLIP_START_S", 0.0)
+        seen = capture_offsets(monkeypatch)
+        r = clips.cut_batch(conn, FakeClient(long_tone), clips_dir=str(clips_dir))
+        assert r["cut"] == 1 and seen == [0.0]  # re-cut at the top of the song
+        assert conn.execute(
+            "SELECT clip_start_s FROM tracks WHERE id='late'").fetchone()["clip_start_s"] == 0.0
+        assert r["remaining"] == 0
+    finally:
+        os.unlink(p)
+
+
+def test_stale_clips_queue_behind_unclipped_ones(tmp_path, monkeypatch):
+    """Coverage before conversion: a track with NO clips is always cut first."""
+    conn, p = make_db([{"id": "stale"}, {"id": "fresh"}])
+    conn.execute("UPDATE tracks SET clipped_at='2026-01-01', clip_start_s=0 WHERE id='stale'")
+    conn.commit()
+    monkeypatch.setattr(clips.config, "CLIP_START_S", 30.0)
+    cut = []
+    monkeypatch.setattr(clips, "cut_track", lambda client, row, d=None: cut.append(row["id"]) or 0.0)
+    try:
+        r = clips.cut_batch(conn, FakeClient("unused"), limit=1, clips_dir=str(tmp_path))
+        assert cut == ["fresh"] and r["remaining"] == 1  # the stale one still waiting
+        r = clips.cut_batch(conn, FakeClient("unused"), limit=1, clips_dir=str(tmp_path))
+        assert cut == ["fresh", "stale"] and r["remaining"] == 0
+    finally:
+        os.unlink(p)
+
+
+def test_failed_recut_keeps_the_existing_clips(tone, tmp_path, monkeypatch):
+    """A transient failure re-cutting must not strip a playable track's clips."""
+    conn, p = make_db([{"id": "t1", "duration": 40}])
+    clips_dir = tmp_path / "clips"
+    try:
+        clips.cut_batch(conn, FakeClient(tone), clips_dir=str(clips_dir))
+        monkeypatch.setattr(clips.config, "CLIP_START_S", 30.0)
+        monkeypatch.setattr(clips, "cut_track", lambda *a, **k: (_ for _ in ()).throw(OSError("network")))
+        r = clips.cut_batch(conn, FakeClient(tone), clips_dir=str(clips_dir))
+        assert r["errors"] == 1
+        assert os.path.exists(str(clips_dir / "t1" / "5.mp3"))
+        assert conn.execute("SELECT clipped_at FROM tracks WHERE id='t1'").fetchone()["clipped_at"]
+    finally:
+        os.unlink(p)
