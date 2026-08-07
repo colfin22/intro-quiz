@@ -25,6 +25,12 @@ LOUDNORM = "loudnorm=I=-16:TP=-1.5:LRA=11"
 # the medium tier, and they deserve clips as early as the family favourites.
 # Obscure tiebreak tracks queue last.
 TIER_ORDER = "CASE WHEN tier='tiebreak' THEN 1 ELSE 0 END"
+# every track the cutter is ever allowed to touch
+CUTTABLE = (f"active=1 AND banned=0 AND tier IS NOT NULL "
+            f"AND (duration IS NULL OR duration <= {game.MAX_DURATION_S})")
+# ...and, among those, the ones whose clips were cut at a different CLIP_START_S
+# (takes the current setting as its one bound parameter)
+STALE = "clipped_at IS NOT NULL AND COALESCE(clip_start_s, 0) != ?"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -95,12 +101,37 @@ def detect_intro_offset(src: str) -> float:
     return min(max(end, 0.0), MAX_AUTO_OFFSET)
 
 
+def probe_duration(src: str) -> int:
+    """Length of a downloaded file in seconds, 0 if ffprobe can't tell us."""
+    r = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", src],
+        capture_output=True, text=True, errors="replace")
+    try:
+        return int(float(r.stdout.strip()))
+    except ValueError:
+        return 0
+
+
 def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> float:
-    """Cut all clips for one track. Returns the intro offset actually used."""
+    """Cut all clips for one track. Returns the song's own audible start.
+
+    Two different offsets are in play and must not be conflated:
+
+    * `detected` — where the song itself starts being audible (past any silent
+      ambient intro). It is a property of the track, so it is what we persist
+      in `intro_offset` and re-use as a floor on the next cut.
+    * `offset` — where we actually cut, i.e. `detected` raised to CLIP_START_S
+      for libraries that want clips to skip a long instrumental (#56).
+
+    Persisting the latter as `intro_offset` would make CLIP_START_S a one-way
+    door: every track would be permanently pinned at the raised offset and
+    lowering the setting again could never take effect.
+    """
     clips_dir = clips_dir or config.CLIPS_DIR
     dest = os.path.join(clips_dir, row["id"])
     os.makedirs(dest, exist_ok=True)
-    offset = float(row["intro_offset"] or 0)
+    detected = float(row["intro_offset"] or 0)
     duration = int(row["duration"] or 0)
     with tempfile.TemporaryDirectory() as tmp:
         src = os.path.join(tmp, "src")
@@ -109,7 +140,13 @@ def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> flo
         except subsonic.SubsonicError as e:
             # missing/renamed file — the next library scan reconciles it; skip quietly
             raise ClipError(f"source unavailable on server: {e}") from e
-        offset = max(offset, detect_intro_offset(src))
+        detected = max(detected, detect_intro_offset(src))
+        offset = max(detected, config.CLIP_START_S)
+        if not duration and offset:
+            # the clamp below is what keeps a short song from being cut past its
+            # own end; with no duration on the row (never synced/odd metadata) we
+            # have the file in hand, so ask it rather than cutting blind
+            duration = probe_duration(src)
         if duration and offset > duration - 25:  # keep room for the 20s clip
             offset = max(0.0, duration - 25)
         try:
@@ -119,18 +156,29 @@ def cut_track(client: subsonic.Client, row, clips_dir: str | None = None) -> flo
             LOGGER.info("retrying %s - %s via server transcode", row["artist"], row["title"])
             client.download_transcoded(row["id"], src)
             _cut_all(src, dest, offset, duration)
-    return offset
+    return detected
 
 
 def cut_batch(conn, client: subsonic.Client, limit: int = 50,
               clips_dir: str | None = None) -> dict:
-    """Cut clips for tiered tracks that don't have them yet, easiest tiers first."""
+    """Cut clips for tiered tracks that don't have them yet, easiest tiers first.
+
+    Tracks whose clips were cut with a different CLIP_START_S are re-cut too,
+    but only once nothing is waiting for its first clips — coverage before
+    conversion. They keep their old clips (and stay playable) until the moment
+    ffmpeg overwrites them, so changing the setting never empties the pool.
+    """
     rows = conn.execute(
-        f"SELECT * FROM tracks WHERE active=1 AND banned=0 AND tier IS NOT NULL AND clipped_at IS NULL "
-        f"AND (duration IS NULL OR duration <= {game.MAX_DURATION_S}) "
+        f"SELECT * FROM tracks WHERE {CUTTABLE} AND clipped_at IS NULL "
         f"ORDER BY {TIER_ORDER}, global_listeners DESC LIMIT ?", (limit,)).fetchall()
+    if len(rows) < limit:
+        rows += conn.execute(
+            f"SELECT * FROM tracks WHERE {CUTTABLE} AND {STALE} "
+            f"ORDER BY {TIER_ORDER}, global_listeners DESC LIMIT ?",
+            (config.CLIP_START_S, limit - len(rows))).fetchall()
     done = errors = 0
     for row in rows:
+        already_clipped = row["clipped_at"] is not None
         try:
             used_offset = cut_track(client, row, clips_dir)
         except ClipError as e:
@@ -146,16 +194,19 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
         except Exception as e:  # noqa: BLE001 - transient (network etc.): retry next batch
             errors += 1
             LOGGER.warning("clip cut failed (will retry) for %s - %s: %s", row["artist"], row["title"], e)
-            shutil.rmtree(os.path.join(clips_dir or config.CLIPS_DIR, row["id"]), ignore_errors=True)
+            if not already_clipped:
+                # a half-written first cut is junk; a failed RE-cut leaves the
+                # previous clips in place and the track stays playable
+                shutil.rmtree(os.path.join(clips_dir or config.CLIPS_DIR, row["id"]), ignore_errors=True)
             continue
-        conn.execute("UPDATE tracks SET clipped_at=?, intro_offset=? WHERE id=?",
-                     (datetime.now(timezone.utc).isoformat(), used_offset, row["id"]))
+        conn.execute("UPDATE tracks SET clipped_at=?, intro_offset=?, clip_start_s=? WHERE id=?",
+                     (datetime.now(timezone.utc).isoformat(), used_offset,
+                      config.CLIP_START_S, row["id"]))
         conn.commit()
         done += 1
     remaining = conn.execute(
-        f"SELECT COUNT(*) c FROM tracks WHERE active=1 AND banned=0 AND tier IS NOT NULL AND clipped_at IS NULL "
-        f"AND (duration IS NULL OR duration <= {game.MAX_DURATION_S})"
-    ).fetchone()["c"]
+        f"SELECT COUNT(*) c FROM tracks WHERE {CUTTABLE} AND (clipped_at IS NULL OR {STALE})",
+        (config.CLIP_START_S,)).fetchone()["c"]
     return {"cut": done, "errors": errors, "remaining": remaining}
 
 

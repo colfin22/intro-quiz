@@ -28,6 +28,30 @@ It's safe to leave on permanently:
 `CLIP_SWEEP_MAX_HOURS=8` caps a single session (finishing the batch in hand); the next
 restart resumes where it left off. Set it to `0` (or leave it unset) to run until done.
 
+## Songs with long instrumental intros
+
+By default a clip starts at the top of the song. The cutter already skips a *silent*
+opening (rain, feedback, a slow fade), but plenty of music opens with half a minute of
+perfectly audible instrumental before anyone sings — and a five-second clip of that is
+hard to place for the wrong reason.
+
+`CLIP_START_S=30` starts every clip 30 seconds in instead:
+
+- it's a floor, not a replacement — a track whose audible start is detected later than
+  that still uses the later one;
+- the reveal's "payoff" clip moves along with it (it's always taken from after the
+  intro clips);
+- short songs are clamped so the 20-second clip still fits inside the track;
+- it is library-wide, not a per-game choice, because clips are cut ahead of time.
+
+**It applies when clips are cut, so changing it means re-cutting.** You don't have to do
+anything for that: tracks cut at a different setting are treated as pending again, and
+the cutter picks them up *after* anything still waiting for its first clips. They keep
+their existing clips — and stay playable — until each one is replaced. Leaving
+`CLIP_SWEEP_ON_START=true` (or the nightly cut) converts the library over the following
+sessions; `POST /api/clips/cut?limit=20000` or the **Cut clips** button on `/admin` does
+it in one long pass.
+
 ## Running the setup steps individually
 
 Instead of the one `POST /api/bootstrap` call, you can drive the stages separately —
