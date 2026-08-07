@@ -17,6 +17,7 @@ from . import __version__, board_cast, clips, config, db, game, ha, jobs, lastfm
 
 LOGGER = logging.getLogger(__name__)
 TRIVIA_SETTING = "trivia_enabled"  # settings-table key for the half-time toggle (#60)
+DIFFICULTY_SETTING = "difficulty"  # settings-table key for the difficulty picker (#58)
 app = FastAPI(title="Intro Quiz", version=__version__)
 
 
@@ -114,6 +115,8 @@ async def maybe_clip_sweep():
     conn = db.connect()
     try:  # unset = on, so an existing install is unchanged (#60)
         hub.trivia = db.get_setting(conn, TRIVIA_SETTING) != "0"
+        # unset = "normal", i.e. the tiers the game always used before #58
+        hub.difficulty = db.get_setting(conn, DIFFICULTY_SETTING) or game.DEFAULT_DIFFICULTY
     finally:
         conn.close()
     if board_cast.BOARD_URL and not board_cast.BOARD_URL.startswith("https://"):
@@ -350,6 +353,8 @@ class Hub:
         # half-time trivia on/off (#60). Loaded from the settings table at startup —
         # NOT here, this runs at import time and must not touch the DB.
         self.trivia: bool = True
+        # which tiers new games draw from (#58) — same story: loaded at startup, not here
+        self.difficulty: str = game.DEFAULT_DIFFICULTY
         self.next_host: str | None = None  # game-master rotation across games
         self.last_activity = 0.0   # any game-mutating message — stale games expire (#26)
         self.cast_attempts = 0     # watchdog re-casts per outage — capped (#26)
@@ -370,6 +375,7 @@ class Hub:
         snap["displays"] = board_cast.display_names()
         snap["display"] = self.display or "none"
         snap["trivia"] = self.trivia
+        snap["difficulty"] = self.difficulty
         snap["next_host"] = self.next_host  # shown on the finished screen
         snap["game_no"] = self.games_started
         dead = []
@@ -474,7 +480,8 @@ async def ws_endpoint(ws: WebSocket):
         await ws.send_json({**snap, "type": "state",
                             "displays": board_cast.display_names(),
                             "display": hub.display or "none",
-                            "trivia": hub.trivia})
+                            "trivia": hub.trivia,
+                            "difficulty": hub.difficulty})
         while True:
             msg = await ws.receive_json()
             async with hub.lock:
@@ -485,7 +492,8 @@ async def ws_endpoint(ws: WebSocket):
                         # or an idle phone left on the page keeps a stale game alive
                         await ws.send_json({"type": "pong"})
                         continue
-                    if kind not in ("board_hello", "set_display", "set_trivia"):
+                    if kind not in ("board_hello", "set_display", "set_trivia",
+                                    "set_difficulty"):
                         # phones are actively playing: stale-game clock and the
                         # watchdog's re-cast budget both reset (#26)
                         import time as _t
@@ -513,6 +521,19 @@ async def ws_endpoint(ws: WebSocket):
                         finally:
                             conn.close()
                         await hub.broadcast()
+                    elif kind == "set_difficulty":
+                        # like the trivia toggle: a household preference, remembered
+                        # across games and restarts (#58). Unknown keys are ignored
+                        # rather than stored, so the picker can never wedge the game.
+                        want = msg.get("difficulty")
+                        if want in game.DIFFICULTIES:
+                            hub.difficulty = want
+                            conn = db.connect()
+                            try:
+                                db.set_setting(conn, DIFFICULTY_SETTING, want)
+                            finally:
+                                conn.close()
+                        await hub.broadcast()
                     elif kind == "stop_board":
                         # kill a stuck/zombie DashCast on demand and stand the
                         # watchdog down; music falls back to the speaker (#31)
@@ -538,7 +559,7 @@ async def ws_endpoint(ws: WebSocket):
                         conn = db.connect()
                         try:
                             hub.game = game.Game(conn, rounds=int(msg.get("rounds", 10)),
-                                                 tiers=msg.get("tiers") or ["easy", "medium"],
+                                                 tiers=msg.get("tiers") or game.tiers_for(hub.difficulty),
                                                  trivia=hub.trivia)
                             if hub.trivia:
                                 trivia.ensure_seeded(conn)

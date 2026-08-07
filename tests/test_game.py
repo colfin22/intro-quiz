@@ -768,3 +768,89 @@ def test_trivia_setting_round_trips():
         assert db.get_setting(conn, main.TRIVIA_SETTING) != "0"
     finally:
         os.unlink(p)
+
+
+def make_niche_db(n_per_tier=12):
+    """A library like the one that reported #61: nothing mainstream enough to be
+    easy or medium, so the tiers the game used to insist on are both EMPTY."""
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    conn = db.connect(path)
+    i = 0
+    for tier in ("hard", "tiebreak"):
+        for _ in range(n_per_tier):
+            conn.execute(
+                "INSERT INTO tracks(id,title,artist,album,year,tier,clipped_at,"
+                "global_listeners,active) VALUES(?,?,?,?,?,?,?,?,1)",
+                (f"n{i}", f"Song {i}", f"Artist {i}", "Album", 1990 + (i % 4) * 10,
+                 tier, "2026-07-06T00:00:00", 1000 + i))
+            i += 1
+    conn.commit()
+    return conn, path
+
+
+def test_tiers_for_each_difficulty():
+    assert game.tiers_for("normal") == ["easy", "medium"]
+    assert game.tiers_for("harder") == ["hard"]
+    assert game.tiers_for("everything") == ["easy", "medium", "hard", "tiebreak"]
+
+
+def test_tiers_for_unknown_falls_back_to_normal():
+    """A stored setting from a newer version must never stop a game starting."""
+    for bad in ("impossible", "", None):
+        assert game.tiers_for(bad) == game.tiers_for(game.DEFAULT_DIFFICULTY)
+
+
+def test_tiers_for_returns_a_copy():
+    """Callers must not be able to mutate the shared table."""
+    got = game.tiers_for("normal")
+    got.append("tiebreak")
+    assert game.tiers_for("normal") == ["easy", "medium"]
+
+
+def test_game_default_tiers_unchanged():
+    """No difficulty chosen = exactly what the game did before #58."""
+    conn, p = make_db()
+    try:
+        assert game.Game(conn, rounds=4).tiers == ["easy", "medium"]
+    finally:
+        os.unlink(p)
+
+
+def test_everything_starts_a_game_a_niche_library_could_not():
+    """#61: with no easy/medium tracks the old fixed tiers refuse to start."""
+    conn, p = make_niche_db()
+    try:
+        with pytest.raises(game.GameError):
+            game.Game(conn, rounds=4, tiers=game.tiers_for("normal"))
+        g = game.Game(conn, rounds=4, tiers=game.tiers_for("everything"))
+        assert g.tiers == ["easy", "medium", "hard", "tiebreak"]
+        g.build_rounds(conn)
+        assert len(g.rounds) == 4
+        assert {r["track"]["tier"] for r in g.rounds} <= {"hard", "tiebreak"}
+    finally:
+        os.unlink(p)
+
+
+def test_harder_draws_only_from_hard():
+    conn, p = make_niche_db()
+    try:
+        g = game.Game(conn, rounds=4, tiers=game.tiers_for("harder"))
+        g.build_rounds(conn)
+        assert {r["track"]["tier"] for r in g.rounds} == {"hard"}
+    finally:
+        os.unlink(p)
+
+
+def test_difficulty_setting_round_trips():
+    """Unset means normal, so an existing install is unchanged by the upgrade."""
+    from app import main
+    conn, p = make_db()
+    try:
+        stored = db.get_setting(conn, main.DIFFICULTY_SETTING)
+        assert stored is None
+        assert game.tiers_for(stored or game.DEFAULT_DIFFICULTY) == ["easy", "medium"]
+        db.set_setting(conn, main.DIFFICULTY_SETTING, "everything")
+        assert db.get_setting(conn, main.DIFFICULTY_SETTING) == "everything"
+    finally:
+        os.unlink(p)

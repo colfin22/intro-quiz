@@ -215,9 +215,30 @@ function renderTrivia() {
   if (hm) hm.hidden = state.trivia === false;
 }
 
+// which tiers new games draw from (#58). "Everything" ignores the popularity
+// tiers altogether, for libraries where that data is sparse or unhelpful (#61).
+const DIFFICULTIES = [
+  ["normal", "Normal — the songs most people know"],
+  ["harder", "Harder — deeper cuts"],
+  ["everything", "Everything — anything in your library"],
+];
+
+function renderDifficulty() {
+  const box = document.getElementById("difficulty-choice");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const [key, label] of DIFFICULTIES) {
+    const b = document.createElement("button");
+    b.textContent = (state.difficulty === key ? "✅ " : "") + label;
+    b.onclick = () => send({type: "set_difficulty", difficulty: key});
+    box.appendChild(b);
+  }
+}
+
 function render() {
   renderDisplays();
   renderTrivia();
+  renderDifficulty();
   if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
   // is the crowned master actually in the game? if not, anyone may take over / abandon (#46)
