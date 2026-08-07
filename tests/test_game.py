@@ -556,3 +556,138 @@ def test_admin_game_summary_is_spoiler_safe():
             main.hub.game = old_game
     finally:
         conn.close(); os.unlink(p)
+
+
+# --- genre-aware decoys (#59) -----------------------------------------------
+
+
+def make_genre_db(rows, filler=8):
+    """Pool for decoy tests — rows: list of (artist, genre, year).
+
+    Every track gets a distinct artist unless the caller repeats one. `filler` adds
+    genre-less tracks in a tier the games never request, so a pool starved of
+    same-genre artists can still reach the widest fallback stage instead of raising
+    (the same trick make_artist_db uses, for the same reason).
+    """
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    conn = db.connect(path)
+    for i, (artist, genre, year) in enumerate(rows):
+        conn.execute(
+            "INSERT INTO tracks(id,title,artist,album,year,genre,tier,clipped_at,"
+            "global_listeners,active) VALUES(?,?,?,?,?,?,?,?,?,1)",
+            (f"g{i}", f"Song {i}", artist, "Album", year, genre, "easy",
+             "2026-08-07T00:00:00", 1000 + i))
+    for j in range(filler):
+        conn.execute(
+            "INSERT INTO tracks(id,title,artist,album,year,genre,tier,clipped_at,"
+            "global_listeners,active) VALUES(?,?,?,?,?,?,?,?,?,1)",
+            (f"gf{j}", f"Filler {j}", f"Filler Artist {j}", "Album", 1975, None,
+             "hard", "2026-08-07T00:00:00", 500 + j))
+    conn.commit()
+    return conn, path
+
+
+def rock_and_hiphop():
+    """8 rock acts and 8 hip-hop acts, all 1990s — the exact shape #59 reported."""
+    return ([(f"Rock Band {i}", "Rock", 1995) for i in range(8)] +
+            [(f"Rap Act {i}", "Hip-Hop", 1995) for i in range(8)])
+
+
+def test_decoys_match_the_genre():
+    """A rock clip must not be given away by three hip-hop options (#59)."""
+    conn, p = make_genre_db(rock_and_hiphop())
+    try:
+        track = dict(conn.execute("SELECT * FROM tracks WHERE id='g0'").fetchone())
+        for _ in range(30):  # random selection — one green run proves nothing
+            decoys = game.pick_decoys(conn, track)
+            assert len(decoys) == 3
+            assert all(d["artist"].startswith("Rock Band") for d in decoys), decoys
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_genre_spelling_variants_are_one_genre():
+    """'Hip Hop' and 'Hip-Hop' are the same genre; 'Rock' is not."""
+    rows = ([("Rap A", "Hip-Hop", 1995)] +
+            [(f"Rap {i}", "Hip Hop", 1995) for i in range(6)] +
+            [(f"Rock {i}", "Rock", 1995) for i in range(6)])
+    conn, p = make_genre_db(rows)
+    try:
+        track = dict(conn.execute("SELECT * FROM tracks WHERE id='g0'").fetchone())
+        assert track["genre"] == "Hip-Hop"
+        for _ in range(30):
+            decoys = game.pick_decoys(conn, track)
+            assert all(d["artist"].startswith("Rap") for d in decoys), decoys
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_decoys_prefer_the_same_decade_within_a_genre():
+    rows = ([(f"Rock 90s {i}", "Rock", 1995) for i in range(6)] +
+            [(f"Rock 60s {i}", "Rock", 1965) for i in range(6)])
+    conn, p = make_genre_db(rows)
+    try:
+        track = dict(conn.execute("SELECT * FROM tracks WHERE id='g0'").fetchone())
+        for _ in range(30):
+            decoys = game.pick_decoys(conn, track)
+            assert all(d["artist"].startswith("Rock 90s") for d in decoys), decoys
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_decoys_widen_when_the_genre_pool_is_too_small():
+    """Two Jazz acts can't fill three options — take other genres over failing."""
+    rows = ([("Jazz A", "Jazz", 1995), ("Jazz B", "Jazz", 1995)] +
+            [(f"Rock {i}", "Rock", 1995) for i in range(6)])
+    conn, p = make_genre_db(rows)
+    try:
+        track = dict(conn.execute("SELECT * FROM tracks WHERE id='g0'").fetchone())
+        for _ in range(30):
+            decoys = game.pick_decoys(conn, track)
+            assert len(decoys) == 3
+            assert len({d["artist"] for d in decoys}) == 3
+            assert any(d["artist"].startswith("Rock") for d in decoys)
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_untagged_track_still_gets_decoys():
+    """No genre tag = the pre-#59 behaviour, not a broken round."""
+    rows = [(f"Band {i}", None, 1995) for i in range(6)]
+    conn, p = make_genre_db(rows)
+    try:
+        track = dict(conn.execute("SELECT * FROM tracks WHERE id='g0'").fetchone())
+        assert track["genre"] is None
+        for _ in range(30):
+            assert len(game.pick_decoys(conn, track)) == 3
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_decoy_artists_fold_featured_credits():
+    """'Nirvana' and 'Nirvana Feat. X' are one act, so they can't both be options."""
+    rows = ([("Nirvana", "Rock", 1995), ("Nirvana Feat. Pat Smear", "Rock", 1995),
+             ("Nirvana", "Rock", 1992)] +
+            [(f"Other Band {i}", "Rock", 1995) for i in range(4)])
+    conn, p = make_genre_db(rows)
+    try:
+        track = dict(conn.execute("SELECT * FROM tracks WHERE id='g6'").fetchone())
+        for _ in range(30):
+            decoys = game.pick_decoys(conn, track)
+            keys = [game._artist_key(d["artist"]) for d in decoys]
+            assert len(set(keys)) == 3, decoys
+    finally:
+        conn.close(); os.unlink(p)
+
+
+def test_genre_spellings_map():
+    conn, p = make_genre_db([("A", "Hip-Hop", 1995), ("B", "Hip Hop", 1995),
+                             ("C", "Rock", 1995)])
+    try:
+        m = game.genre_spellings(conn)
+        assert sorted(m["hiphop"]) == ["Hip Hop", "Hip-Hop"]
+        assert m["rock"] == ["Rock"]
+        assert "" not in m  # untagged tracks never become a genre
+    finally:
+        conn.close(); os.unlink(p)
