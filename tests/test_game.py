@@ -691,3 +691,80 @@ def test_genre_spellings_map():
         assert "" not in m  # untagged tracks never become a genre
     finally:
         conn.close(); os.unlink(p)
+
+
+# --- half-time trivia opt-out (#60) -----------------------------------------
+
+
+def play_to_halfway(g, conn, clock):
+    """Play a 6-round game up to the point the half-time show would be due."""
+    g.join("A"); g.join("B")
+    g.build_rounds(conn)
+    for _ in range(3):
+        g.start_round()
+        clock.t += 1
+        g.answer("A", g.rounds[g.current]["correct"])
+        g.reveal()
+        clock.t += game.PAYOFF_S
+
+
+def test_trivia_off_skips_half_time():
+    """trivia=False: no break is ever due, so the game plays straight through."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=6, clock=clock, trivia=False)
+        play_to_halfway(g, conn, clock)
+        assert not g.is_halfway()          # the ONLY thing main.py consults
+        assert not g.is_last_round()
+        g.start_round()                    # straight on to round 4
+        assert g.phase == "question" and g.current == 3
+    finally:
+        os.unlink(p)
+
+
+def test_trivia_on_is_unchanged():
+    """The same 6-round game with the default flag still reaches half time."""
+    conn, p = make_db()
+    try:
+        clock = Clock()
+        g = game.Game(conn, rounds=6, clock=clock)
+        assert g.trivia is True
+        play_to_halfway(g, conn, clock)
+        assert g.is_halfway()
+    finally:
+        os.unlink(p)
+
+
+def test_start_break_still_works_with_trivia_off():
+    """The gate is is_halfway(), not the engine method.
+
+    main.py's break branch has no test of its own, so pin where the opt-out lives:
+    start_break() must stay callable, or a future caller would break silently.
+    """
+    from app import trivia
+    conn, p = make_db()
+    try:
+        trivia.ensure_seeded(conn)
+        clock = Clock()
+        g = game.Game(conn, rounds=6, clock=clock, trivia=False)
+        play_to_halfway(g, conn, clock)
+        g.start_break(conn)
+        assert g.phase == "break"
+    finally:
+        os.unlink(p)
+
+
+def test_trivia_setting_round_trips():
+    """Unset means on, so an existing install is unchanged by the upgrade."""
+    from app import main
+    conn, p = make_db()
+    try:
+        assert db.get_setting(conn, main.TRIVIA_SETTING) is None
+        assert db.get_setting(conn, main.TRIVIA_SETTING) != "0"   # the startup check
+        db.set_setting(conn, main.TRIVIA_SETTING, "0")
+        assert db.get_setting(conn, main.TRIVIA_SETTING) == "0"
+        db.set_setting(conn, main.TRIVIA_SETTING, "1")
+        assert db.get_setting(conn, main.TRIVIA_SETTING) != "0"
+    finally:
+        os.unlink(p)

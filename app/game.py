@@ -183,9 +183,10 @@ def pick_decoys(conn, track: dict, n: int = 3,
 
 class Game:
     def __init__(self, conn, rounds: int = 10, tiers: list[str] | None = None,
-                 clock=time.monotonic):
+                 clock=time.monotonic, trivia: bool = True):
         self.tiers = tiers or ["easy", "medium"]
         self.n_rounds = rounds
+        self.trivia = trivia  # False = play straight through, no half-time show (#60)
         self.clock = clock
         self.rounds: list[dict] = []  # built lazily at first start_round, after artist picks
         # fail fast if the pool can't even fill a plain game
@@ -415,7 +416,14 @@ class Game:
         return self.current + 1 >= len(self.rounds)
 
     def is_halfway(self) -> bool:
-        return len(self.rounds) >= 6 and self.current + 1 == len(self.rounds) // 2
+        """Is the half-time show due after the round just revealed?
+
+        The trivia opt-out (#60) is gated HERE rather than at the caller: this is the
+        only thing that decides whether a break happens, and the caller's state machine
+        has no test of its own. start_break() itself stays callable either way.
+        """
+        return (self.trivia and len(self.rounds) >= 6
+                and self.current + 1 == len(self.rounds) // 2)
 
     def finish(self, conn) -> int:
         self.phase = "finished"

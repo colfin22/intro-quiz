@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from . import __version__, board_cast, clips, config, db, game, ha, jobs, lastfm, quality, scoring, subsonic, sync, trivia
 
 LOGGER = logging.getLogger(__name__)
+TRIVIA_SETTING = "trivia_enabled"  # settings-table key for the half-time toggle (#60)
 app = FastAPI(title="Intro Quiz", version=__version__)
 
 
@@ -110,6 +111,11 @@ async def board_watchdog():
 @app.on_event("startup")
 async def maybe_clip_sweep():
     """Startup checks + CLIP_SWEEP_ON_START background clip-cutting session."""
+    conn = db.connect()
+    try:  # unset = on, so an existing install is unchanged (#60)
+        hub.trivia = db.get_setting(conn, TRIVIA_SETTING) != "0"
+    finally:
+        conn.close()
     if board_cast.BOARD_URL and not board_cast.BOARD_URL.startswith("https://"):
         LOGGER.warning("=" * 60)
         LOGGER.warning("BOARD_URL is not https:// — cast devices REFUSE plain-http "
@@ -341,6 +347,9 @@ class Hub:
         self.board_last_seen: float = 0.0
         self.host_ws = None
         self.display: str | None = (board_cast.display_names() or [None])[0]
+        # half-time trivia on/off (#60). Loaded from the settings table at startup —
+        # NOT here, this runs at import time and must not touch the DB.
+        self.trivia: bool = True
         self.next_host: str | None = None  # game-master rotation across games
         self.last_activity = 0.0   # any game-mutating message — stale games expire (#26)
         self.cast_attempts = 0     # watchdog re-casts per outage — capped (#26)
@@ -360,6 +369,7 @@ class Hub:
         snap["type"] = "state"
         snap["displays"] = board_cast.display_names()
         snap["display"] = self.display or "none"
+        snap["trivia"] = self.trivia
         snap["next_host"] = self.next_host  # shown on the finished screen
         snap["game_no"] = self.games_started
         dead = []
@@ -463,7 +473,8 @@ async def ws_endpoint(ws: WebSocket):
         snap = hub.game.snapshot() if hub.game else {"phase": "idle"}
         await ws.send_json({**snap, "type": "state",
                             "displays": board_cast.display_names(),
-                            "display": hub.display or "none"})
+                            "display": hub.display or "none",
+                            "trivia": hub.trivia})
         while True:
             msg = await ws.receive_json()
             async with hub.lock:
@@ -474,7 +485,7 @@ async def ws_endpoint(ws: WebSocket):
                         # or an idle phone left on the page keeps a stale game alive
                         await ws.send_json({"type": "pong"})
                         continue
-                    if kind not in ("board_hello", "set_display"):
+                    if kind not in ("board_hello", "set_display", "set_trivia"):
                         # phones are actively playing: stale-game clock and the
                         # watchdog's re-cast budget both reset (#26)
                         import time as _t
@@ -491,6 +502,16 @@ async def ws_endpoint(ws: WebSocket):
                                     None, board_cast.hide_board, hub.display)
                             hub.display = new
                             hub.cast_attempts = 0
+                        await hub.broadcast()
+                    elif kind == "set_trivia":
+                        # a household preference, not a per-game one — remembered
+                        # across games and restarts (#60)
+                        hub.trivia = bool(msg.get("trivia"))
+                        conn = db.connect()
+                        try:
+                            db.set_setting(conn, TRIVIA_SETTING, "1" if hub.trivia else "0")
+                        finally:
+                            conn.close()
                         await hub.broadcast()
                     elif kind == "stop_board":
                         # kill a stuck/zombie DashCast on demand and stand the
@@ -517,8 +538,10 @@ async def ws_endpoint(ws: WebSocket):
                         conn = db.connect()
                         try:
                             hub.game = game.Game(conn, rounds=int(msg.get("rounds", 10)),
-                                                 tiers=msg.get("tiers") or ["easy", "medium"])
-                            trivia.ensure_seeded(conn)
+                                                 tiers=msg.get("tiers") or ["easy", "medium"],
+                                                 trivia=hub.trivia)
+                            if hub.trivia:
+                                trivia.ensure_seeded(conn)
                         finally:
                             conn.close()
                         hub.games_started += 1
@@ -534,7 +557,8 @@ async def ws_endpoint(ws: WebSocket):
                                 LOGGER.warning("trivia topup failed: %s", e)
                             finally:
                                 c.close()
-                        asyncio.get_event_loop().run_in_executor(None, _topup)
+                        if hub.trivia:  # no game will ask for it — don't call OpenTDB
+                            asyncio.get_event_loop().run_in_executor(None, _topup)
                         # Cast the board ONLY if one isn't already up (#47). Our own
                         # receiver persists across games, so re-casting on every new_game
                         # just tore down a healthy board and reloaded it mid-transition —

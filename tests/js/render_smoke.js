@@ -57,6 +57,10 @@ const snapshots = [
   { phase: "lobby", host: "Carol",  // rotated master hasn't joined, everyone ready
     players: [{ name: "Alice", score: 0, ready: true, picked_artists: true },
               { name: "Bob", score: 0, ready: true, picked_artists: true }] },
+  // NB the assertions below index into this array — APPEND ONLY, never insert.
+  // setup screen with the half-time toggle both ways (#60)
+  { phase: "idle", players: [], trivia: true, displays: ["Telly"], display: "Telly" },
+  { phase: "idle", players: [], trivia: false, displays: ["Telly"], display: "none" },
 ];
 const scenario = `
 joined = true;
@@ -113,6 +117,11 @@ joined = true; state = ${JSON.stringify(snapshots[10])}; myName = "Alice"; rende
 const sb2 = document.querySelector("#v-lobby > button.primary");
 if (sb2.hidden) { console.log("no take-over button when master absent"); failures++; }
 if (!/take over/.test(sb2.textContent)) { console.log("take-over label wrong:", sb2.textContent); failures++; }
+// half-time toggle: the master card must not promise a show that won't happen (#60)
+state = ${JSON.stringify(snapshots[11])}; myName = "Alice"; render();
+if (document.getElementById("m-halftime").hidden) { console.log("half-time line hidden with trivia on"); failures++; }
+state = ${JSON.stringify(snapshots[12])}; render();
+if (!document.getElementById("m-halftime").hidden) { console.log("half-time line still shown with trivia off"); failures++; }
 `;
 eval(src.replace(/^connect\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }
