@@ -53,10 +53,10 @@ subscriptions.
 
 ## How a game works
 
-Before kick-off the setup screen picks the TV to play on, whether the half-time show
-runs, and the **difficulty** — *Normal* (the songs most people know), *Harder* (deeper
-cuts), or *Everything* (anything in your library, ignoring the tiers). All three are
-remembered for next time.
+Before kick-off the setup screen picks the TV to play on. Half-time trivia and the
+**difficulty** — *Normal* (the songs most people know), *Harder* (deeper cuts), or
+*Everything* (anything in your library, ignoring the tiers) — are set once on `/admin`
+and apply to every game after that.
 
 1. Everyone joins on their phone — **scan the QR on the TV** (or open the app's
    LAN address, a plain web page) and pick a name. Anyone already in can also
@@ -103,8 +103,8 @@ remembered for next time.
   difficulty tiers: your favourites are "easy"; world-famous songs you own but never
   play are "medium" — the sweet spot where everyone has a chance; the long tail is
   "hard" and "tiebreak". Note "easy" comes from *your own* play counts and stars, so a
-  fresh library with no listening history won't have any — pick **Everything** at setup
-  and the game draws from the whole playable library instead.
+  fresh library with no listening history won't have any — set the difficulty to
+  **Everything** on `/admin` and the game draws from the whole playable library instead.
 - **Clip cutting** — a background job downloads originals and cuts loudness-normalised
   MP3 clips with ffmpeg (5/10/20s intros + a payoff from ~40% in), working through the
   library in global-popularity order. **Silence-aware**: if a track opens with a long
@@ -157,7 +157,8 @@ remembered for next time.
   the browser instead: one job at a time, live progress while it runs, the run's
   log output, and each action's last outcome. It also shows the running game
   (players, scores, round — never the current song, so a playing admin can't
-  cheat) with **abandon game** and **change game master** controls. Set
+  cheat) with **abandon game** and **change game master** controls, and holds the
+  **game settings** — half-time trivia on/off and the difficulty. Set
   `ADMIN_PASSWORD` in `.env` to gate it (the page asks once); unset, it's as
   open as the rest of the app on your LAN. NB once set, scheduled curls need
   `-H "X-Admin-Token: $ADMIN_PASSWORD"` too.

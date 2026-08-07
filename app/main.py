@@ -492,8 +492,7 @@ async def ws_endpoint(ws: WebSocket):
                         # or an idle phone left on the page keeps a stale game alive
                         await ws.send_json({"type": "pong"})
                         continue
-                    if kind not in ("board_hello", "set_display", "set_trivia",
-                                    "set_difficulty"):
+                    if kind not in ("board_hello", "set_display"):
                         # phones are actively playing: stale-game clock and the
                         # watchdog's re-cast budget both reset (#26)
                         import time as _t
@@ -511,29 +510,10 @@ async def ws_endpoint(ws: WebSocket):
                             hub.display = new
                             hub.cast_attempts = 0
                         await hub.broadcast()
-                    elif kind == "set_trivia":
-                        # a household preference, not a per-game one — remembered
-                        # across games and restarts (#60)
-                        hub.trivia = bool(msg.get("trivia"))
-                        conn = db.connect()
-                        try:
-                            db.set_setting(conn, TRIVIA_SETTING, "1" if hub.trivia else "0")
-                        finally:
-                            conn.close()
-                        await hub.broadcast()
-                    elif kind == "set_difficulty":
-                        # like the trivia toggle: a household preference, remembered
-                        # across games and restarts (#58). Unknown keys are ignored
-                        # rather than stored, so the picker can never wedge the game.
-                        want = msg.get("difficulty")
-                        if want in game.DIFFICULTIES:
-                            hub.difficulty = want
-                            conn = db.connect()
-                            try:
-                                db.set_setting(conn, DIFFICULTY_SETTING, want)
-                            finally:
-                                conn.close()
-                        await hub.broadcast()
+                    # NB half-time trivia and difficulty used to be settable from here.
+                    # They moved to POST /api/admin/game/settings (#79): they are the
+                    # server owner's preferences, and any phone being able to change
+                    # them silently for every future game was the bug, not the feature.
                     elif kind == "stop_board":
                         # kill a stuck/zombie DashCast on demand and stand the
                         # watchdog down; music falls back to the speaker (#31)
@@ -808,7 +788,10 @@ def api_admin_status():
     finally:
         conn.close()
     return {**jobs.status(), "game": _admin_game_summary(),
-            "trivia": trivia_stats, "leaderboard_games": games}
+            "trivia": trivia_stats, "leaderboard_games": games,
+            # household game settings live here rather than on the phones (#79)
+            "settings": {"trivia": hub.trivia, "difficulty": hub.difficulty,
+                         "difficulties": list(game.DIFFICULTIES)}}
 
 
 @app.post("/api/admin/leaderboard/wipe", dependencies=ADMIN)
@@ -898,6 +881,44 @@ def api_admin_run(name: str):
     if not started:
         raise HTTPException(status_code=409, detail=f"busy with {st.get('busy_with')}")
     return {"started": True, "job": name}
+
+
+@app.post("/api/admin/game/settings", dependencies=ADMIN)
+async def api_admin_game_settings(body: dict):
+    """Half-time trivia and difficulty (#79).
+
+    These were on every phone's setup screen, which put seven option buttons above
+    the one button that starts a game — and let any player silently change a
+    preference that persists for every future game. They belong to whoever runs the
+    server, so they live behind the admin password like the rest of this page.
+
+    Both are optional: send either, or both. Unknown difficulties are rejected.
+    """
+    changed = {}
+    if "trivia" in body:
+        changed["trivia"] = bool(body["trivia"])
+    if "difficulty" in body:
+        want = body["difficulty"]
+        if want not in game.DIFFICULTIES:
+            raise HTTPException(status_code=400, detail=f"unknown difficulty: {want}")
+        changed["difficulty"] = want
+    if not changed:
+        raise HTTPException(status_code=400, detail="nothing to set")
+
+    conn = db.connect()
+    try:
+        if "trivia" in changed:
+            hub.trivia = changed["trivia"]
+            db.set_setting(conn, TRIVIA_SETTING, "1" if hub.trivia else "0")
+        if "difficulty" in changed:
+            hub.difficulty = changed["difficulty"]
+            db.set_setting(conn, DIFFICULTY_SETTING, hub.difficulty)
+    finally:
+        conn.close()
+    # phones show the half-time line off the snapshot, so tell them straight away
+    async with hub.lock:
+        await hub.broadcast()
+    return {"trivia": hub.trivia, "difficulty": hub.difficulty}
 
 
 @app.post("/api/admin/game/abandon", dependencies=ADMIN)

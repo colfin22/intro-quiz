@@ -19,6 +19,7 @@ global.document = {
     if (!ids.has(id)) { console.log("MISSING ELEMENT:", id); failures++; return mkEl(id); }
     return elems[id] || (elems[id] = mkEl(id));
   },
+  createElement(t) { return mkEl(t); },
   addEventListener() {},
 };
 global.window = {};
@@ -119,6 +120,28 @@ for (const id of ["prompt-region", "prompt-facts", "prompt-tf", "copy-prompt-btn
                   "import-preview-btn", "import-commit-btn"]) {
   document.getElementById(id);  // MISSING ELEMENT fires if absent
 }
+// game settings moved here off the phones (#79): both pickers render, active ticked
+const tbox = document.getElementById("set-trivia");
+const dbox = document.getElementById("set-difficulty");
+let tbtn = [], dbtn = [];
+tbox.appendChild = (el) => tbtn.push(el);
+dbox.appendChild = (el) => dbtn.push(el);
+adminState = { current: null, jobs: {}, game: { phase: "idle" },
+               settings: { trivia: false, difficulty: "everything",
+                           difficulties: ["normal", "harder", "everything"] } };
+tbtn = []; dbtn = []; render();
+if (tbtn.length !== 2) { console.log("trivia options:", tbtn.length, "expected 2"); failures++; }
+else if (!/^✅ No/.test(tbtn[1].textContent)) { console.log("trivia off not ticked:", tbtn[1].textContent); failures++; }
+if (dbtn.length !== 3) { console.log("difficulty options:", dbtn.length, "expected 3"); failures++; }
+else {
+  if (!/^✅ Everything/.test(dbtn[2].textContent)) { console.log("everything not ticked:", dbtn[2].textContent); failures++; }
+  if (/✅/.test(dbtn[0].textContent)) { console.log("normal ticked too:", dbtn[0].textContent); failures++; }
+}
+// a server that sends no settings block at all must still render
+adminState = { current: null, jobs: {}, game: { phase: "idle" } };
+tbtn = []; dbtn = [];
+try { render(); } catch (e) { console.log("render threw without settings:", e.message); failures++; }
+if (dbtn.length !== 3) { console.log("difficulty fallback options:", dbtn.length); failures++; }
 `;
 eval(src.replace(/^refresh\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }
