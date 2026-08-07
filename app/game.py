@@ -26,6 +26,24 @@ SPEED_BONUS_MAX = 50  # linear decay to 0 across the window
 ARTIST_SAMPLE_MULT = 20
 ARTIST_SAMPLE_MIN = 100
 
+# Which tiers each difficulty draws from (#58). "everything" ignores the popularity
+# tiers altogether, which is what a library with sparse/unhelpful tier data needs (#61).
+DIFFICULTIES = {
+    "normal": ["easy", "medium"],
+    "harder": ["hard"],
+    "everything": ["easy", "medium", "hard", "tiebreak"],
+}
+DEFAULT_DIFFICULTY = "normal"
+
+
+def tiers_for(difficulty: str | None) -> list[str]:
+    """Tiers for a difficulty key, falling back to the default on anything unknown.
+
+    A stored setting from a newer version (or a typo) must never stop a game
+    starting — the same reasoning as the best-effort artist dedupe in pick_tracks.
+    """
+    return list(DIFFICULTIES.get(difficulty or "", DIFFICULTIES[DEFAULT_DIFFICULTY]))
+
 
 class GameError(RuntimeError):
     pass
@@ -184,7 +202,7 @@ def pick_decoys(conn, track: dict, n: int = 3,
 class Game:
     def __init__(self, conn, rounds: int = 10, tiers: list[str] | None = None,
                  clock=time.monotonic, trivia: bool = True):
-        self.tiers = tiers or ["easy", "medium"]
+        self.tiers = tiers or tiers_for(DEFAULT_DIFFICULTY)
         self.n_rounds = rounds
         self.trivia = trivia  # False = play straight through, no half-time show (#60)
         self.clock = clock

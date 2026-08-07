@@ -61,6 +61,13 @@ const snapshots = [
   // setup screen with the half-time toggle both ways (#60)
   { phase: "idle", players: [], trivia: true, displays: ["Telly"], display: "Telly" },
   { phase: "idle", players: [], trivia: false, displays: ["Telly"], display: "none" },
+  // setup screen with each difficulty selected (#58) — index 13, 14, 15
+  { phase: "idle", players: [], trivia: true, difficulty: "normal",
+    displays: ["Telly"], display: "Telly" },
+  { phase: "idle", players: [], trivia: true, difficulty: "everything",
+    displays: ["Telly"], display: "Telly" },
+  // no difficulty at all: an older server, or the very first render before state lands
+  { phase: "idle", players: [], trivia: true, displays: ["Telly"], display: "Telly" },
 ];
 const scenario = `
 joined = true;
@@ -122,6 +129,23 @@ state = ${JSON.stringify(snapshots[11])}; myName = "Alice"; render();
 if (document.getElementById("m-halftime").hidden) { console.log("half-time line hidden with trivia on"); failures++; }
 state = ${JSON.stringify(snapshots[12])}; render();
 if (!document.getElementById("m-halftime").hidden) { console.log("half-time line still shown with trivia off"); failures++; }
+// difficulty picker: three options, a tick on the active one (#58/#61)
+const dbox = document.getElementById("difficulty-choice");
+let dbtn = [];
+dbox.appendChild = (el) => dbtn.push(el);
+state = ${JSON.stringify(snapshots[13])}; myName = "Alice"; dbtn = []; render();
+if (dbtn.length !== 3) { console.log("difficulty options:", dbtn.length, "expected 3"); failures++; }
+else if (!/^✅ Normal/.test(dbtn[0].textContent)) { console.log("normal not ticked:", dbtn[0].textContent); failures++; }
+state = ${JSON.stringify(snapshots[14])}; dbtn = []; render();
+if (dbtn.length !== 3) { console.log("difficulty options on everything:", dbtn.length, "expected 3"); failures++; }
+else {
+  if (!/^✅ Everything/.test(dbtn[2].textContent)) { console.log("everything not ticked:", dbtn[2].textContent); failures++; }
+  if (/✅/.test(dbtn[0].textContent)) { console.log("normal still ticked on everything:", dbtn[0].textContent); failures++; }
+}
+// an older server sends no difficulty at all — render, don't crash, tick nothing
+state = ${JSON.stringify(snapshots[15])}; dbtn = []; render();
+if (dbtn.length !== 3) { console.log("difficulty options without state:", dbtn.length); failures++; }
+if (dbtn.some(b => /✅/.test(b.textContent))) { console.log("ticked an option with no difficulty set"); failures++; }
 `;
 eval(src.replace(/^connect\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }
