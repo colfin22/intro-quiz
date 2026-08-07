@@ -133,6 +133,16 @@ if (!document.getElementById("m-halftime").hidden) { console.log("half-time line
 // with the difficulty in state but NO picker for it, and must not crash without one
 state = ${JSON.stringify(snapshots[13])}; myName = "Alice"; render();
 state = ${JSON.stringify(snapshots[15])}; render();
+// the no-scoreboard option must not name a room — every install has a different
+// speaker, and this once said "the sitting room speaker" to the whole world
+const disp = document.getElementById("display-choice");
+let dispBtn = [];
+disp.appendChild = (el) => dispBtn.push(el);
+state = ${JSON.stringify(snapshots[13])}; dispBtn = []; render();
+const none = dispBtn[dispBtn.length - 1];
+if (!none) { console.log("no display options rendered"); failures++; }
+else if (/sitting room|living room|kitchen|bedroom/i.test(none.textContent)) {
+  console.log("no-scoreboard option names a room:", none.textContent); failures++; }
 `;
 eval(src.replace(/^connect\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }

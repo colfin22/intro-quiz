@@ -192,7 +192,10 @@ function renderDisplays() {
   box.innerHTML = "";
   for (const name of [...state.displays, "none"]) {
     const b = document.createElement("button");
-    b.textContent = (name === state.display ? "✅ " : "") + (name === "none" ? "No scoreboard (music on the sitting room speaker)" : name);
+    // no room name here: the speaker is whatever MEDIA_PLAYER points at, which
+    // differs per install, and an entity id on a phone screen helps nobody
+    b.textContent = (name === state.display ? "✅ " : "") +
+      (name === "none" ? "No scoreboard — music on the speaker" : name);
     b.onclick = () => send({type: "set_display", display: name});
     box.appendChild(b);
   }
