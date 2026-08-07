@@ -102,7 +102,9 @@ subscriptions.
   library in global-popularity order. **Silence-aware**: if a track opens with a long
   quiet stretch (rain, feedback, ambience — looking at you, metal and post-rock), the
   intro clips start where the audible song does (`silencedetect`, capped at 60s; re-cut
-  existing tracks via `POST /api/clips/recut?q=%pattern%`). **ID3 tags are stripped and
+  existing tracks via `POST /api/clips/recut?q=%pattern%`). For music that opens with a
+  long *audible* instrumental instead, `CLIP_START_S=30` starts every clip that far in
+  (off by default — see [docs/setup.md](docs/setup.md)). **ID3 tags are stripped and
   re-titled** so a display's now-playing overlay can't leak the answer. Tracks over 12 minutes (DJ
   mixes) are excluded (tunable via `MAX_DURATION_S`, seconds); whole albums can be banned by pattern (`POST /api/ban/album`).
   Undecodable originals retry via the music server's transcode before being banned,
