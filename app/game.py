@@ -6,6 +6,7 @@ clock so tests don't sleep.
 """
 import os
 import random
+import re
 import time
 from datetime import datetime, timezone
 
@@ -39,6 +40,32 @@ def _artist_key(artist: str | None) -> str:
     """
     a = (artist or "").strip()
     return (lastfm.clean_artist(a) or a).casefold()
+
+
+def _genre_key(genre: str | None) -> str:
+    """Dedup key for genre tags: 'Hip Hop', 'Hip-Hop' and 'hip hop' are one genre (#59).
+
+    Punctuation and case are the only variation real tag sets show — deliberately NOT a
+    taxonomy: 'Rock', 'Hard Rock' and 'Classic Rock' stay distinct, because grouping them
+    would invent families the library never claimed. In-process only, like _artist_key.
+    """
+    return re.sub(r"[^a-z0-9]+", "", (genre or "").lower())
+
+
+def genre_spellings(conn) -> dict[str, list[str]]:
+    """{genre key: every raw spelling of it in the library}.
+
+    SQL can't apply _genre_key (same constraint pick_tracks documents below), so a
+    same-genre query has to name the spellings. Cheap enough to build per game — a few
+    hundred rows — and reused across every round.
+    """
+    out: dict[str, list[str]] = {}
+    for r in conn.execute("SELECT DISTINCT genre FROM tracks "
+                          "WHERE active=1 AND tier IS NOT NULL AND genre IS NOT NULL"):
+        k = _genre_key(r["genre"])
+        if k:
+            out.setdefault(k, []).append(r["genre"])
+    return out
 
 
 def pick_tracks(conn, rounds: int, tiers: list[str], exclude: set | None = None,
@@ -95,24 +122,60 @@ def pick_artist_track(conn, artists: list[str], exclude: set,
     return dict(row) if row else None
 
 
-def pick_decoys(conn, track: dict, n: int = 3) -> list[dict]:
-    """Plausible wrong answers: same tier, different artist, prefer same decade."""
-    decade = (track["year"] or 0) // 10
-    rows = conn.execute(
+def _decoy_sample(conn, track: dict, genres: list[str] | None) -> list:
+    """A random draw of candidate wrong answers, optionally confined to `genres`."""
+    gq = f"AND genre IN ({','.join('?' * len(genres))}) " if genres else ""
+    return conn.execute(
         "SELECT DISTINCT title, artist, year FROM tracks WHERE active=1 AND tier IS NOT NULL "
-        "AND artist != ? AND title != ? ORDER BY RANDOM() LIMIT 60",
-        (track["artist"], track["title"])).fetchall()
-    same_decade = [r for r in rows if (r["year"] or 0) // 10 == decade]
+        f"AND artist != ? AND title != ? {gq}ORDER BY RANDOM() LIMIT 60",
+        (track["artist"], track["title"], *(genres or []))).fetchall()
+
+
+def pick_decoys(conn, track: dict, n: int = 3,
+                spellings: dict[str, list[str]] | None = None) -> list[dict]:
+    """Plausible wrong answers: a different artist, preferring the same genre and decade.
+
+    Options that don't fit the clip give the round away — three hip-hop acts beside one
+    rock band and nobody needs to listen (#59). So the search widens in stages, taking
+    the first that yields enough: same genre + decade, same genre, same decade, anything.
+    A track with no genre tag, or a library too small to fill the narrow stages, lands on
+    the last two — exactly the behaviour that shipped before genres were consulted.
+
+    NB no tier filter: any *tiered* track can be a decoy, whatever tiers the game itself
+    requested. Narrowing that would starve small libraries of usable wrong answers.
+    """
+    decade = (track["year"] or 0) // 10
+    key = _genre_key(track.get("genre"))
+    if key and spellings is None:
+        spellings = genre_spellings(conn)
+    same_genre = _decoy_sample(conn, track, (spellings or {}).get(key)) if key else []
+
+    def in_decade(rows):
+        return [r for r in rows if (r["year"] or 0) // 10 == decade]
+
+    # the wide sample costs a full-table random scan, so only draw it if the genre
+    # stages come up short — on a well-tagged library that's a minority of rounds
+    def stages():
+        yield in_decade(same_genre)
+        yield same_genre
+        wide = _decoy_sample(conn, track, None)
+        yield in_decade(wide)
+        yield wide
+
     picked: list[dict] = []
-    seen_artists = {track["artist"]}
-    for pool in (same_decade, rows):
+    # fold featured credits so 'Nirvana' and 'Nirvana Feat. X' can't both be options (#57)
+    seen_artists = {_artist_key(track["artist"])}
+    for pool in stages():
+        if len(picked) == n:
+            break
         for r in pool:
             if len(picked) == n:
                 break
-            if r["artist"] in seen_artists:
+            k = _artist_key(r["artist"])
+            if k in seen_artists:
                 continue
             picked.append({"title": r["title"], "artist": r["artist"]})
-            seen_artists.add(r["artist"])
+            seen_artists.add(k)
     if len(picked) < n:
         raise GameError("not enough tiered tracks for decoys")
     return picked
@@ -154,8 +217,9 @@ class Game:
     def waiting_on(self) -> list[str]:
         return [n for n, p in self.players.items() if not p.get("ready")]
 
-    def _mk_round(self, conn, t: dict) -> dict:
-        options = pick_decoys(conn, t) + [{"title": t["title"], "artist": t["artist"]}]
+    def _mk_round(self, conn, t: dict, spellings: dict | None = None) -> dict:
+        options = pick_decoys(conn, t, spellings=spellings) + \
+            [{"title": t["title"], "artist": t["artist"]}]
         random.shuffle(options)
         return {
             "track": t,
@@ -189,7 +253,8 @@ class Game:
         picked += pick_tracks(conn, self.n_rounds - len(picked), self.tiers,
                               exclude=ids, used_artists=artists)
         random.shuffle(picked)  # boost rounds indistinguishable
-        self.rounds = [self._mk_round(conn, t) for t in picked]
+        spellings = genre_spellings(conn)  # built once, reused by every round's decoys
+        self.rounds = [self._mk_round(conn, t, spellings) for t in picked]
 
     # -- lobby ---------------------------------------------------------------
     def join(self, name: str) -> None:
