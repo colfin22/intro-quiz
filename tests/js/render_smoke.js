@@ -129,23 +129,20 @@ state = ${JSON.stringify(snapshots[11])}; myName = "Alice"; render();
 if (document.getElementById("m-halftime").hidden) { console.log("half-time line hidden with trivia on"); failures++; }
 state = ${JSON.stringify(snapshots[12])}; render();
 if (!document.getElementById("m-halftime").hidden) { console.log("half-time line still shown with trivia off"); failures++; }
-// difficulty picker: three options, a tick on the active one (#58/#61)
-const dbox = document.getElementById("difficulty-choice");
-let dbtn = [];
-dbox.appendChild = (el) => dbtn.push(el);
-state = ${JSON.stringify(snapshots[13])}; myName = "Alice"; dbtn = []; render();
-if (dbtn.length !== 3) { console.log("difficulty options:", dbtn.length, "expected 3"); failures++; }
-else if (!/^✅ Normal/.test(dbtn[0].textContent)) { console.log("normal not ticked:", dbtn[0].textContent); failures++; }
-state = ${JSON.stringify(snapshots[14])}; dbtn = []; render();
-if (dbtn.length !== 3) { console.log("difficulty options on everything:", dbtn.length, "expected 3"); failures++; }
-else {
-  if (!/^✅ Everything/.test(dbtn[2].textContent)) { console.log("everything not ticked:", dbtn[2].textContent); failures++; }
-  if (/✅/.test(dbtn[0].textContent)) { console.log("normal still ticked on everything:", dbtn[0].textContent); failures++; }
-}
-// an older server sends no difficulty at all — render, don't crash, tick nothing
-state = ${JSON.stringify(snapshots[15])}; dbtn = []; render();
-if (dbtn.length !== 3) { console.log("difficulty options without state:", dbtn.length); failures++; }
-if (dbtn.some(b => /✅/.test(b.textContent))) { console.log("ticked an option with no difficulty set"); failures++; }
+// the settings pickers moved to /admin (#79): the phone must render the idle screen
+// with the difficulty in state but NO picker for it, and must not crash without one
+state = ${JSON.stringify(snapshots[13])}; myName = "Alice"; render();
+state = ${JSON.stringify(snapshots[15])}; render();
+// the no-scoreboard option must not name a room — every install has a different
+// speaker, and this once said "the sitting room speaker" to the whole world
+const disp = document.getElementById("display-choice");
+let dispBtn = [];
+disp.appendChild = (el) => dispBtn.push(el);
+state = ${JSON.stringify(snapshots[13])}; dispBtn = []; render();
+const none = dispBtn[dispBtn.length - 1];
+if (!none) { console.log("no display options rendered"); failures++; }
+else if (/sitting room|living room|kitchen|bedroom/i.test(none.textContent)) {
+  console.log("no-scoreboard option names a room:", none.textContent); failures++; }
 `;
 eval(src.replace(/^connect\(\);?$/m, "") + scenario);
 if (failures) { console.log("FAIL:", failures); process.exit(1); }

@@ -91,6 +91,50 @@ function render() {
   renderGame(adminState.game || { phase: "idle" });
   renderStats();
   renderTrivia();
+  renderGameSettings(adminState.settings || {});
+}
+
+// Half-time trivia + difficulty (#79). They apply to every new game, so they live
+// here behind the admin password rather than on every player's phone.
+const DIFFICULTY_LABELS = {
+  normal: "Normal — the songs most people know",
+  harder: "Harder — deeper cuts",
+  everything: "Everything — anything in your library",
+};
+
+function renderGameSettings(s) {
+  const tbox = document.getElementById("set-trivia");
+  const dbox = document.getElementById("set-difficulty");
+  if (!tbox || !dbox) return;
+  tbox.innerHTML = "";
+  for (const on of [true, false]) {
+    const b = document.createElement("button");
+    if (s.trivia === on) b.classList.add("sel");
+    b.textContent = (s.trivia === on ? "✅ " : "") +
+      (on ? "Yes — half-time facts and true/false" : "No — play straight through");
+    b.onclick = () => saveGameSettings({ trivia: on });
+    tbox.appendChild(b);
+  }
+  dbox.innerHTML = "";
+  for (const key of (s.difficulties || Object.keys(DIFFICULTY_LABELS))) {
+    const b = document.createElement("button");
+    if (s.difficulty === key) b.classList.add("sel");
+    b.textContent = (s.difficulty === key ? "✅ " : "") + (DIFFICULTY_LABELS[key] || key);
+    b.onclick = () => saveGameSettings({ difficulty: key });
+    dbox.appendChild(b);
+  }
+}
+
+async function saveGameSettings(body) {
+  try {
+    const r = await call("/api/admin/game/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) err((await r.json()).detail || `save failed (${r.status})`);
+    await refresh();
+  } catch (e) { err(e.message); }
 }
 
 function renderTrivia() {

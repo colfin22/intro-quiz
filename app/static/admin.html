@@ -59,6 +59,18 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
     <button class="warn" id="abandon-btn" onclick="abandonGame()">Abandon game</button>
   </div>
 </div>
+
+<div class="card">
+  <h2>Game settings</h2>
+  <p class="dim">Apply to every new game, and are remembered across restarts.</p>
+  <p class="dim" style="margin-top:.9rem">Half-time trivia:</p>
+  <div class="row" id="set-trivia"></div>
+  <p class="dim" style="margin-top:.9rem">Difficulty:</p>
+  <div class="row" id="set-difficulty"></div>
+  <p class="dim" id="set-note" style="margin-top:.9rem">
+    <b>Everything</b> ignores the popularity tiers and draws from your whole playable
+    library — useful if little of your collection lands in the easier tiers.</p>
+</div>
 </section>
 
 <section id="sec-library" hidden>

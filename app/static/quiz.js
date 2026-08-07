@@ -192,53 +192,27 @@ function renderDisplays() {
   box.innerHTML = "";
   for (const name of [...state.displays, "none"]) {
     const b = document.createElement("button");
-    b.textContent = (name === state.display ? "✅ " : "") + (name === "none" ? "No scoreboard (music on the sitting room speaker)" : name);
+    // no room name here: the speaker is whatever MEDIA_PLAYER points at, which
+    // differs per install, and an entity id on a phone screen helps nobody
+    b.textContent = (name === state.display ? "✅ " : "") +
+      (name === "none" ? "No scoreboard — music on the speaker" : name);
     b.onclick = () => send({type: "set_display", display: name});
     box.appendChild(b);
   }
 }
 
+// Half-time trivia and difficulty are set on /admin, not here (#79) — the phone
+// only reacts to them. Keeping the pickers off this screen is what puts "Start a
+// new game" back above the fold.
 function renderTrivia() {
-  const box = document.getElementById("trivia-choice");
-  if (!box) return;
-  box.innerHTML = "";
-  for (const on of [true, false]) {
-    const b = document.createElement("button");
-    b.textContent = (state.trivia === on ? "✅ " : "") +
-      (on ? "Yes — half-time facts and true/false"
-          : "No — play straight through");
-    b.onclick = () => send({type: "set_trivia", trivia: on});
-    box.appendChild(b);
-  }
   // don't promise a half-time show the game won't have
   const hm = document.getElementById("m-halftime");
   if (hm) hm.hidden = state.trivia === false;
 }
 
-// which tiers new games draw from (#58). "Everything" ignores the popularity
-// tiers altogether, for libraries where that data is sparse or unhelpful (#61).
-const DIFFICULTIES = [
-  ["normal", "Normal — the songs most people know"],
-  ["harder", "Harder — deeper cuts"],
-  ["everything", "Everything — anything in your library"],
-];
-
-function renderDifficulty() {
-  const box = document.getElementById("difficulty-choice");
-  if (!box) return;
-  box.innerHTML = "";
-  for (const [key, label] of DIFFICULTIES) {
-    const b = document.createElement("button");
-    b.textContent = (state.difficulty === key ? "✅ " : "") + label;
-    b.onclick = () => send({type: "set_difficulty", difficulty: key});
-    box.appendChild(b);
-  }
-}
-
 function render() {
   renderDisplays();
   renderTrivia();
-  renderDifficulty();
   if (state.phase !== "question") timerKey = "";  // fresh countdown next round
   const hostOnly = !state.host || state.host === myName;
   // is the crowned master actually in the game? if not, anyone may take over / abandon (#46)
