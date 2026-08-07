@@ -53,6 +53,11 @@ subscriptions.
 
 ## How a game works
 
+Before kick-off the setup screen picks the TV to play on, whether the half-time show
+runs, and the **difficulty** — *Normal* (the songs most people know), *Harder* (deeper
+cuts), or *Everything* (anything in your library, ignoring the tiers). All three are
+remembered for next time.
+
 1. Everyone joins on their phone — **scan the QR on the TV** (or open the app's
    LAN address, a plain web page) and pick a name. Anyone already in can also
    share the join link from their lobby screen.
@@ -96,7 +101,10 @@ subscriptions.
 - **Recognisability scoring** — two signals per track: *family* (Navidrome play
   counts + stars) and *global* (Last.fm listeners via `track.getInfo`). Blended into
   difficulty tiers: your favourites are "easy"; world-famous songs you own but never
-  play are "medium" — the sweet spot where everyone has a chance.
+  play are "medium" — the sweet spot where everyone has a chance; the long tail is
+  "hard" and "tiebreak". Note "easy" comes from *your own* play counts and stars, so a
+  fresh library with no listening history won't have any — pick **Everything** at setup
+  and the game draws from the whole playable library instead.
 - **Clip cutting** — a background job downloads originals and cuts loudness-normalised
   MP3 clips with ffmpeg (5/10/20s intros + a payoff from ~40% in), working through the
   library in global-popularity order. **Silence-aware**: if a track opens with a long
