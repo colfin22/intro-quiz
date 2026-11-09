@@ -239,6 +239,11 @@ game start. Full format and rules: **[docs/trivia-pack.md](docs/trivia-pack.md)*
   the page. If you're playing in a browser tab (e.g. AirPlaying from a laptop, or on
   a smart display), click or tap anywhere in the game tab once — audio then works for
   the rest of the session. Casting to a TV/Chromecast doesn't have this issue.
+- **Upgrading Navidrome to 0.64 or newer** is handled for you. 0.64 re-encoded every
+  song and album id; the next sync notices, backs up `quiz.db`, converts the stored ids
+  and renames the clip folders to match, so tiers, clips, bans and scores carry over
+  (it also repairs a library an older quiz version already synced against 0.64). Details,
+  a dry run and how to undo it: [docs/setup.md](docs/setup.md#upgrading-navidrome-to-064).
 - Navidrome play counts are per-user; the family score aggregates the `annotation`
   table exported from Navidrome's DB and posted to `POST /api/ingest/annotations`
   (rows of `{"id", "play_count", "starred"}` summed across your users).

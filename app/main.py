@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, board_cast, clips, config, db, game, ha, jobs, lastfm, quality, scoring, subsonic, sync, trivia
+from . import __version__, board_cast, clips, config, db, game, ha, id_migration, jobs, lastfm, quality, scoring, subsonic, sync, trivia
 
 LOGGER = logging.getLogger(__name__)
 TRIVIA_SETTING = "trivia_enabled"  # settings-table key for the half-time toggle (#60)
@@ -140,6 +140,9 @@ def api_sync():
         client = subsonic.Client()
         client.ping()
         return sync.sync_library(conn, client)
+    except (sync.SyncGuardError, id_migration.MigrationError) as e:
+        # refused on purpose, nothing changed: say why instead of a bare 500
+        raise HTTPException(status_code=409, detail=str(e))
     finally:
         conn.close()
 

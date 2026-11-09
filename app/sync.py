@@ -6,12 +6,22 @@ export ingest. This sync owns identity + metadata + liveness (`active`).
 """
 import logging
 
-from . import subsonic
+from . import config, id_migration, subsonic
 
 LOGGER = logging.getLogger(__name__)
 
 
-def sync_library(conn, client: subsonic.Client) -> dict:
+class SyncGuardError(RuntimeError):
+    """A sync pass that would deactivate most of the library — rolled back."""
+
+
+def sync_library(conn, client: subsonic.Client, clips_dir: str | None = None,
+                 db_path: str | None = None) -> dict:
+    # Navidrome 0.64+ re-encoded every id (#87): convert stored ids first, or
+    # this pass would see none of them and orphan the whole library
+    migrated = id_migration.ensure_canonical_ids(conn, client, clips_dir=clips_dir,
+                                                 db_path=db_path)
+    active_before = conn.execute("SELECT COUNT(*) c FROM tracks WHERE active=1").fetchone()["c"]
     seen: set[str] = set()
     albums = 0
     offset = 0
@@ -43,6 +53,18 @@ def sync_library(conn, client: subsonic.Client) -> dict:
             tuple(seen)).rowcount
     else:
         deactivated = 0
+    limit = config.SYNC_MAX_DEACTIVATE_FRACTION
+    if (limit < 1 and active_before >= config.SYNC_GUARD_MIN_TRACKS
+            and deactivated > active_before * limit):
+        conn.rollback()
+        raise SyncGuardError(
+            f"sync would deactivate {deactivated} of {active_before} active tracks — "
+            "rolled back, nothing changed. If the music server changed its ids, upgrade "
+            "intro-quiz; if the library really shrank, set SYNC_MAX_DEACTIVATE_FRACTION=1 "
+            "for one sync")
     conn.commit()
     total = conn.execute("SELECT COUNT(*) c FROM tracks WHERE active=1").fetchone()["c"]
-    return {"albums": albums, "tracks_active": total, "deactivated": deactivated}
+    out = {"albums": albums, "tracks_active": total, "deactivated": deactivated}
+    if migrated:
+        out["id_migration"] = migrated
+    return out

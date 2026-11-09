@@ -39,6 +39,21 @@ class Client:
         self._get("ping.view")
         return True
 
+    def server_info(self) -> dict:
+        """OpenSubsonic server identity from ping: {'type': 'navidrome', 'version': '0.64.2 (…)'}."""
+        body = self._get("ping.view")
+        return {"type": body.get("type"), "version": body.get("serverVersion")}
+
+    def song_exists(self, song_id: str) -> bool:
+        """True if the server knows this song id (code 70 = not found)."""
+        try:
+            self._get("getSong.view", id=song_id)
+            return True
+        except SubsonicError as e:
+            if "(code 70)" in str(e):
+                return False
+            raise
+
     def album_list(self, offset: int, size: int = 500) -> list[dict]:
         body = self._get("getAlbumList2.view", type="alphabeticalByName", size=size, offset=offset)
         return body.get("albumList2", {}).get("album", [])

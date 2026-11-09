@@ -38,6 +38,9 @@ SONGS = {
 
 def fake_transport():
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("ping.view"):
+            return httpx.Response(200, json={"subsonic-response": {
+                "status": "ok", "type": "navidrome", "serverVersion": "0.63.2 (be10f89c)"}})
         if request.url.path.endswith("getAlbumList2.view"):
             page = ALBUMS_PAGE if request.url.params["offset"] == "0" else ALBUMS_EMPTY
             return httpx.Response(200, json=page)

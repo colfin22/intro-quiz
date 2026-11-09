@@ -34,3 +34,9 @@ JOIN_URL = os.environ.get("JOIN_URL", "").rstrip("/")
 GUEST_WIFI_SSID = os.environ.get("GUEST_WIFI_SSID", "")
 GUEST_WIFI_PASSWORD = os.environ.get("GUEST_WIFI_PASSWORD", "")
 GUEST_WIFI_AUTH = os.environ.get("GUEST_WIFI_AUTH", "WPA").strip() or "WPA"
+# library sync refuses to commit when one pass would deactivate more than this
+# share of the active tracks (a server ID change or a wrong music folder looks
+# exactly like that). 1 = never refuse.
+SYNC_MAX_DEACTIVATE_FRACTION = float(os.environ.get("SYNC_MAX_DEACTIVATE_FRACTION", "0.5") or 0.5)
+# libraries smaller than this are never guarded (a test library can turn over wholesale)
+SYNC_GUARD_MIN_TRACKS = 20

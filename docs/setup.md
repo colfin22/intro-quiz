@@ -93,6 +93,49 @@ Test it once from a phone on the guest SSID; if it can't reach the app, add a
 firewall exception on your router allowing the guest network to reach the quiz
 host and port only.
 
+## Upgrading Navidrome to 0.64
+
+Navidrome 0.64.0 [re-encoded every internal id](https://github.com/navidrome/navidrome/releases/tag/v0.64.0)
+into one canonical format. The quiz stores those ids (each track row, its album, and its
+clip folder `CLIPS_DIR/<track id>/`), so they have to follow.
+
+**Nothing to do by hand.** At the start of every sync the quiz asks the server for its
+version. The first time it sees Navidrome 0.64+, it:
+
+1. works out each new id the same way Navidrome does (the conversion is deterministic);
+2. checks a few converted ids against the server, and stops without changing anything
+   if they aren't there;
+3. backs up the database to `quiz.db.pre-id-migration-<time>` next to it;
+4. renames the clip folders, then rewrites the ids in one transaction. If either step
+   fails, both are undone;
+5. writes the old to new mapping to `id-migration-<time>.tsv` beside `quiz.db`, and
+   records that it's done so it never runs again.
+
+On a big library the clip folder renames are the slow part, so that first sync takes
+longer than usual. The sync's result includes an `id_migration` summary.
+
+If an **older quiz version already synced** against 0.64, every track exists twice: an
+inactive original with its tier and clips, and an unprepared copy under the new id. The
+migration merges each pair, keeping the tier, clips, bans and Last.fm data, so you don't
+have to re-cut anything.
+
+To see what it would do first (changes nothing):
+
+    docker compose exec quiz python -m app.id_migration --dry-run
+
+To undo it (after putting Navidrome back on 0.63, or restoring its database), use the
+map file it wrote:
+
+    docker compose exec quiz python -m app.id_migration --reverse /data/id-migration-<time>.tsv
+
+This restores the ids and clip folder names. Duplicates it merged stay merged; restore
+the `quiz.db.pre-id-migration-*` backup if you need those exactly as they were.
+
+**Safety net for any future id change.** A sync that would deactivate more than half of
+the active library is refused and rolled back, with a message saying why (HTTP 409 from
+`POST /api/sync`). If you really did remove most of your library, set
+`SYNC_MAX_DEACTIVATE_FRACTION=1` for one sync.
+
 ## Navidrome user permissions
 
 The Navidrome user needs the standard Subsonic permissions plus **download and streaming
