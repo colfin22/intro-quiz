@@ -1,5 +1,5 @@
 fastapi==0.162.*
 uvicorn[standard]==0.54.*
 httpx==0.28.*
-pychromecast==14.1.0
+pychromecast==14.1.1
 segno==1.6.*
