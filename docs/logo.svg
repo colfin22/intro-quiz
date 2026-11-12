@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c212c"/>
+      <stop offset="1" stop-color="#0e1118"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- track ring -->
+  <circle cx="256" cy="256" r="176" fill="none" stroke="#2a3140" stroke-width="28"/>
+  <!-- progress arc: the intro playing (about 70%) -->
+  <circle cx="256" cy="256" r="176" fill="none" stroke="#5ac8fa" stroke-width="28"
+          stroke-linecap="round" stroke-dasharray="774 1106" transform="rotate(-90 256 256)"/>
+  <!-- eighth note -->
+  <g fill="#e6e9f0">
+    <rect x="262" y="150" width="26" height="182" rx="6"/>
+    <path d="M276 150 C 300 176, 352 182, 344 246 C 336 214, 306 206, 288 200 Z"/>
+    <ellipse cx="236" cy="336" rx="54" ry="40" transform="rotate(-22 236 336)"/>
+  </g>
+</svg>
