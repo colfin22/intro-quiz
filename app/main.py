@@ -230,6 +230,17 @@ def api_clips_recut(track_id: str = "", q: str = ""):
         conn.close()
 
 
+@app.post("/api/clips/prune", dependencies=ADMIN)
+def api_clips_prune(dry_run: bool = False):
+    """Delete clips of tracks gone from the library for CLIP_PRUNE_AFTER_DAYS, and
+    clip folders with no track at all (#90). dry_run=true only reports what it would do."""
+    conn = db.connect()
+    try:
+        return clips.prune(conn, dry_run=dry_run)
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Maintenance jobs (#52): every action the admin page can run, registered with
 # the one-at-a-time job registry. The runners reuse the same module functions
@@ -290,6 +301,14 @@ def _job_quality(set_stage) -> dict:
         conn.close()
 
 
+def _job_prune(set_stage) -> dict:
+    conn = db.connect()
+    try:
+        return clips.prune(conn)
+    finally:
+        conn.close()
+
+
 def _job_bootstrap(set_stage) -> dict:
     """The whole first-time pipeline, resumable: each step only processes
     what's missing, so re-running after a failure continues where it stopped."""
@@ -326,6 +345,7 @@ jobs.register("lastfm", "Popularity scoring", _job_lastfm)
 jobs.register("tiers", "Tier rebuild", _job_tiers)
 jobs.register("clips", "Clip cutting", _job_clips)
 jobs.register("quality", "Quality check", _job_quality)
+jobs.register("prune", "Clip clean-up", _job_prune)
 jobs.register("bootstrap", "Full pipeline", _job_bootstrap)
 
 

@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from . import config, db, game, subsonic
 
@@ -28,9 +28,10 @@ TIER_ORDER = "CASE WHEN tier='tiebreak' THEN 1 ELSE 0 END"
 # every track the cutter is ever allowed to touch
 CUTTABLE = (f"active=1 AND banned=0 AND tier IS NOT NULL "
             f"AND (duration IS NULL OR duration <= {game.MAX_DURATION_S})")
-# ...and, among those, the ones whose clips were cut at a different CLIP_START_S
-# (takes the current setting as its one bound parameter)
-STALE = "clipped_at IS NOT NULL AND COALESCE(clip_start_s, 0) != ?"
+# ...and, among those, the ones whose clips are out of date: cut at a different
+# CLIP_START_S (takes the current setting as its one bound parameter), or cut from a
+# file that has since been replaced in place (#90)
+STALE = "clipped_at IS NOT NULL AND (COALESCE(clip_start_s, 0) != ? OR source_changed=1)"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -199,7 +200,8 @@ def cut_batch(conn, client: subsonic.Client, limit: int = 50,
                 # previous clips in place and the track stays playable
                 shutil.rmtree(os.path.join(clips_dir or config.CLIPS_DIR, row["id"]), ignore_errors=True)
             continue
-        conn.execute("UPDATE tracks SET clipped_at=?, intro_offset=?, clip_start_s=? WHERE id=?",
+        conn.execute("UPDATE tracks SET clipped_at=?, intro_offset=?, clip_start_s=?, source_changed=0 "
+                     "WHERE id=?",
                      (datetime.now(timezone.utc).isoformat(), used_offset,
                       config.CLIP_START_S, row["id"]))
         conn.commit()
@@ -264,3 +266,87 @@ def sweep(batch: int = 100, stall_sleep_s: float = 600, max_stalls: int = 6,
         if r["remaining"] == 0:
             LOGGER.info("clip sweep complete — %d cut this session", total)
             return {"cut": total, "stopped": "done"}
+
+
+def _dir_bytes(path: str) -> int:
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(root, f))
+            except OSError:
+                pass
+    return total
+
+
+def prune(conn, clips_dir: str | None = None, after_days: float | None = None,
+          dry_run: bool = False, now: datetime | None = None) -> dict:
+    """Delete clip folders nothing can play any more (#90).
+
+    Two kinds:
+    * clips of a track that has been gone from the library for `after_days`
+      (CLIP_PRUNE_AFTER_DAYS) — a removed file, or the old copy of one replaced
+      under a new path, which the sync re-adds as a brand-new track;
+    * folders whose id isn't in the database at all, untouched for as long.
+
+    The wait is the safety margin: a track that drops out and comes back (a scan
+    race, the share briefly offline) still has its clips. It also refuses to run
+    while the last sync was refused by the mass-deactivation guard, before any
+    sync has completed, or when it would delete more than
+    SYNC_MAX_DEACTIVATE_FRACTION of all clip folders in one go.
+    """
+    after_days = config.CLIP_PRUNE_AFTER_DAYS if after_days is None else after_days
+    if after_days <= 0:
+        return {"skipped": "disabled (CLIP_PRUNE_AFTER_DAYS=0)"}
+    ok_at, refused_at = db.get_setting(conn, "sync_ok_at"), db.get_setting(conn, "sync_refused_at")
+    if not ok_at:
+        return {"skipped": "no library sync has completed yet: run a sync first"}
+    if refused_at and refused_at > ok_at:
+        return {"skipped": "the last library sync was refused by its safety check: "
+                           "nothing deleted until a sync completes normally"}
+    clips_dir = clips_dir or config.CLIPS_DIR
+    if not os.path.isdir(clips_dir):
+        return {"skipped": f"clips folder not found: {clips_dir}"}
+    now = now or datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=after_days)).isoformat()
+    rows = {r["id"]: r for r in conn.execute("SELECT id, active, inactive_since FROM tracks")}
+    if not rows:
+        return {"skipped": "no tracks in the database"}
+
+    folders = [e for e in os.scandir(clips_dir)
+               if e.is_dir(follow_symlinks=False) and not e.name.startswith(".")]
+    gone, orphans, waiting = [], [], 0
+    for e in folders:
+        row = rows.get(e.name)
+        if row is None:
+            if e.stat(follow_symlinks=False).st_mtime <= (now - timedelta(days=after_days)).timestamp():
+                orphans.append(e.path)
+            else:
+                waiting += 1
+        elif not row["active"]:
+            if row["inactive_since"] and row["inactive_since"] <= cutoff:
+                gone.append(e.path)
+            else:
+                waiting += 1
+    doomed = gone + orphans
+    limit = config.SYNC_MAX_DEACTIVATE_FRACTION
+    if (limit < 1 and len(folders) >= config.SYNC_GUARD_MIN_TRACKS
+            and len(doomed) > len(folders) * limit):
+        return {"skipped": f"would delete {len(doomed)} of {len(folders)} clip folders: refused. "
+                           "If the library really shrank, set SYNC_MAX_DEACTIVATE_FRACTION=1 "
+                           "for one run"}
+    freed = sum(_dir_bytes(p) for p in doomed)
+    out = {"removed_tracks": len(gone), "orphan_folders": len(orphans),
+           "freed_mb": round(freed / 1e6, 1), "still_waiting": waiting}
+    if dry_run:
+        out["dry_run"] = True
+        return out
+    for path in doomed:
+        shutil.rmtree(path, ignore_errors=True)
+    if gone:
+        ids = [os.path.basename(p) for p in gone]
+        conn.executemany("UPDATE tracks SET clipped_at=NULL WHERE id=?", [(i,) for i in ids])
+        conn.commit()
+    LOGGER.info("clip prune: %d removed tracks, %d orphan folders, %.1f MB freed",
+                len(gone), len(orphans), freed / 1e6)
+    return out

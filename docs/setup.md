@@ -61,6 +61,7 @@ handy for running them on a nightly schedule rather than one big bootstrap:
 - `POST /api/score/lastfm` — score tracks by Last.fm listeners
 - `POST /api/score/tiers` — sort scored tracks into difficulty tiers
 - `POST /api/clips/cut` — cut clips for tiered tracks
+- `POST /api/clips/prune` — delete clips nothing can play any more (see below)
 
 Or skip the curls entirely: the **`/admin` server control page** runs each of
 these (and the full pipeline) from the browser, with live progress and each
@@ -135,6 +136,29 @@ the `quiz.db.pre-id-migration-*` backup if you need those exactly as they were.
 the active library is refused and rolled back, with a message saying why (HTTP 409 from
 `POST /api/sync`). If you really did remove most of your library, set
 `SYNC_MAX_DEACTIVATE_FRACTION=1` for one sync.
+
+## Replaced and removed songs
+
+When you replace a song with a better copy, two things can happen:
+
+- **Same file name:** the next sync notices the audio is different (format, sample rate,
+  bit depth, length, or bitrate for MP3/AAC/Ogg) and the track's clips are re-cut. It keeps
+  its old clips, and stays playable, until the new ones are written. Editing tags or
+  embedding cover art doesn't count as a change.
+- **New file name** (an MP3 replaced by a FLAC, say): your music server sees a new song.
+  It is synced, scored and clipped like any new track, and the old one drops out of the
+  game.
+
+Clips of a song that has left the library are deleted once it has been gone for
+`CLIP_PRUNE_AFTER_DAYS` (default 30), by `POST /api/clips/prune` or **Clip clean-up** on
+`/admin`. The wait means a song that briefly disappears — a scan in progress, the music
+share offline for a night — comes back with its clips intact. Clip folders that belong to
+no track at all are deleted after the same wait. `?dry_run=true` reports what would go,
+and how much space it would free, without deleting anything.
+
+It won't run until a library sync has completed, while the last sync was refused by
+the safety check above, or if it would delete more than `SYNC_MAX_DEACTIVATE_FRACTION`
+of all clip folders at once. `CLIP_PRUNE_AFTER_DAYS=0` turns it off.
 
 ## Navidrome user permissions
 

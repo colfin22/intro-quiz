@@ -3,7 +3,7 @@
 // localStorage, sent as X-Admin-Token on every call.
 "use strict";
 
-const ACTIONS = ["sync", "lastfm", "tiers", "clips", "quality", "bootstrap"];
+const ACTIONS = ["sync", "lastfm", "tiers", "clips", "quality", "prune", "bootstrap"];
 let adminState = null;   // last /api/admin/status payload
 let statsState = null;   // last /api/stats payload
 let healthState = null;  // last /health payload (ready_to_play, playable, version)

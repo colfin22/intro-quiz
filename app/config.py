@@ -40,3 +40,7 @@ GUEST_WIFI_AUTH = os.environ.get("GUEST_WIFI_AUTH", "WPA").strip() or "WPA"
 SYNC_MAX_DEACTIVATE_FRACTION = float(os.environ.get("SYNC_MAX_DEACTIVATE_FRACTION", "0.5") or 0.5)
 # libraries smaller than this are never guarded (a test library can turn over wholesale)
 SYNC_GUARD_MIN_TRACKS = 20
+# delete the clips of a track that has been gone from the library this many days
+# (a replaced or removed file, #90). The wait covers a track that drops out and comes
+# back (a scan race, the share briefly offline). 0 = never delete them.
+CLIP_PRUNE_AFTER_DAYS = float(os.environ.get("CLIP_PRUNE_AFTER_DAYS", "30") or 0)

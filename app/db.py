@@ -25,7 +25,10 @@ CREATE TABLE IF NOT EXISTS tracks (
     clip_start_s REAL,            -- CLIP_START_S those clips were cut with (stale = re-cut)
     banned INTEGER DEFAULT 0,     -- never picked again
     ban_reason TEXT,              -- 'flag' (in-game) / 'decode' (cutter) / 'album' (pattern ban)
-    active INTEGER DEFAULT 1      -- still present in the library on last sync
+    active INTEGER DEFAULT 1,     -- still present in the library on last sync
+    inactive_since TEXT,          -- when a sync first found it gone (clip prune grace, #90)
+    source_sig TEXT,              -- audio properties of the source file (in-place replacement check)
+    source_changed INTEGER DEFAULT 0  -- source file replaced since its clips were cut: re-cut
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_tier ON tracks(tier);
 CREATE TABLE IF NOT EXISTS settings (
@@ -74,7 +77,10 @@ def connect(path: str | None = None) -> sqlite3.Connection:
                 "ALTER TABLE tracks ADD COLUMN album_artist TEXT",
                 "ALTER TABLE tracks ADD COLUMN ban_reason TEXT",
                 "ALTER TABLE tracks ADD COLUMN quality_notified_at TEXT",
-                "ALTER TABLE tracks ADD COLUMN clip_start_s REAL"):
+                "ALTER TABLE tracks ADD COLUMN clip_start_s REAL",
+                "ALTER TABLE tracks ADD COLUMN inactive_since TEXT",
+                "ALTER TABLE tracks ADD COLUMN source_sig TEXT",
+                "ALTER TABLE tracks ADD COLUMN source_changed INTEGER DEFAULT 0"):
         col = ddl.split(" ADD COLUMN ")[1].split()[0]
         if col not in cols:
             try:

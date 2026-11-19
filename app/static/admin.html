@@ -124,6 +124,15 @@ h2 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var
   <details id="logwrap-quality" hidden><summary>run output</summary><pre class="log" id="log-quality"></pre></details>
 </div>
 
+<div class="card" id="card-prune">
+  <div class="row">
+    <div><b>Clip clean-up</b><div class="dim">delete clips of songs gone from the library</div></div>
+    <button class="primary" id="run-prune" onclick="runAction('prune')">Run</button>
+  </div>
+  <div class="status" id="status-prune">no runs since restart</div>
+  <details id="logwrap-prune" hidden><summary>run output</summary><pre class="log" id="log-prune"></pre></details>
+</div>
+
 <div class="card" id="card-bootstrap">
   <div class="row">
     <div><b>Full pipeline</b><div class="dim">sync → scoring → tiers → clips, in order</div></div>

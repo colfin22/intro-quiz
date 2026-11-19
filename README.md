@@ -117,7 +117,10 @@ and apply to every game after that.
   mixes) are excluded (tunable via `MAX_DURATION_S`, seconds); whole albums can be banned by pattern (`POST /api/ban/album`).
   Undecodable originals retry via the music server's transcode before being banned,
   and a stream that returns an error document (stale index after files were renamed)
-  is recognised rather than fed to ffmpeg.
+  is recognised rather than fed to ffmpeg. **Replaced a song with a better copy?** If the
+  file kept its name, the sync notices the new audio and re-cuts its clips; if the name
+  changed, it's picked up as a new track, and the old one's clips are deleted after
+  `CLIP_PRUNE_AFTER_DAYS` (30 by default; `POST /api/clips/prune`).
 - **The game engine** — one websocket hub (FastAPI), phases lobby → question → reveal.
   Rounds are built lazily at first start so artist picks land first. Answer timing is
   server-side; the correct answer never ships to clients before the reveal.
@@ -152,7 +155,8 @@ and apply to every game after that.
   like (cron, systemd timer): `POST /api/sync`, `/api/score/lastfm`,
   `/api/score/tiers`, `/api/clips/cut` — the library re-syncs, new tracks get
   scored, tiered and clipped. Optionally add `POST /api/quality/check` as a fifth
-  step to get told when new tracks look mis-tagged (see Notes). Clips cost ~2 MB per track.
+  step to get told when new tracks look mis-tagged (see Notes), and `POST /api/clips/prune`
+  to delete the clips of songs that have left the library. Clips cost ~2 MB per track.
 - **Server control page** — `/admin` runs any of those maintenance actions from
   the browser instead: one job at a time, live progress while it runs, the run's
   log output, and each action's last outcome. It also shows the running game
